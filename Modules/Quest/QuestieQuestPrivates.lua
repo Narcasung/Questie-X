@@ -65,13 +65,46 @@ _QuestieQuest.objectiveSpawnListCallTable = {}
 killcredit = function(npcId, objective, objectiveData)
     ---@type SpawnListNPC[]
     local ret = {}
+    local foundValid = false
+
+    -- First pass: try all IDs in IdList
     for npcIdIndex = 1, #objectiveData.IdList do
         local killCreditNpcId = objectiveData.IdList[npcIdIndex]
-        local monsterResult = monster(killCreditNpcId, objective)
-        if monsterResult then
-            ret[killCreditNpcId] = monsterResult[killCreditNpcId]
+        if killCreditNpcId and killCreditNpcId > 0 then
+            local monsterResult = monster(killCreditNpcId, objective)
+            if monsterResult then
+                ret[killCreditNpcId] = monsterResult[killCreditNpcId]
+                foundValid = true
+            end
         end
     end
+
+    -- Second pass: if no valid NPCs found, try name-based lookup from objective description
+    -- This helps custom server quests where IdList may have 0 or wrong IDs
+    if not foundValid and objective and (objective.Description or objective.text) then
+        local desc = objective.Description or objective.text
+        local targetName = desc:match("^%d+/%d+%s+(.+)$") or desc:match("^(.-):%s*%d+/%d+$")
+        if not targetName then
+            targetName = desc:gsub("%d+/%d+", ""):gsub("%d+", ""):gsub("[:!?,.%(%)]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+        end
+
+        if targetName and targetName ~= "" then
+            -- Search for NPC by name using the npcData table
+            local npcData = QuestieDB.npcData or {}
+            for searchId, npcRecord in pairs(npcData) do
+                if npcRecord and npcRecord[1] and string.lower(npcRecord[1]) == string.lower(targetName) then
+                    local monsterResult = monster(searchId, objective)
+                    if monsterResult then
+                        ret[searchId] = monsterResult[searchId]
+                        foundValid = true
+                        Questie:Debug(Questie.DEBUG_DEVELOP, "[killcredit] Found NPC by name fallback:", searchId, targetName)
+                        break
+                    end
+                end
+            end
+        end
+    end
+
     return ret
 end
 
@@ -79,12 +112,8 @@ end
 ---@param objective any
 ---@return table<NpcId, SpawnListNPC>?
 monster = function(npcId, objective)
-    if (not npcId) then
-        Questie:Error(
-            "Corrupted objective data handed to objectiveSpawnListCallTable['monster']:",
-            "'" .. objective.Description .. "' -",
-            "Please report this error on Discord or GitHub."
-        )
+    if (not npcId) or npcId <= 0 then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "Invalid NPC ID passed to monster function:", npcId)
         return nil
     end
 
