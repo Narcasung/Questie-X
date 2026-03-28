@@ -63,7 +63,7 @@ function AceComm:RegisterComm(prefix, method)
 	end
 	if C_ChatInfo then
 		C_ChatInfo.RegisterAddonMessagePrefix(prefix)
-	else
+	elseif RegisterAddonMessagePrefix then
 		RegisterAddonMessagePrefix(prefix)
 	end
 

@@ -1230,7 +1230,7 @@ function QuestieTracker:Update()
                             -- Add incomplete Quest Objectives
                             if complete == 0 and quest.isComplete ~= true then
                                 for _, objective in pairs(quest.Objectives) do
-                                    if (not Questie.db.profile.hideCompletedQuestObjectives or (Questie.db.profile.hideCompletedQuestObjectives and objective.Needed ~= objective.Collected)) then
+                                    if objective and (not Questie.db.profile.hideCompletedQuestObjectives or (Questie.db.profile.hideCompletedQuestObjectives and objective.Needed ~= objective.Collected)) then
                                         -- Get next line in linePool
                                         line = TrackerLinePool.GetNextLine()
 

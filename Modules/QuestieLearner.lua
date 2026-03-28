@@ -1546,16 +1546,48 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
         local numObj = GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(logIdx) or 0
         for j = 1, numObj do
             local objText, objType, finished = GetQuestLogLeaderBoard(j, logIdx)
-            if objText and not finished and objType == "monster" then
-                -- Try to extract "Boar" from "0/10 Boar Slain"
+            if objText and not finished and (objType == "monster" or objType == "killcredit") then
                 local targetName = objText:match("^%d+/%d+%s+(.+)%s*") or objText:match("^(.+):%s*%d+/%d+")
                 if not targetName then
-                    -- Fallback: strip everything that looks like a count or punctuation
                     targetName = objText:gsub("%d+/%d+", ""):gsub("%d+", ""):gsub("[:!?,.%(%)]", ""):gsub("^%s+", ""):gsub("%s+$", "")
                 end
 
                 if targetName and targetName ~= "" then
-                    local npcId = self:GetNPCIdByName(targetName)
+                    local npcId = nil
+                    -- For killcredit, try ID-based lookup first using quest objectives data
+                    if objType == "killcredit" then
+                        local quest = QuestieDB and QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
+                        if quest and quest.ObjectiveData and quest.ObjectiveData[j] then
+                            local objData = quest.ObjectiveData[j]
+                            if objData.IdList then
+                                for _, possibleId in ipairs(objData.IdList) do
+                                    if possibleId and possibleId > 0 then
+                                        local npc = QuestieDB:GetNPC(possibleId)
+                                        if npc and npc.name and string.lower(npc.name) == string.lower(targetName) then
+                                            npcId = possibleId
+                                            break
+                                        end
+                                    end
+                                end
+                                -- Fallback: try first valid ID in the list even if name doesn't match
+                                if not npcId then
+                                    for _, possibleId in ipairs(objData.IdList) do
+                                        if possibleId and possibleId > 0 then
+                                            local npc = QuestieDB:GetNPC(possibleId)
+                                            if npc then
+                                                npcId = possibleId
+                                                break
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    -- Fallback to name-based lookup
+                    if not npcId then
+                        npcId = self:GetNPCIdByName(targetName)
+                    end
                     if npcId then
                         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Proactively mapped objective", j, "to NPC", npcId, "(" .. targetName .. ")")
                         self:LearnQuestObjectiveNPC(questId, npcId, objText, j)
@@ -1953,7 +1985,93 @@ function QuestieLearner:Initialize()
         self:PruneGuidNpcCache()
     end)
 
+    -- Scan existing quests in log after initialization (deferred to ensure DB is ready)
+    QuestieCompat.C_Timer.After(1, function()
+        self:ScanExistingQuestLog()
+    end)
+
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Initialized")
+end
+
+function QuestieLearner:ScanExistingQuestLog()
+    if not self:IsEnabled() then return end
+    if not Questie.dbLearner.global.settings.learnQuests then return end
+    if not GetNumQuestLogEntries then return end
+
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Scanning existing quest log...")
+    local count = 0
+
+    for i = 1, GetNumQuestLogEntries() do
+        local title, level, _, isHeader, _, _, _, questId = QuestieCompat.GetQuestLogTitle(i)
+        if not isHeader and questId and questId > 0 then
+            -- Check if this quest needs objective mapping
+            local existingData = Questie.dbLearner.global.quests[questId]
+            local needsMapping = not existingData or not existingData.objIndex or not next(existingData.objIndex)
+
+            if needsMapping then
+                -- Use the existing OnQuestAccepted logic by manually triggering objective mapping
+                local logIdx = i
+                local numObj = GetNumQuestLeaderBoards and GetNumQuestLeaderBoards(logIdx) or 0
+                for j = 1, numObj do
+                    local objText, objType, finished = GetQuestLogLeaderBoard(j, logIdx)
+                    if objText and not finished and (objType == "monster" or objType == "killcredit") then
+                        local targetName = objText:match("^%d+/%d+%s+(.+)%s*") or objText:match("^(.+):%s*%d+/%d+")
+                        if not targetName then
+                            targetName = objText:gsub("%d+/%d+", ""):gsub("%d+", ""):gsub("[:!?,.%(%)]", ""):gsub("^%s+", ""):gsub("%s+$", "")
+                        end
+
+                        if targetName and targetName ~= "" then
+                            local npcId = nil
+                            -- For killcredit, try ID-based lookup first
+                            if objType == "killcredit" then
+                                local quest = QuestieDB and QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
+                                if quest and quest.ObjectiveData and quest.ObjectiveData[j] then
+                                    local objData = quest.ObjectiveData[j]
+                                    if objData.IdList then
+                                        for _, possibleId in ipairs(objData.IdList) do
+                                            if possibleId and possibleId > 0 then
+                                                local npc = QuestieDB:GetNPC(possibleId)
+                                                if npc and npc.name and string.lower(npc.name) == string.lower(targetName) then
+                                                    npcId = possibleId
+                                                    break
+                                                end
+                                            end
+                                        end
+                                        -- Fallback: try first valid ID in the list
+                                        if not npcId then
+                                            for _, possibleId in ipairs(objData.IdList) do
+                                                if possibleId and possibleId > 0 then
+                                                    local npc = QuestieDB:GetNPC(possibleId)
+                                                    if npc then
+                                                        npcId = possibleId
+                                                        break
+                                                    end
+                                                end
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                            -- Fallback to name-based lookup
+                            if not npcId then
+                                npcId = self:GetNPCIdByName(targetName)
+                            end
+                            if npcId then
+                                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Scanned existing quest", questId, "objective", j, "to NPC", npcId, "(" .. targetName .. ")")
+                                self:LearnQuestObjectiveNPC(questId, npcId, objText, j)
+                                count = count + 1
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if count > 0 then
+        self:InjectLearnedData()
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Scanned existing quest log, mapped", count, "objectives")
+    end
 end
 
 ------------------------------------------------------------------------
