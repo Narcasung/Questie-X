@@ -3,6 +3,10 @@
 ## v1.5.1 (2026-03-28)
 
 - **[Fix — Minimap Icons]** Prevented external "minimap button grabber" addons (e.g., Leatrix Plus, MBB) from incorrectly hiding Questie-X quest pins. Minimap icons now use a protected `QuestieFrameGroup` container that is ignored by these addons while maintaining correct spatial anchoring via `HereBeDragons`.
+- **[Fix — Tracker Crash]** Fixed "attempt to index field 'Description' (a nil value)" crash in `QuestieTracker` when iterating over `quest.Objectives` that contain nil entries. Added nil check before accessing `objective.Description` to prevent crashes on custom server quest data.
+- **[Fix — Killcredit NPC Linking]** Enhanced `killcredit` objective handling to properly link NPCs when database entries have missing or invalid IDs. Added two-pass approach: first tries ID-based lookup, then falls back to name-based search using the objective description text. Also fixed `monster` function to gracefully handle `npcId <= 0` instead of erroring.
+- **[Feature — Existing Quest Scanning]** Added `ScanExistingQuestLog` function to proactively map objectives for quests already in the quest log on addon initialization. Previously, objective mapping only occurred for newly accepted quests.
+- **[Fix — AceComm-3.0]** Added nil check for `RegisterAddonMessagePrefix` on private servers where this API may not be available.
 
 ## v1.5.0 (2026-03-28)
 
