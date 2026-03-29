@@ -179,6 +179,10 @@ function QuestieLib:GetColoredQuestName(questId, showLevel, showState, blizzLike
     local name = QuestieDB.QueryQuestSingle(questId, "name")
     local level, _ = QuestieLib.GetTbcLevel(questId);
 
+    if name == nil then
+        return nil
+    end
+
     if showLevel then
         name = QuestieLib:GetQuestString(questId, name, level, blizzLike)
     end

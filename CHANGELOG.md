@@ -4,6 +4,8 @@
 
 ### Ascension Custom Zone Support
 
+- **[Fix — PrintDifficultyColor Nil Text]** Fixed crash in `PrintDifficultyColor` when quest name is nil. Added defensive nil check in `GetColoredQuestName` to return early if `QuestieDB.QueryQuestSingle` returns nil for a quest, preventing "attempt to concatenate local 'text' (a nil value)" errors.
+
 - **[Fix — Custom Zone Map Pins]** Fixed map icons not appearing in Ascension custom zones (e.g., Valley of Trials, Northshire Valley). The issue was that custom zone UiMapData was not properly injected into `QuestieCompat.UiMapData` before HBD initialized its map cache. Added `ApplyCustomZones()` function in `ZoneDB` that hooks `ZoneDB.Initialize` to inject custom zones BEFORE the original initialization runs, ensuring HBD's `mapData` table contains custom zone entries like 1244 (Valley of Trials).
 
 - **[Fix — Zone Name Fallback]** Fixed "Unknown Zone" display for custom zones in the tracker. When `GetZoneNameByID` fails for custom zone IDs, the system now falls back to `GetQuestLogZoneName` which reads the zone header directly from the quest log where custom zone names are properly displayed.
