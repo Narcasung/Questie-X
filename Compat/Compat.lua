@@ -234,7 +234,14 @@ function QuestieCompat.GetCurrentUiMapID()
     if mapID == 0 then -- both the "Cosmic" and "Azeroth" maps return a mapID of 0
         mapID = GetCurrentMapContinent()
     end
-    return mapIdToUiMapId[mapID + GetCurrentMapDungeonLevel() / 10] or 946
+    local uiMapId = mapIdToUiMapId[mapID + GetCurrentMapDungeonLevel() / 10]
+    if uiMapId then
+        return uiMapId
+    end
+    if QuestieCompat.UiMapData and QuestieCompat.UiMapData[mapID] then
+        return mapID
+    end
+    return 946
 end
 
 -- maps mapAreaID to Zone and Continent index
