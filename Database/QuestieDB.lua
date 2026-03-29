@@ -1279,7 +1279,6 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
             if questId == 0 then
                 Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
             end
-            print(debugstack())
             return nil
         end
         -- Build a minimal live-fallback quest from the quest log so the tracker still works
