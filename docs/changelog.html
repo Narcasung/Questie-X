@@ -187,6 +187,7 @@
             <li><strong>[Performance &mdash; Math Inlining]</strong> Removed <code>QuestieLib:Euclid</code> function call overhead from the minimap icon <code>FadeLogic</code> hot loop in favor of an inline Pythagorean distance check, reducing micro-stutters during movement.</li>
             <li><strong>[Performance &mdash; Quest Tracker Bag Scans]</strong> Removed O(N) nested loops iterating over the entire character inventory in <code>TrackerLinePool:SetItem</code> and <code>QuestieQuest:CheckQuestSourceItem</code>, replacing them with native O(1) <code>GetItemCount(itemId)</code> queries. Completely eliminated thousands of <code>GetContainerItemInfo</code> calls.</li>
             <li><strong>[Performance &mdash; Tracker Cooldown Throttling]</strong> Added a 5Hz (0.2s) execution throttle to the tracker quest item button <code>btn.OnUpdate</code> frame handler, dropping baseline <code>GetItemCooldown</code> API polls from over 6000 checks every few minutes down to a fraction of that load.</li>
+            <li><strong>[Fix &mdash; Tooltip Duplicates]</strong> Added aggressive regex filtering to automatically strip Ascension's duplicate native custom quest text lines from appearing twice in unit and item tooltips (Before Questie seamlessly injects its own higher-fidelity formatted data).</li>
         </ul>
 
         <hr>

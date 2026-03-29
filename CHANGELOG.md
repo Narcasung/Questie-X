@@ -27,6 +27,8 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Perf — Quest Tracker Bag Scans]** Removed O(N) nested loops iterating over the entire character inventory in `TrackerLinePool:SetItem` and `QuestieQuest:CheckQuestSourceItem`, replacing them with native O(1) `GetItemCount(itemId)` queries. Completely eliminated thousands of `GetContainerItemInfo` calls.
 
 - **[Perf — Tracker Cooldown Throttling]** Added a 5Hz (0.2s) execution throttle to the tracker quest item button `btn.OnUpdate` frame handler, dropping baseline `GetItemCooldown` API polls from ~6000+ checks every few minutes down to a fraction of that load.
+
+- **[Fix — Tooltip Duplicates]** Added aggressive regex filtering to automatically strip Ascension's duplicate native custom quest text lines from appearing twice in unit and item tooltips (Before Questie seamlessly injects its own higher-fidelity formatted data).
 ## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support
