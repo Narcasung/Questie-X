@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.5.2 (2026-03-29)
+
+### Ascension Custom Zone Support
+
+- **[Fix — Custom Zone Map Pins]** Fixed map icons not appearing in Ascension custom zones (e.g., Valley of Trials, Northshire Valley). The issue was that custom zone UiMapData was not properly injected into `QuestieCompat.UiMapData` before HBD initialized its map cache. Added `ApplyCustomZones()` function in `ZoneDB` that hooks `ZoneDB.Initialize` to inject custom zones BEFORE the original initialization runs, ensuring HBD's `mapData` table contains custom zone entries like 1244 (Valley of Trials).
+
+- **[Fix — Zone Name Fallback]** Fixed "Unknown Zone" display for custom zones in the tracker. When `GetZoneNameByID` fails for custom zone IDs, the system now falls back to `GetQuestLogZoneName` which reads the zone header directly from the quest log where custom zone names are properly displayed.
+
+- **[Fix — GetCurrentUiMapID]** Updated `QuestieCompat.GetCurrentUiMapID` to check `QuestieCompat.UiMapData` directly for custom zone IDs. Previously, only `mapIdToUiMapId` was checked, which doesn't contain custom zones.
+
+- **[Fix — Arrow Waypoint Zone Filter]** Fixed waypoint arrow not showing targets in custom zones. The arrow's auto-tracking logic was filtering out objectives by zone comparison, but custom zones use different IDs (e.g., 1244 for Valley of Trials) than their parent zones (e.g., 14 for Durotar). Added `QuestiePlayer:GetCurrentUiMapId()` function and updated arrow zone filtering to compare both `playerZoneId` AND `playerUiMapId` against objective zone IDs.
+
+- **[Fix — Tracker Objective Nil Check]** Added defensive nil check for `objective.Description` when rendering quest objectives. Custom server quests may have objectives without a Description field, which would previously cause a crash.
+
+- **[Fix — InjectUiMapData Registration]** Fixed `QuestiePluginAPI:InjectUiMapData` to call `ZoneDB:ApplyCustomZones()` after injecting custom zone data, ensuring the zone mappings are properly registered with both `ZoneDB` and `QuestieCompat.UiMapData`.
+
+### Realm Detection
+
+- **[Fix — Realm Name Matching]** Fixed Ascension realm detection in `AscensionUiMapData.lua` to use `string.find()` instead of exact string comparison. Realms like "Bronzebeard - Warcraft Reborn" now properly match the "Bronzebeard" pattern, allowing custom zone data to load on all Ascension server variants.
+
+### Database
+
+- **[Feature — Use Quest Item Keybind]** Added configurable keyboard hotkey to automatically use the quest item for the nearest incomplete quest objective. When pressed, Questie scans active quests for usable quest items (items with spells), checks which ones are in the player's bags, calculates proximity to quest objectives, and uses the nearest one. Configurable via Tracker options tab under "Use Quest Item (Nearest)".
+
 ## v1.5.1 (2026-03-28)
 
 - **[Fix — Minimap Icons]** Prevented external "minimap button grabber" addons (e.g., Leatrix Plus, MBB) from incorrectly hiding Questie-X quest pins. Minimap icons now use a protected `QuestieFrameGroup` container that is ignored by these addons while maintaining correct spatial anchoring via `HereBeDragons`.
@@ -7,7 +31,6 @@
 - **[Fix — Killcredit NPC Linking]** Enhanced `killcredit` objective handling to properly link NPCs when database entries have missing or invalid IDs. Added two-pass approach: first tries ID-based lookup, then falls back to name-based search using the objective description text. Also fixed `monster` function to gracefully handle `npcId <= 0` instead of erroring.
 - **[Feature — Existing Quest Scanning]** Added `ScanExistingQuestLog` function to proactively map objectives for quests already in the quest log on addon initialization. Previously, objective mapping only occurred for newly accepted quests.
 - **[Fix — AceComm-3.0]** Added nil check for `RegisterAddonMessagePrefix` on private servers where this API may not be available.
-- **[Feature — Use Quest Item Keybind]** Added configurable keyboard hotkey to automatically use the quest item for the nearest incomplete quest objective. When pressed, Questie scans active quests for usable quest items (items with spells), checks which ones are in the player's bags, calculates proximity to quest objectives, and uses the nearest one. Configurable via Tracker options tab.
 
 ## v1.5.0 (2026-03-28)
 
