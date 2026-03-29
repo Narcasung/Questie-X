@@ -222,8 +222,7 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
 
     ZoneDB:ApplyCustomZones()
 
-    print("[QuestiePluginAPI] Plugin '" .. tostring(self.name) .. "' injected " .. count .. " custom UI Map entries.")
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected Custom UI Map Data.")
+    print("[QuestiePluginAPI] Plugin '" .. tostring(self.name) .. "' injected " .. count .. " custom UI Map entries. ZoneDB areaIdToUiMapId[1244]=" .. tostring(ZoneDB.private.areaIdToUiMapId[1244]))
 end
 
 --- Signals that the plugin has finished loading. This automatically cleans up necessary caches.
