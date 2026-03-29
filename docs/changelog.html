@@ -169,13 +169,27 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.5.0</code>
+            <code>Version: v1.5.2</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v152">v1.5.2 &mdash; Ascension Custom Zone Support</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Custom Zone Map Pins]</strong> Fixed map icons not appearing in Ascension custom zones (e.g., Valley of Trials, Northshire Valley). The issue was that custom zone UiMapData was not properly injected into <code>QuestieCompat.UiMapData</code> before HBD initialized its map cache. Added <code>ZoneDB:ApplyCustomZones()</code> function that hooks <code>ZoneDB.Initialize</code> to inject custom zones BEFORE the original initialization runs. This ensures HBD's <code>mapData</code> table (which references <code>QuestieCompat.UiMapData</code>) contains custom zone entries like 1244 (Valley of Trials). Also modified <code>QuestiePluginAPI:InjectUiMapData()</code> to call <code>ZoneDB:ApplyCustomZones()</code> after injecting custom zone data.</li>
+            <li><strong>[Fix &mdash; Zone Name Fallback]</strong> Fixed "Unknown Zone" display for custom zones in the tracker. When <code>GetZoneNameByID</code> fails for custom zone IDs (like 1244), the system now falls back to <code>GetQuestLogZoneName</code> which reads the zone header directly from the quest log where custom zone names are properly displayed.</li>
+            <li><strong>[Fix &mdash; GetCurrentUiMapID]</strong> Updated <code>QuestieCompat.GetCurrentUiMapID()</code> to check <code>QuestieCompat.UiMapData</code> directly for custom zone IDs. Previously, only <code>mapIdToUiMapId</code> was checked, which doesn't contain custom zones. Added fallback: <code>if QuestieCompat.UiMapData and QuestieCompat.UiMapData[mapID] then return mapID end</code></li>
+            <li><strong>[Fix &mdash; Arrow Waypoint Zone Filter]</strong> Fixed waypoint arrow not showing targets in custom zones. The arrow's auto-tracking logic was filtering out objectives by zone comparison (<code>zone ~= playerZoneId</code>), but custom zones use different IDs (e.g., 1244 for Valley of Trials) than their parent zones (e.g., 14 for Durotar). Added <code>QuestiePlayer:GetCurrentUiMapId()</code> function and updated arrow zone filtering to compare both <code>playerZoneId</code> AND <code>playerUiMapId</code> against objective zone IDs in all 4 zone filter locations within <code>_CollectObjective</code>, <code>_CollectFinisherSpawns</code>, and finisher waypoint loops.</li>
+            <li><strong>[Fix &mdash; Tracker Objective Nil Check]</strong> Added defensive nil check for <code>objective.Description</code> when rendering quest objectives in <code>QuestieTracker.lua</code>. Custom server quests may have objectives without a Description field, which would previously cause "attempt to index field 'Description' (a nil value)" crash.</li>
+            <li><strong>[Fix &mdash; InjectUiMapData Registration]</strong> Fixed <code>QuestiePluginAPI:InjectUiMapData()</code> to call <code>ZoneDB:ApplyCustomZones()</code> after injecting custom zone data, ensuring the zone mappings are properly registered with both <code>ZoneDB</code> and <code>QuestieCompat.UiMapData</code>.</li>
+            <li><strong>[Fix &mdash; Realm Name Matching]</strong> Fixed Ascension realm detection in <code>AscensionUiMapData.lua</code> (Questie-X-AscensionDB) to use <code>string.find()</code> instead of exact string comparison. Realms like "Bronzebeard - Warcraft Reborn" now properly match the "Bronzebeard" pattern, allowing custom zone data to load on all Ascension server variants.</li>
+            <li><strong>[Feature &mdash; Use Quest Item Keybind]</strong> Added configurable keyboard hotkey to automatically use the quest item for the nearest incomplete quest objective. When pressed, Questie scans active quests for usable quest items (items with spells via <code>GetItemSpell</code>), checks which ones are in the player's bags using <code>QuestieCompat.GetContainerItemInfo</code>, calculates proximity to quest objectives using <code>HBD:GetWorldDistance</code>, and uses the nearest one via <code>UseItemByName</code>. Configurable via Tracker options tab under "Use Quest Item (Nearest)".</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v151">v1.5.1 &mdash; Minimap Icon Visibility Fix</h2>
         <ul>
             <li><strong>[Fix &mdash; Minimap Icons]</strong> Prevented external "minimap button grabber" addons (e.g., Leatrix Plus, MBB) from incorrectly hiding Questie-X quest pins. Minimap icons now use a protected <code>QuestieFrameGroup</code> container that is ignored by these addons while maintaining correct spatial anchoring via <code>HereBeDragons</code>.</li>
