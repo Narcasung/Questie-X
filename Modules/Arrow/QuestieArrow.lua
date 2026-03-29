@@ -397,6 +397,7 @@ function QuestieArrow:UpdateNearestTargets()
     -- Auto mode logic: If autoTrack is on OR NOTHING is tracked
     local usingAutoLogic = Questie.db.profile.autoTrackQuests or not hasTracked
     local playerZoneId = QuestiePlayer:GetCurrentZoneId()
+    local playerUiMapId = QuestiePlayer:GetCurrentUiMapId()
 
     local function _CollectQuestTargets(quest)
         if not quest then
@@ -473,7 +474,7 @@ function QuestieArrow:UpdateNearestTargets()
                                             local x = value[2]
                                             local y = value[3]
                                             -- Auto Logic: Hide distant quests (different zone)
-                                            if not (usingAutoLogic and zone ~= playerZoneId) then
+                                            if not (usingAutoLogic and zone ~= playerZoneId and zone ~= playerUiMapId) then
                                                 local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                                                 if uiMapId and x and y then
                                                     local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
@@ -494,7 +495,7 @@ function QuestieArrow:UpdateNearestTargets()
                                     end
                                 else
                                     -- Auto Logic: Hide distant quests (different zone)
-                                    if not (usingAutoLogic and finisherZone ~= playerZoneId) then
+                                    if not (usingAutoLogic and finisherZone ~= playerZoneId and finisherZone ~= playerUiMapId) then
                                         local x = coords[1]
                                         local y = coords[2]
                                         local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
@@ -523,7 +524,7 @@ function QuestieArrow:UpdateNearestTargets()
             if finisher.waypoints then
                 for zone, waypoints in pairs(finisher.waypoints) do
                     -- Auto Logic: Hide distant quests (different zone)
-                    if not (usingAutoLogic and zone ~= playerZoneId) then
+                    if not (usingAutoLogic and zone ~= playerZoneId and zone ~= playerUiMapId) then
                         if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                             local x = waypoints[1][1][1]
                             local y = waypoints[1][1][2]
@@ -572,7 +573,7 @@ function QuestieArrow:UpdateNearestTargets()
                 if spawnData and spawnData.Spawns then
                     for zone, spawns in pairs(spawnData.Spawns) do
                         -- Auto Logic: Hide distant quests (different zone)
-                        if not (usingAutoLogic and zone ~= playerZoneId) then
+                        if not (usingAutoLogic and zone ~= playerZoneId and zone ~= playerUiMapId) then
                             for _, spawn in pairs(spawns) do
                                 local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                                 if uiMapId then

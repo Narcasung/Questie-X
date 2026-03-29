@@ -112,9 +112,21 @@ end
 function QuestiePlayer:GetCurrentZoneId()
     local uiMapId = C_Map.GetBestMapForUnit("player")
     if uiMapId then
-        return ZoneDB:GetAreaIdByUiMapId(uiMapId)
+        local areaId = ZoneDB:GetAreaIdByUiMapId(uiMapId)
+        if areaId then
+            return areaId
+        end
+        return uiMapId
     end
 
+    return ZoneDB.instanceIdToUiMapId[select(8, GetInstanceInfo())]
+end
+
+function QuestiePlayer:GetCurrentUiMapId()
+    local uiMapId = C_Map.GetBestMapForUnit("player")
+    if uiMapId then
+        return uiMapId
+    end
     return ZoneDB.instanceIdToUiMapId[select(8, GetInstanceInfo())]
 end
 
