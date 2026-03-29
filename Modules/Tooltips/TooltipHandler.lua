@@ -260,15 +260,17 @@ function _QuestieTooltips:HideAscensionQuestLines(tooltip)
         if fontString then
             local text = fontString:GetText()
             if text then
-                local cleanText = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
-                cleanText = string.gsub(cleanText, "|r", "")
+                local cleanText = string.gsub(text, "|[cC]%x%x%x%x%x%x%x%x", "")
+                cleanText = string.gsub(cleanText, "|[rR]", "")
+                cleanText = string.match(cleanText, "^%s*(.-)%s*$") or cleanText
                 
-                if string.match(cleanText, "^%[%d+.-%] ") or string.match(cleanText, "^%d+/%d+ ") then
+                -- Optional [-] or bullets in front of objective lines
+                if string.match(cleanText, "^%[%d+.-%]") or string.match(cleanText, "^%d+/%d+") or string.match(cleanText, "^%-.-%d+/%d+") then
                     fontString:SetText("")
                     fontString:Hide()
                     questBlockActive = true
                 elseif questBlockActive then
-                    if string.match(cleanText, "^%s") then
+                    if string.match(text, "^%s+") then
                         questBlockActive = false
                     else
                         fontString:SetText("")
