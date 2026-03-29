@@ -24,7 +24,7 @@ end
 ---@param folkTypes table<string, {mask: NpcFlags|integer, requireSubname: boolean, data: NpcId[]}>
 local function _PopulateTownsfolkTypes(folkTypes) -- populate the table with all npc ids based on the given bitmask
     local count = 0
-    for id, npcData in pairs(QuestieDB.npcData) do
+    local function ProcessNPC(id, npcData)
         local flags = npcData[QuestieDB.npcKeys.npcFlags]
         for name, folkType in pairs(folkTypes) do
             if flags and bitband(flags, folkType.mask) == folkType.mask then
@@ -37,11 +37,29 @@ local function _PopulateTownsfolkTypes(folkTypes) -- populate the table with all
                 end
             end
         end
-        if count > 700 then -- 700 seems like a good number
-            count = 0
-            coroutine.yield()
+    end
+    if QuestieDB.npcData then
+        for id, npcData in pairs(QuestieDB.npcData) do
+            ProcessNPC(id, npcData)
+            if count > 700 then
+                count = 0
+                coroutine.yield()
+            end
+            count = count + 1
         end
-        count = count + 1
+    end
+    if QuestieDB.npcDataOverrides then
+        for id, npcData in pairs(QuestieDB.npcDataOverrides) do
+            local numericId = tonumber(id)
+            if numericId and (not QuestieDB.npcData or not QuestieDB.npcData[numericId]) then
+                ProcessNPC(numericId, npcData)
+            end
+            if count > 700 then
+                count = 0
+                coroutine.yield()
+            end
+            count = count + 1
+        end
     end
     return folkTypes
 end
@@ -135,8 +153,15 @@ function Townsfolk.Initialize()
     local validProfessionTrainers = Townsfolk.GetProfessionTrainers()
     for i=1, #validProfessionTrainers do
         local id = validProfessionTrainers[i]
-        if QuestieDB.npcData[id] then
-            local subName = QuestieDB.npcData[id][QuestieDB.npcKeys.subName]
+        local npcData = nil
+        if QuestieDB.npcData then
+            npcData = QuestieDB.npcData[id]
+        end
+        if not npcData and QuestieDB.npcDataOverrides then
+            npcData = QuestieDB.npcDataOverrides[id] or QuestieDB.npcDataOverrides[tostring(id)]
+        end
+        if npcData then
+            local subName = npcData[QuestieDB.npcKeys.subName]
             if subName then
                 if townfolk[subName] then -- weapon master,
                     tinsert(townfolk[subName], id)
@@ -188,8 +213,15 @@ function Townsfolk.Initialize()
     for class, trainers in pairs(classTrainers) do
         local newTrainers = {}
         for _, trainer in pairs(trainers) do
-            if QuestieDB.npcData[trainer] then
-                local subName = QuestieDB.npcData[trainer][QuestieDB.npcKeys.subName]
+            local npcData = nil
+            if QuestieDB.npcData then
+                npcData = QuestieDB.npcData[trainer]
+            end
+            if not npcData and QuestieDB.npcDataOverrides then
+                npcData = QuestieDB.npcDataOverrides[trainer] or QuestieDB.npcDataOverrides[tostring(trainer)]
+            end
+            if npcData then
+                local subName = npcData[QuestieDB.npcKeys.subName]
                 if subName and string.len(subName) > 0 then
                     tinsert(newTrainers, trainer)
                 end
@@ -212,8 +244,15 @@ function Townsfolk.Initialize()
     local mailboxes = Townsfolk.GetMailboxes()
     for i=1, #mailboxes do
         local id = mailboxes[i]
-        if QuestieDB.objectData[id] then
-            local factionID = QuestieDB.objectData[id][QuestieDB.objectKeys.factionID]
+        local objectData = nil
+        if QuestieDB.objectData then
+            objectData = QuestieDB.objectData[id]
+        end
+        if not objectData and QuestieDB.objectDataOverrides then
+            objectData = QuestieDB.objectDataOverrides[id] or QuestieDB.objectDataOverrides[tostring(id)]
+        end
+        if objectData then
+            local factionID = objectData[QuestieDB.objectKeys.factionID]
 
             if factionID == 0 then
                 tinsert(factionSpecificTownsfolk["Horde"]["Mailbox"], id)
