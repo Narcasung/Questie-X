@@ -204,6 +204,7 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
 
     QuestieCompat.UiMapData = QuestieCompat.UiMapData or {}
 
+    local count = 0
     local uiMapId, data = next(customUiMapData.uiMapData)
     while uiMapId do
         if uiMapId and ZoneDB.private.areaIdToUiMapId[uiMapId] == nil then
@@ -214,12 +215,14 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
         end
         if uiMapId and QuestieCompat.UiMapData[uiMapId] == nil then
             QuestieCompat.UiMapData[uiMapId] = data
+            count = count + 1
         end
         uiMapId, data = next(customUiMapData.uiMapData, uiMapId)
     end
 
     ZoneDB:ApplyCustomZones()
 
+    print("[QuestiePluginAPI] Plugin '" .. tostring(self.name) .. "' injected " .. count .. " custom UI Map entries.")
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected Custom UI Map Data.")
 end
 
