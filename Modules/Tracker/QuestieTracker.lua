@@ -170,6 +170,51 @@ function QuestieTracker:PruneGhostQuests()
     return removedAny
 end
 
+local questItemKeybindFrame = nil
+questItemUseFrame = nil
+
+function QuestieTracker_UpdateQuestItemKeybind()
+    if not questItemKeybindFrame then
+        return
+    end
+
+    local keybind = Questie and Questie.db and Questie.db.profile and Questie.db.profile.useQuestItemKeybind
+
+    ClearOverrideBindings(questItemKeybindFrame)
+
+    if keybind and keybind ~= "" then
+        local upperKeybind = string.upper(keybind)
+        SetOverrideBinding(questItemKeybindFrame, true, upperKeybind, "CLICK Questie_QuestItemUseBtn:LeftButton")
+    end
+end
+
+local function _InstallQuestItemKeybindHandler()
+    if questItemKeybindFrame then
+        return
+    end
+
+    questItemKeybindFrame = CreateFrame("Frame", "Questie_QuestItemKeybindFrame")
+
+    questItemUseFrame = CreateFrame("Button", "Questie_QuestItemUseBtn", questItemKeybindFrame, "SecureActionButtonTemplate")
+    questItemUseFrame:SetAttribute("type", "item")
+    questItemUseFrame:Hide()
+
+    questItemKeybindFrame:SetScript("OnEvent", function(self, event)
+        if event == "PLAYER_LOGIN" then
+            C_Timer.After(0.5, QuestieTracker_UpdateQuestItemKeybind)
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            ClearOverrideBindings(questItemKeybindFrame)
+        end
+    end)
+
+    questItemKeybindFrame:RegisterEvent("PLAYER_LOGIN")
+    questItemKeybindFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+
+    if IsLoggedIn() then
+        C_Timer.After(0.5, QuestieTracker_UpdateQuestItemKeybind)
+    end
+end
+
 local function _InstallQuestLogUpdateListener()
     if QuestieTracker._questLogUpdateListenerInstalled then return end
 
@@ -255,6 +300,9 @@ function QuestieTracker.Initialize()
     _InstallQuestLogUpdateListener()
     -- Note: _InstallMissingQuestLogWarningFilter was removed (fix #1).
     -- Ghost quest warnings are now prevented upstream in PruneGhostQuests.
+
+    -- Initialize keyboard handler for Use Quest Item keybind
+    _InstallQuestItemKeybindHandler()
 
     TrackerFadeTicker.Initialize(trackerBaseFrame, trackerHeaderFrame)
     QuestieTracker.started = true
@@ -1230,7 +1278,7 @@ function QuestieTracker:Update()
                             -- Add incomplete Quest Objectives
                             if complete == 0 and quest.isComplete ~= true then
                                 for _, objective in pairs(quest.Objectives) do
-                                    if objective and (not Questie.db.profile.hideCompletedQuestObjectives or (Questie.db.profile.hideCompletedQuestObjectives and objective.Needed ~= objective.Collected)) then
+                                    if objective and objective.Description and (not Questie.db.profile.hideCompletedQuestObjectives or (Questie.db.profile.hideCompletedQuestObjectives and objective.Needed ~= objective.Collected)) then
                                         -- Get next line in linePool
                                         line = TrackerLinePool.GetNextLine()
 
