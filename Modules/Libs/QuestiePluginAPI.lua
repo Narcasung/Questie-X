@@ -143,6 +143,7 @@ function QuestiePlugin:InjectZoneTables(customZoneTables)
 
                 if uiMapId ~= areaId then
                     ZoneDB.private.subZoneToParentZone[uiMapId] = areaId
+                    ZoneDB.private.areaIdToUiMapId[uiMapId] = uiMapId
                 end
             end
             uiMapId, areaId = next(customZoneTables.uiMapIdToAreaId, uiMapId)
