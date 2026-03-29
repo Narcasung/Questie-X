@@ -17,6 +17,7 @@ workflow/
 coords.lua
 debug.lua
 debug_tooltip.lua
+verify_*.lua
 .history/
 Research/
 Tools/
