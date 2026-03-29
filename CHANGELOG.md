@@ -22,6 +22,11 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 
 - **[Fix — Profiler UI]** Resolved an issue where the `QuestieProfiler` UI text was overlapping horizontally when function names were too long, rendering the time and call counts illegible. Lines are now appropriately spaced and function names are clamped and left-aligned.
 
+- **[Perf — Math Inlining]** Removed `QuestieLib:Euclid` function call overhead from the minimap icon `FadeLogic` hot loop in favor of an inline Pythagorean distance check, reducing micro-stutters during movement.
+
+- **[Perf — Quest Tracker Bag Scans]** Removed O(N) nested loops iterating over the entire character inventory in `TrackerLinePool:SetItem` and `QuestieQuest:CheckQuestSourceItem`, replacing them with native O(1) `GetItemCount(itemId)` queries. Completely eliminated thousands of `GetContainerItemInfo` calls.
+
+- **[Perf — Tracker Cooldown Throttling]** Added a 5Hz (0.2s) execution throttle to the tracker quest item button `btn.OnUpdate` frame handler, dropping baseline `GetItemCooldown` API polls from ~6000+ checks every few minutes down to a fraction of that load.
 ## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support

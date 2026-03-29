@@ -139,7 +139,9 @@ function ZoneDB:GetAreaIdByUiMapId(uiMapId)
 
     -- Fast path: O(1) pre-built reverse cache
     local cached = uiMapIdToAreaIdCache[uiMapId]
-    if cached then return cached end
+    if cached ~= nil then
+        return cached ~= false and cached or nil
+    end
 
     -- Slow fallback: name-based lookup (only for unmapped IDs, result is cached for next time)
     local mapInfo = C_Map.GetMapInfo(uiMapId)
@@ -158,6 +160,9 @@ function ZoneDB:GetAreaIdByUiMapId(uiMapId)
     if Questie.db.profile.debugEnabled then
         Questie:Debug(Questie.DEBUG_DEVELOP, "No AreaId found for UiMapId: " .. uiMapId .. ":" .. (mapInfo and mapInfo.name or "nil"))
     end
+
+    -- We must cache that we found nothing so we don't run the slow lookup again
+    uiMapIdToAreaIdCache[uiMapId] = false
     return nil
 end
 

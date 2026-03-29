@@ -1090,17 +1090,11 @@ function QuestieQuest:CheckQuestSourceItem(questId, makeObjective)
     local sourceItemId = (quest and tonumber(quest.sourceItemId)) or 0
 
     if quest and sourceItemId > 0 then
-        for bag = -2, 4 do
-            local numSlots = QuestieCompat.GetContainerNumSlots(bag) or 0
-            for slot = 1, numSlots do
-                local itemId = select(10, QuestieCompat.GetContainerItemInfo(bag, slot))
-                if itemId == sourceItemId then
-                    return true
-                end
-            end
-
-            sourceItem = false
+        if GetItemCount(sourceItemId) > 0 then
+            return true
         end
+
+        sourceItem = false
 
         -- If we are missing the sourceItem for zero objective quests then make an objective for it so the
         -- player has a visual indication as to what item is missing and so the quest has a "tag" of some kind.

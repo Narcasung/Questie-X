@@ -493,30 +493,29 @@ function TrackerLinePool.Initialize(questFrame)
 
         btn.SetItem = function(self, quest, buttonType, size)
             local validTexture
+            local foundItemId
 
-            for bag = -2, 4 do
-                for slot = 1, QuestieCompat.GetContainerNumSlots(bag) do
-                    local texture, _, _, _, _, _, _, _, _, itemId = QuestieCompat.GetContainerItemInfo(bag, slot)
-                    -- These type of quest items can never be secondary buttons
-                    if quest.sourceItemId == itemId and QuestieDB.QueryItemSingle(itemId, "class") == 12 and buttonType == "primary" then
-                        validTexture = texture
-                        self.itemId = quest.sourceItemId
-                        break
-                    end
-                    -- These type of quest items are technically secondary buttons but are assigned primary button slots
-                    if (not quest.sourceItemId or quest.sourceItemId == 0) and type(quest.requiredSourceItems) == "table" and #quest.requiredSourceItems == 1 then
-                        local questItemId = quest.requiredSourceItems[1]
-                        if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 and questItemId == itemId then
-                            validTexture = texture
-                            self.itemId = questItemId
-                            break
+            -- Check primary source item
+            if quest.sourceItemId and quest.sourceItemId ~= 0 and buttonType == "primary" then
+                if QuestieDB.QueryItemSingle(quest.sourceItemId, "class") == 12 and GetItemCount(quest.sourceItemId, false, false) > 0 then
+                    foundItemId = quest.sourceItemId
+                end
+            end
+
+            -- Check secondary source items
+            if not foundItemId and type(quest.requiredSourceItems) == "table" then
+                if #quest.requiredSourceItems == 1 then
+                    local questItemId = quest.requiredSourceItems[1]
+                    if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 then
+                        if GetItemCount(questItemId, false, false) > 0 then
+                            foundItemId = questItemId
                         end
-                        -- These type of quest items can never be primary buttons
-                    elseif type(quest.requiredSourceItems) == "table" and #quest.requiredSourceItems > 1 then
-                        for _, questItemId in pairs(quest.requiredSourceItems) do
-                            if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 and questItemId == itemId and buttonType == "secondary" then
-                                validTexture = texture
-                                self.itemId = questItemId
+                    end
+                elseif #quest.requiredSourceItems > 1 and buttonType == "secondary" then
+                    for _, questItemId in pairs(quest.requiredSourceItems) do
+                        if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 then
+                            if GetItemCount(questItemId, false, false) > 0 then
+                                foundItemId = questItemId
                                 break
                             end
                         end
@@ -524,35 +523,9 @@ function TrackerLinePool.Initialize(questFrame)
                 end
             end
 
-            -- Edge case to find "equipped" quest items since they will no longer be in the players bag
-            if (not validTexture) then
-                for inventorySlot = 1, 19 do
-                    local itemId = GetInventoryItemID("player", inventorySlot)
-                    -- These type of quest items can never be secondary buttons
-                    if quest.sourceItemId == itemId and QuestieDB.QueryItemSingle(itemId, "class") == 12 and buttonType == "primary" then
-                        validTexture = GetInventoryItemTexture("player", inventorySlot)
-                        self.itemId = quest.sourceItemId
-                        break
-                    end
-                    -- These type of quest items are technically secondary buttons but are assigned primary button slots
-                    if type(quest.requiredSourceItems) == "table" and #quest.requiredSourceItems == 1 then
-                        local questItemId = quest.requiredSourceItems[1]
-                        if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 and questItemId == itemId then
-                            validTexture = GetInventoryItemTexture("player", inventorySlot)
-                            self.itemId = questItemId
-                            break
-                        end
-                        -- These type of quest items can never be primary buttons
-                    elseif type(quest.requiredSourceItems) == "table" and #quest.requiredSourceItems > 1 then
-                        for _, questItemId in pairs(quest.requiredSourceItems) do
-                            if questItemId and questItemId ~= quest.sourceItemId and QuestieDB.QueryItemSingle(questItemId, "class") == 12 and questItemId == itemId and buttonType == "secondary" then
-                                validTexture = GetInventoryItemTexture("player", inventorySlot)
-                                self.itemId = questItemId
-                                break
-                            end
-                        end
-                    end
-                end
+            if foundItemId then
+                self.itemId = foundItemId
+                validTexture = select(10, GetItemInfo(foundItemId)) or GetItemIcon(foundItemId)
             end
 
             if validTexture and self.itemId then
@@ -617,31 +590,36 @@ function TrackerLinePool.Initialize(questFrame)
                 return
             end
 
-            local start, duration, enabled = QuestieCompat.GetItemCooldown(self.itemId)
+            self.updateTimer = (self.updateTimer or 0) + elapsed
+            if self.updateTimer >= 0.2 then
+                local start, duration, enabled = QuestieCompat.GetItemCooldown(self.itemId)
 
-            if enabled == 1 and duration > 0 then
-                cooldown:SetCooldown(start, duration, enabled)
-                cooldown:Show()
-            else
-                cooldown:Hide()
-            end
-
-            local charges = GetItemCount(self.itemId, nil, true)
-            if (not charges or charges ~= self.charges) then
-                self.count:Hide()
-                self.charges = GetItemCount(self.itemId, nil, true)
-                if self.charges > 1 then
-                    self.count:SetText(self.charges)
-                    self.count:Show()
+                if enabled == 1 and duration > 0 then
+                    cooldown:SetCooldown(start, duration, enabled)
+                    cooldown:Show()
+                else
+                    cooldown:Hide()
                 end
-                if self.charges == 0 then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool: Button.OnUpdate]")
-                    QuestieCombatQueue:Queue(function()
-                        C_Timer.After(0.2, function()
-                            QuestieTracker:Update()
+
+                local charges = GetItemCount(self.itemId, nil, true)
+                if (not charges or charges ~= self.charges) then
+                    self.count:Hide()
+                    self.charges = GetItemCount(self.itemId, nil, true)
+                    if self.charges > 1 then
+                        self.count:SetText(self.charges)
+                        self.count:Show()
+                    end
+                    if self.charges == 0 then
+                        Questie:Debug(Questie.DEBUG_DEVELOP, "[TrackerLinePool: Button.OnUpdate]")
+                        QuestieCombatQueue:Queue(function()
+                            C_Timer.After(0.2, function()
+                                QuestieTracker:Update()
+                            end)
                         end)
-                    end)
+                    end
                 end
+                
+                self.updateTimer = 0
             end
 
             if UnitExists("target") then
