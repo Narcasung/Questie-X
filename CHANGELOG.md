@@ -8,6 +8,8 @@
 
 - **[Fix — Townsfolk POI Map IDs]** Fixed some Townsfolk POIs not appearing in custom zones. Removed the `uiMapId > 1000` restriction in `ZoneDB:ApplyCustomZones()` that was preventing custom zone IDs below 1000 from being registered as self-mappings. This caused some Townsfolk NPCs with zone IDs < 1000 to fail UiMapId lookups and not display on the map.
 
+- **[Fix — Townsfolk DataOverrides Lookup]** Fixed Townsfolk initialization to properly check both `QuestieDB.npcData` and `QuestieDB.npcDataOverrides` / `QuestieDB.objectDataOverrides`. On custom servers (Ebonhold, Ascension), the database is loaded via plugins into overrides tables, but `Townsfolk.Initialize()` was only checking the base database tables which are empty until Stage 3 compilation. This affected Flight Masters, Auctioneers, Innkeepers, Repair Vendors, Class Trainers, and Mailboxes.
+
 - **[Fix — Custom Zone Map Pins]** Fixed map icons not appearing in Ascension custom zones (e.g., Valley of Trials, Northshire Valley). The issue was that custom zone UiMapData was not properly injected into `QuestieCompat.UiMapData` before HBD initialized its map cache. Added `ApplyCustomZones()` function in `ZoneDB` that hooks `ZoneDB.Initialize` to inject custom zones BEFORE the original initialization runs, ensuring HBD's `mapData` table contains custom zone entries like 1244 (Valley of Trials).
 
 - **[Fix — Zone Name Fallback]** Fixed "Unknown Zone" display for custom zones in the tracker. When `GetZoneNameByID` fails for custom zone IDs, the system now falls back to `GetQuestLogZoneName` which reads the zone header directly from the quest log where custom zone names are properly displayed.
