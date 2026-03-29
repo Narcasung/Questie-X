@@ -212,20 +212,20 @@ function QuestieProfiler:CreateUI()
     base.scrollContainer.CreateLineFrame = function()
         local label = base.scrollContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         label:SetText("")
-        label:SetPoint("TOPLEFT", base.scrollContainer, 0, -lineCounter * 10)
-
-        label:SetWidth(base.scrollFrame:GetWidth() - 270)
-        label:SetJustifyH("RIGHT")
+        label:SetPoint("TOPLEFT", base.scrollContainer, 10, -lineCounter * 16)
+        label:SetWidth(base.scrollFrame:GetWidth() - 280)
+        label:SetJustifyH("LEFT")
+        label:SetWordWrap(false)
 
         local label2 = base.scrollContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         label2:SetText("")
-        label2:SetPoint("TOPLEFT", base.scrollContainer, base.scrollFrame:GetWidth() - 260, -lineCounter * 10)
+        label2:SetPoint("TOPLEFT", base.scrollContainer, base.scrollFrame:GetWidth() - 260, -lineCounter * 16)
 
         local label3 = base.scrollContainer:CreateFontString(nil, "ARTWORK", "GameFontNormal")
         label3:SetText("")
-        label3:SetPoint("TOPLEFT", base.scrollContainer, base.scrollFrame:GetWidth() - 150, -lineCounter * 10)
+        label3:SetPoint("TOPLEFT", base.scrollContainer, base.scrollFrame:GetWidth() - 130, -lineCounter * 16)
 
-        base.scrollContainer:SetSize(base.scrollFrame:GetWidth(), lineCounter * 10)
+        base.scrollContainer:SetSize(base.scrollFrame:GetWidth(), lineCounter * 16)
 
         return { label, label2, label3 }
     end

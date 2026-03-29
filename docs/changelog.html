@@ -169,13 +169,25 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.5.4</code>
+            <code>Version: v1.5.5</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v155">v1.5.5 &mdash; Performance &amp; Stability</h2>
+        <ul>
+            <li><strong>[Performance &mdash; Position Caching]</strong> Implemented a 50ms cache for <code>GetPlayerWorldPosition</code> and <code>GetPlayerZonePosition</code> in <code>Compat/HBD.lua</code>. This drastically reduces C API overhead which was the #1 hotspot, with automatic cache invalidation on zone transitions.</li>
+            <li><strong>[Performance &mdash; Arrow DB Optimization]</strong> Overhauled <code>ZoneDB:GetAreaIdByUiMapId</code> to use an O(1) reverse-mapping cache instead of an O(n) linear scan, eliminating a significant CPU bottleneck triggered hundreds of times per minute by the directional arrow.</li>
+            <li><strong>[Performance &mdash; Tooltip Throttling]</strong> Throttled the <code>GameTooltip</code> <code>OnUpdate</code> hook to run at 10Hz (100ms) and added a text-change cache, preventing redundant and expensive tooltip recalculations every single frame.</li>
+            <li><strong>[Performance &mdash; Network Refactor]</strong> Refactored <code>QuestieLearnerComms</code>: reduced compression overhead (negligible size difference but massive CPU savings), slowed processing ticker to match output rate limits, and optimized duplicate detection to O(1).</li>
+            <li><strong>[Performance &mdash; Arrow Closures]</strong> Hoisted heavy inner closures out of the hot <code>QuestieArrow:UpdateNearestTargets</code> loop to module-level functions, eliminating persistent memory allocation spikes and Garbage Collection (GC) pressure.</li>
+            <li><strong>[Fix &mdash; Profiler Display]</strong> Fixed textual overlap and vertical spacing issues in the <code>QuestieProfiler</code> UI. Function names are now properly left-aligned, and horizontal spacing ensures metrics remain legible regardless of function name length.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v153">v1.5.4 &mdash; Dedicated Keybinds Tab</h2>
         <ul>
             <li><strong>[Feature &mdash; Dedicated Keybinds Tab]</strong> Added a new Keybinds options tab with configurable keybinds for:

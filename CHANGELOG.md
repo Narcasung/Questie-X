@@ -20,6 +20,8 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
   - **Compression level**: `LibDeflate:CompressDeflate` level reduced from 9 (slowest/max) to 1 (fastest). For small addon message payloads the size difference is negligible but the CPU cost is substantially lower.
   - **Dedup counter**: `IsDuplicateMessage` now uses an O(1) integer counter (`messageCacheCount`) to track cache size instead of an O(n) `for _ in pairs(messageCache)` scan on every incoming message.
 
+- **[Fix — Profiler UI]** Resolved an issue where the `QuestieProfiler` UI text was overlapping horizontally when function names were too long, rendering the time and call counts illegible. Lines are now appropriately spaced and function names are clamped and left-aligned.
+
 ## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support
