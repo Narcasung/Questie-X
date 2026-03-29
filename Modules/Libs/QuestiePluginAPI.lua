@@ -202,6 +202,8 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
     ZoneDB.private = ZoneDB.private or {}
     ZoneDB.private.areaIdToUiMapId = ZoneDB.private.areaIdToUiMapId or {}
 
+    QuestieCompat.UiMapData = QuestieCompat.UiMapData or {}
+
     local uiMapId, data = next(customUiMapData.uiMapData)
     while uiMapId do
         if uiMapId and ZoneDB.private.areaIdToUiMapId[uiMapId] == nil then
@@ -209,6 +211,9 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
         end
         if data and type(data.parentMapID) == "number" and ZoneDB.private.areaIdToUiMapId[data.parentMapID] == nil then
             ZoneDB.private.areaIdToUiMapId[data.parentMapID] = uiMapId
+        end
+        if uiMapId and QuestieCompat.UiMapData[uiMapId] == nil then
+            QuestieCompat.UiMapData[uiMapId] = data
         end
         uiMapId, data = next(customUiMapData.uiMapData, uiMapId)
     end
