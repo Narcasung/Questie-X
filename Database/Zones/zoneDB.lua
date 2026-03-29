@@ -73,7 +73,18 @@ end
 ---@param areaId AreaId
 ---@return UiMapId
 function ZoneDB:GetUiMapIdByAreaId(areaId)
-    return areaIdToUiMapId[areaId]
+    local uiMapId = areaIdToUiMapId[areaId]
+    if uiMapId then
+        return uiMapId
+    end
+    if areaId and areaId > 0 then
+        local mapInfo = C_Map.GetMapInfo(areaId)
+        if mapInfo and mapInfo.mapID then
+            return mapInfo.mapID
+        end
+        return areaId
+    end
+    return nil
 end
 
 --- Use with care, kind of slow.
