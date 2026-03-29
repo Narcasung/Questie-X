@@ -248,10 +248,44 @@ local function _AddQuestStarterDropsToTooltip(npcId)
     end
 end
 
+function _QuestieTooltips:HideAscensionQuestLines(tooltip)
+    if not Questie.db.profile.enableTooltips then return end
+    local numLines = tooltip:NumLines()
+    if not numLines or numLines < 1 then return end
+    
+    local questBlockActive = false
+    
+    for i = 2, numLines do
+        local fontString = _G[tooltip:GetName() .. "TextLeft" .. i]
+        if fontString then
+            local text = fontString:GetText()
+            if text then
+                local cleanText = string.gsub(text, "|c%x%x%x%x%x%x%x%x", "")
+                cleanText = string.gsub(cleanText, "|r", "")
+                
+                if string.match(cleanText, "^%[%d+.-%] ") or string.match(cleanText, "^%d+/%d+ ") then
+                    fontString:SetText("")
+                    fontString:Hide()
+                    questBlockActive = true
+                elseif questBlockActive then
+                    if string.match(cleanText, "^%s") then
+                        questBlockActive = false
+                    else
+                        fontString:SetText("")
+                        fontString:Hide()
+                    end
+                end
+            end
+        end
+    end
+end
+
 function _QuestieTooltips:AddUnitDataToTooltip()
     if (self.IsForbidden and self:IsForbidden()) or (not Questie.db.profile.enableTooltips) then
         return
     end
+
+    _QuestieTooltips:HideAscensionQuestLines(self)
 
     local name, unitToken = self:GetUnit();
     if not unitToken then return end
@@ -307,6 +341,8 @@ function _QuestieTooltips:AddItemDataToTooltip()
         return
     end
 
+    _QuestieTooltips:HideAscensionQuestLines(self)
+
     local name, link = self:GetItem()
     local itemId
     if link then
@@ -343,6 +379,9 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
     if (not Questie.db.profile.enableTooltips) then
         return
     end
+    
+    _QuestieTooltips:HideAscensionQuestLines(GameTooltip)
+    
     if name then
         local titleAdded = false
         local lookup = l10n.objectNameLookup[name] or {}
