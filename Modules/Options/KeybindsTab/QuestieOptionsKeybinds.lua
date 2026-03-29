@@ -12,6 +12,21 @@ QuestieOptions.tabs.keybinds = { ... }
 
 local keybindOptions = {}
 
+local function GetConflictingKeybind(key, exclude)
+    if key and key ~= "" then
+        if exclude ~= "useQuestItemKeybind" and key == Questie.db.profile.useQuestItemKeybind then
+            return "Use Nearest Quest Item"
+        elseif exclude ~= "toggleOptionsKeybind" and key == Questie.db.profile.toggleOptionsKeybind then
+            return "Toggle Options"
+        elseif exclude ~= "toggleTrackerKeybind" and key == Questie.db.profile.toggleTrackerKeybind then
+            return "Toggle Tracker"
+        elseif exclude ~= "toggleMyJourneyKeybind" and key == Questie.db.profile.toggleMyJourneyKeybind then
+            return "Toggle My Journey"
+        end
+    end
+    return nil
+end
+
 function QuestieOptions.tabs.keybinds:Initialize()
     keybindOptions = {
         name = function() return l10n('Keybinds') end,
@@ -42,6 +57,11 @@ function QuestieOptions.tabs.keybinds:Initialize()
                         desc = function() return l10n('Press this keybind to automatically use a quest item for the nearest incomplete quest objective. The item must be in your bags and be a usable quest item (trigger a spell when used).') end,
                         get = function() return Questie.db.profile.useQuestItemKeybind end,
                         set = function(_, key)
+                            local conflict = GetConflictingKeybind(key, "useQuestItemKeybind")
+                            if conflict then
+                                Questie:Print(l10n('Keybind "%s" is already assigned to "%s"!', key, conflict))
+                                return
+                            end
                             Questie.db.profile.useQuestItemKeybind = key
                             if QuestieTracker_UpdateQuestItemKeybind then
                                 QuestieTracker_UpdateQuestItemKeybind()
@@ -55,6 +75,11 @@ function QuestieOptions.tabs.keybinds:Initialize()
                         desc = function() return l10n('Press this keybind to toggle the Questie Options window.') end,
                         get = function() return Questie.db.profile.toggleOptionsKeybind end,
                         set = function(_, key)
+                            local conflict = GetConflictingKeybind(key, "toggleOptionsKeybind")
+                            if conflict then
+                                Questie:Print(l10n('Keybind "%s" is already assigned to "%s"!', key, conflict))
+                                return
+                            end
                             Questie.db.profile.toggleOptionsKeybind = key
                             if QuestieTracker_UpdateQuestItemKeybind then
                                 QuestieTracker_UpdateQuestItemKeybind()
@@ -68,6 +93,11 @@ function QuestieOptions.tabs.keybinds:Initialize()
                         desc = function() return l10n('Press this keybind to toggle the Questie Tracker.') end,
                         get = function() return Questie.db.profile.toggleTrackerKeybind end,
                         set = function(_, key)
+                            local conflict = GetConflictingKeybind(key, "toggleTrackerKeybind")
+                            if conflict then
+                                Questie:Print(l10n('Keybind "%s" is already assigned to "%s"!', key, conflict))
+                                return
+                            end
                             Questie.db.profile.toggleTrackerKeybind = key
                             if QuestieTracker_UpdateQuestItemKeybind then
                                 QuestieTracker_UpdateQuestItemKeybind()
@@ -81,6 +111,11 @@ function QuestieOptions.tabs.keybinds:Initialize()
                         desc = function() return l10n('Press this keybind to toggle the Questie Journey window.') end,
                         get = function() return Questie.db.profile.toggleMyJourneyKeybind end,
                         set = function(_, key)
+                            local conflict = GetConflictingKeybind(key, "toggleMyJourneyKeybind")
+                            if conflict then
+                                Questie:Print(l10n('Keybind "%s" is already assigned to "%s"!', key, conflict))
+                                return
+                            end
                             Questie.db.profile.toggleMyJourneyKeybind = key
                             if QuestieTracker_UpdateQuestItemKeybind then
                                 QuestieTracker_UpdateQuestItemKeybind()
