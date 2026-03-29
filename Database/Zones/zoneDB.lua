@@ -52,11 +52,37 @@ local zoneMap = {}             -- Generated
 
 
 function ZoneDB:Initialize()
+    if QuestieCompat and QuestieCompat.LoadUiMapData then
+        hooksecurefunc(QuestieCompat, "LoadUiMapData", function()
+            ZoneDB:ApplyCustomZones()
+        end)
+    end
+
+    ZoneDB:ApplyCustomZones()
     _ZoneDB:GenerateParentZoneToStartingZoneTable()
 
     -- Run tests if debug enabled
     if Questie.db.profile.debugEnabled then
         _ZoneDB:RunTests()
+    end
+end
+
+function ZoneDB:ApplyCustomZones()
+    if _ZoneDB.customZonesApplied then return end
+    _ZoneDB.customZonesApplied = true
+
+    if not QuestieCompat or not QuestieCompat.UiMapData then return end
+
+    for uiMapId, data in pairs(QuestieCompat.UiMapData) do
+        if not uiMapId or type(uiMapId) ~= "number" then
+            -- skip non-numeric keys
+        elseif uiMapId > 1000 and _ZoneDB.areaIdToUiMapId[uiMapId] == nil then
+            _ZoneDB.areaIdToUiMapId[uiMapId] = uiMapId
+        end
+
+        if data and type(data.parentMapID) == "number" and _ZoneDB.areaIdToUiMapId[data.parentMapID] == nil then
+            _ZoneDB.areaIdToUiMapId[data.parentMapID] = uiMapId
+        end
     end
 end
 
