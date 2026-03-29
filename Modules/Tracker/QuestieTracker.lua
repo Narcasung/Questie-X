@@ -170,50 +170,86 @@ function QuestieTracker:PruneGhostQuests()
     return removedAny
 end
 
-local questItemKeybindFrame = nil
-questItemUseFrame = nil
+local KeybindFrame
 
-function QuestieTracker_UpdateQuestItemKeybind()
-    if not questItemKeybindFrame then
-        return
-    end
+local function _CreateSecureKeybindFrame()
+    if KeybindFrame then return end
 
-    local keybind = Questie and Questie.db and Questie.db.profile and Questie.db.profile.useQuestItemKeybind
+    KeybindFrame = CreateFrame("Button", "Questie_KeybindFrame", UIParent, "SecureActionButtonTemplate")
+    KeybindFrame:SetAttribute("type", "item")
+    KeybindFrame:RegisterForClicks("AnyDown")
+    KeybindFrame:Hide()
 
-    ClearOverrideBindings(questItemKeybindFrame)
-
-    if keybind and keybind ~= "" then
-        local upperKeybind = string.upper(keybind)
-        SetOverrideBinding(questItemKeybindFrame, true, upperKeybind, "CLICK Questie_QuestItemUseBtn:LeftButton")
-    end
-end
-
-local function _InstallQuestItemKeybindHandler()
-    if questItemKeybindFrame then
-        return
-    end
-
-    questItemKeybindFrame = CreateFrame("Frame", "Questie_QuestItemKeybindFrame")
-
-    questItemUseFrame = CreateFrame("Button", "Questie_QuestItemUseBtn", questItemKeybindFrame, "SecureActionButtonTemplate")
-    questItemUseFrame:SetAttribute("type", "item")
-    questItemUseFrame:Hide()
-
-    questItemKeybindFrame:SetScript("OnEvent", function(self, event)
-        if event == "PLAYER_LOGIN" then
-            C_Timer.After(0.5, QuestieTracker_UpdateQuestItemKeybind)
-        elseif event == "PLAYER_REGEN_ENABLED" then
-            ClearOverrideBindings(questItemKeybindFrame)
+    KeybindFrame:SetScript("PostClick", function(self, button)
+        if button == "OptionsButton" then
+            TrackerUtils:ToggleOptions()
+        elseif button == "TrackerButton" then
+            TrackerUtils:ToggleTracker()
+        elseif button == "JourneyButton" then
+            TrackerUtils:ToggleJourney()
         end
     end)
 
-    questItemKeybindFrame:RegisterEvent("PLAYER_LOGIN")
-    questItemKeybindFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    local lastProximityUpdate = 0
+    local function UpdateNearestQuestItemButton()
+        if InCombatLockdown() then return end
+        local now = GetTime()
+        if now - lastProximityUpdate > 5 then
+            lastProximityUpdate = now
+            local itemId = TrackerUtils:GetNearestQuestItemId()
+            if itemId then
+                KeybindFrame:SetAttribute("item", "item:" .. itemId)
+            else
+                KeybindFrame:SetAttribute("item", nil)
+            end
+        end
+    end
 
-    if IsLoggedIn() then
-        C_Timer.After(0.5, QuestieTracker_UpdateQuestItemKeybind)
+    local f = CreateFrame("Frame")
+    f:RegisterEvent("PLAYER_REGEN_ENABLED")
+    f:SetScript("OnEvent", function()
+        UpdateNearestQuestItemButton()
+    end)
+    f:SetScript("OnUpdate", function()
+        UpdateNearestQuestItemButton()
+    end)
+end
+
+function QuestieTracker_UpdateQuestItemKeybind()
+    if not KeybindFrame then return end
+
+    if InCombatLockdown() then
+        return QuestieCombatQueue:Queue(QuestieTracker_UpdateQuestItemKeybind)
+    end
+
+    ClearOverrideBindings(KeybindFrame)
+
+    -- 1. Use Quest Item (Nearest)
+    local useItemKey = Questie.db.profile.useQuestItemKeybind
+    if useItemKey and useItemKey ~= "" then
+        SetOverrideBindingClick(KeybindFrame, true, useItemKey, "Questie_KeybindFrame", "LeftButton")
+    end
+
+    -- 2. Toggle Options
+    local optionsKey = Questie.db.profile.toggleOptionsKeybind
+    if optionsKey and optionsKey ~= "" then
+        SetOverrideBindingClick(KeybindFrame, true, optionsKey, "Questie_KeybindFrame", "OptionsButton")
+    end
+
+    -- 3. Toggle Tracker
+    local trackerKey = Questie.db.profile.toggleTrackerKeybind
+    if trackerKey and trackerKey ~= "" then
+        SetOverrideBindingClick(KeybindFrame, true, trackerKey, "Questie_KeybindFrame", "TrackerButton")
+    end
+
+    -- 4. Toggle My Journey
+    local journeyKey = Questie.db.profile.toggleMyJourneyKeybind
+    if journeyKey and journeyKey ~= "" then
+        SetOverrideBindingClick(KeybindFrame, true, journeyKey, "Questie_KeybindFrame", "JourneyButton")
     end
 end
+
+
 
 local function _InstallQuestLogUpdateListener()
     if QuestieTracker._questLogUpdateListenerInstalled then return end
@@ -301,11 +337,12 @@ function QuestieTracker.Initialize()
     -- Note: _InstallMissingQuestLogWarningFilter was removed (fix #1).
     -- Ghost quest warnings are now prevented upstream in PruneGhostQuests.
 
-    -- Initialize keyboard handler for Use Quest Item keybind
-    _InstallQuestItemKeybindHandler()
-
     TrackerFadeTicker.Initialize(trackerBaseFrame, trackerHeaderFrame)
     QuestieTracker.started = true
+
+    -- Initialize the secure keybind frame
+    _CreateSecureKeybindFrame()
+    QuestieTracker_UpdateQuestItemKeybind()
 
     -- Initialize hooks
     QuestieTracker:HookBaseTracker()

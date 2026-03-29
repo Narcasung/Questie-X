@@ -1298,69 +1298,85 @@ function TrackerUtils:UpdateVoiceOverPlayButtons()
     end
 end
 
-function TrackerUtils:UseNearestQuestItem()
-    if InCombatLockdown() then
-        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Cannot use items while in combat")
-        return
-    end
+---@return number|nil itemId The ID of the nearest usable quest item
+function TrackerUtils:GetNearestQuestItemId()
+    local questIds = QuestiePlayer.currentQuestlog
+    local bestItemId = nil
+    local minDistance = 999999
+    
+    local playerPos = _GetWorldPlayerPosition()
+    if not playerPos then return nil end
 
-    local playerPosition = _GetWorldPlayerPosition()
-    if not playerPosition then
-        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Could not get player position")
-        return
-    end
-
-    local bestDistance = math.huge
-    local bestQuestIndex = nil
-    local bestItemName = nil
-
-    local numEntries, numQuests = GetNumQuestLogEntries()
-
-    for i = 1, numEntries do
-        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(i)
-
-        if not isHeader and questId then
-            local itemInfo = GetQuestLogSpecialItemInfo(i)
-
-            if itemInfo then
-                local itemName
-                if type(itemInfo) == "string" then
-                    itemName = itemInfo
-                else
-                    itemName = tostring(itemInfo)
-                end
-
-                local quest = QuestieDB.GetQuest(questId)
-                if quest and quest:IsComplete() ~= 1 then
-                    local spawn, zone = QuestieMap:GetNearestQuestSpawn(quest)
-                    if spawn and zone then
-                        local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
-                        if uiMapId then
-                            local _, worldPosition = C_Map.GetWorldPosFromMapPos(uiMapId, {
-                                x = spawn[1] / 100,
-                                y = spawn[2] / 100
-                            })
-
-                            if worldPosition then
-                                local distance = _GetDistance(playerPosition.x, playerPosition.y, worldPosition.x, worldPosition.y)
-
-                                if distance < bestDistance then
-                                    bestDistance = distance
-                                    bestQuestIndex = i
-                                    bestItemName = itemName
-                                end
-                            end
-                        end
+    for questId in pairs(questIds) do
+        local quest = QuestieDB.GetQuest(questId)
+        if quest then
+            local items = {}
+            if quest.sourceItemId and quest.sourceItemId ~= 0 then
+                table.insert(items, quest.sourceItemId)
+            end
+            if type(quest.requiredSourceItems) == "table" then
+                for _, itemId in pairs(quest.requiredSourceItems) do
+                    if itemId and itemId ~= 0 then
+                        table.insert(items, itemId)
                     end
+                end
+            end
+            
+            local foundItemId = nil
+            for i = 1, table.getn(items) do
+                local itemId = items[i]
+                -- Check if item is in bags and is a quest item (class 12)
+                if GetItemCount(itemId) > 0 and QuestieDB.QueryItemSingle(itemId, "class") == 12 then
+                    foundItemId = itemId
+                    break
+                end
+            end
+            
+            if foundItemId then
+                local distance = _GetDistanceToClosestObjective(questId)
+                if distance and distance < minDistance then
+                    minDistance = distance
+                    bestItemId = foundItemId
                 end
             end
         end
     end
+    return bestItemId
+end
 
-    if bestQuestIndex and bestItemName then
-        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Using item:", bestItemName, "for quest index:", bestQuestIndex, "distance:", bestDistance)
-        UseItemByName(bestItemName)
-    else
-        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] No usable quest item found")
+--- Logic to use the nearest quest item (Fallback for non-secure usage or manual calls)
+function TrackerUtils:UseNearestQuestItem()
+    local itemId = self:GetNearestQuestItemId()
+    if itemId then
+        local itemName = GetItemInfo(itemId)
+        if itemName then
+            UseItemByName(itemName)
+        end
     end
 end
+
+--- Toggle the Questie Options window
+function TrackerUtils:ToggleOptions()
+    local QuestieOptions = QuestieLoader:ImportModule("QuestieOptions")
+    if QuestieOptions and QuestieOptions.OpenConfigWindow then
+        QuestieOptions:OpenConfigWindow()
+    end
+end
+
+--- Toggle the Questie Tracker
+function TrackerUtils:ToggleTracker()
+    local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+    if QuestieTracker and QuestieTracker.Toggle then
+        QuestieTracker:Toggle()
+    end
+end
+
+--- Toggle the Questie Journey window
+function TrackerUtils:ToggleJourney()
+    local QuestieJourney = QuestieLoader:ImportModule("QuestieJourney")
+    if QuestieJourney and QuestieJourney.ToggleJourneyWindow then
+        QuestieJourney:ToggleJourneyWindow()
+    end
+end
+
+
