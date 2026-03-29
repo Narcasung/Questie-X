@@ -23,7 +23,6 @@ Research/
 Tools/
 tests/
 Tests/
-docs/
 !docs/changelog.html
 tmp_*.py
 release_notes.txt

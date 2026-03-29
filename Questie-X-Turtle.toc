@@ -1,5 +1,5 @@
 ## Interface: 11200
-## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Turtle|cFF00FF00 v1.5.3|r
+## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Turtle|cFF00FF00 v1.5.4|r
 ## Notes: A standalone Classic QuestHelper
 ## Notes-esMX: Ayundante de misiones
 ## Notes-esES: Ayundante de misiones

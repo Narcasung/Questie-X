@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.5.3 (2026-03-29)
+## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support
 
