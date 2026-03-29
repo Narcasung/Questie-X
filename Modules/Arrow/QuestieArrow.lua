@@ -585,105 +585,8 @@ function QuestieArrow:UpdateNearestTargets()
         local isComplete = quest.isComplete or (QuestieDB.IsComplete(quest.Id) == 1)
         if isComplete then quest.isComplete = true end
 
-        -- (hoisted) _GetCompleteIconType, _CollectFinisherSpawns, _CollectObjective
-        -- are module-level functions; no closures created here.
-
-        local function _CollectFinisherSpawns(finisher)
-            if not finisher then
-                return
-            end
-
-            local iconPath = ResolveIconTexture(_GetCompleteIconType())
-
-            if finisher.spawns then
-                for finisherZone, spawns in pairs(finisher.spawns) do
-                    if finisherZone and spawns then
-                        for _, coords in ipairs(spawns) do
-                            if coords and coords[1] and coords[2] then
-                                if coords[1] == -1 or coords[2] == -1 then
-                                    local dungeonLocation = ZoneDB:GetDungeonLocation(finisherZone)
-                                    if dungeonLocation then
-                                        for _, value in ipairs(dungeonLocation) do
-                                            local zone = value[1]
-                                            local x = value[2]
-                                            local y = value[3]
-                                            -- Auto Logic: Hide distant quests (different zone)
-                                            if not (usingAutoLogic and zone ~= playerZoneId and zone ~= playerUiMapId) then
-                                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
-                                                if uiMapId and x and y then
-                                                    local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
-                                                    if targetX and targetY and targetInstance then
-                                                        local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
-                                                        if dist then
-                                                            if targetInstance ~= playerInstance then
-                                                                dist = 500000 + dist * 100
-                                                            end
-                                                            table.insert(sortedTargets, {
-                                                                x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                                            })
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
-                                    end
-                                else
-                                    -- Auto Logic: Hide distant quests (different zone)
-                                    if not (usingAutoLogic and finisherZone ~= playerZoneId and finisherZone ~= playerUiMapId) then
-                                        local x = coords[1]
-                                        local y = coords[2]
-                                        local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
-                                        if uiMapId then
-                                            local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
-                                            if targetX and targetY and targetInstance then
-                                                local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
-                                                if dist then
-                                                    if targetInstance ~= playerInstance then
-                                                        dist = 500000 + dist * 100
-                                                    end
-                                                    table.insert(sortedTargets, {
-                                                        x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                                    })
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-
-            if finisher.waypoints then
-                for zone, waypoints in pairs(finisher.waypoints) do
-                    -- Auto Logic: Hide distant quests (different zone)
-                    if not (usingAutoLogic and zone ~= playerZoneId and zone ~= playerUiMapId) then
-                        if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
-                            local x = waypoints[1][1][1]
-                            local y = waypoints[1][1][2]
-                            local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
-                            if uiMapId and x and y then
-                                local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
-                                if targetX and targetY and targetInstance then
-                                    local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
-                                    if dist then
-                                        if targetInstance ~= playerInstance then
-                                            dist = 500000 + dist * 100
-                                        end
-                                        table.insert(sortedTargets, {
-                                            x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                        })
-                                    end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-
-        end
+        -- _GetCompleteIconType, _CollectFinisherSpawns, _CollectObjective are hoisted
+        -- to module level above; no closures are created here.
 
         -- Main Logic Route for this quest target
         if isComplete then
@@ -694,7 +597,6 @@ function QuestieArrow:UpdateNearestTargets()
                 elseif quest.Finisher.Type == "object" and QuestieDB and QuestieDB.GetObject then
                     finisher = QuestieDB:GetObject(quest.Finisher.Id)
                 end
-                
                 _CollectFinisherSpawns(finisher, quest)
             end
             -- If the quest is complete, do not add normal objectives to the arrow!
