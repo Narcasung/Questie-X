@@ -30,9 +30,12 @@ ZoneDB.private.dungeons = ZoneDB.private.dungeons or {}
 ZoneDB.private.dungeonLocations = ZoneDB.private.dungeonLocations or {}
 ZoneDB.private.dungeonParentZones = ZoneDB.private.dungeonParentZones or {}
 ZoneDB.private.subZoneToParentZone = ZoneDB.private.subZoneToParentZone or {}
+-- O(1) reverse lookup: uiMapId -> areaId, built from uiMapIdToAreaId at init.
+ZoneDB.private.uiMapIdToAreaIdCache = ZoneDB.private.uiMapIdToAreaIdCache or {}
 
 local areaIdToUiMapId = ZoneDB.private.areaIdToUiMapId
 local uiMapIdToAreaId = ZoneDB.private.uiMapIdToAreaId
+local uiMapIdToAreaIdCache = ZoneDB.private.uiMapIdToAreaIdCache
 local dungeons = ZoneDB.private.dungeons
 local dungeonLocations = ZoneDB.private.dungeonLocations
 local dungeonParentZones = ZoneDB.private.dungeonParentZones
@@ -59,6 +62,7 @@ function ZoneDB:Initialize()
     end
 
     ZoneDB:ApplyCustomZones()
+    _ZoneDB:BuildUiMapIdToAreaIdCache()
     _ZoneDB:GenerateParentZoneToStartingZoneTable()
 
     -- Run tests if debug enabled
@@ -75,10 +79,25 @@ function ZoneDB:ApplyCustomZones()
             -- skip non-numeric keys
         elseif _ZoneDB.areaIdToUiMapId[uiMapId] == nil then
             _ZoneDB.areaIdToUiMapId[uiMapId] = uiMapId
+            -- Keep reverse cache in sync
+            if uiMapIdToAreaIdCache[uiMapId] == nil then
+                uiMapIdToAreaIdCache[uiMapId] = uiMapId
+            end
         end
 
         if data and type(data.parentMapID) == "number" and _ZoneDB.areaIdToUiMapId[data.parentMapID] == nil then
             _ZoneDB.areaIdToUiMapId[data.parentMapID] = uiMapId
+        end
+    end
+end
+
+-- Builds the O(1) uiMapId -> areaId reverse cache from the uiMapIdToAreaId table.
+-- Called once at Initialize() after all zone data is loaded.
+function _ZoneDB:BuildUiMapIdToAreaIdCache()
+    for areaUiMapId, areaId in next, uiMapIdToAreaId do
+        -- First entry wins (matches the original scan behaviour)
+        if uiMapIdToAreaIdCache[areaUiMapId] == nil then
+            uiMapIdToAreaIdCache[areaUiMapId] = areaId
         end
     end
 end
@@ -110,46 +129,36 @@ function ZoneDB:GetUiMapIdByAreaId(areaId)
     return nil
 end
 
---- Use with care, kind of slow.
 ---@param uiMapId UiMapId
 ---@return AreaId
 function ZoneDB:GetAreaIdByUiMapId(uiMapId)
-    --? Some areas have multiple areaIds, so we return the correct AreaId
+    -- Fast path: override table
     if UiMapIdOverrides[uiMapId] then
         return UiMapIdOverrides[uiMapId]
     end
 
-    local foundId
-    -- First we look for a direct match
-    for AreaUiMapId, lAreaId in next, uiMapIdToAreaId do
-        local areaId = lAreaId
-        if (AreaUiMapId == uiMapId and not foundId) then
-            foundId = areaId
-        elseif AreaUiMapId == uiMapId and foundId ~= AreaUiMapId then
-            -- If we find a second match that does not match the first
-            -- Only print if debug is enabled.
-            if Questie.db.profile.debugEnabled then
-                Questie:Error("[ZoneDB:GetAreaIdByUiMapId] : ", "UiMapId", uiMapId, "has multiple AreaIds:", foundId, areaId)
-            end
-        end
-    end
-    if foundId then
-        return foundId
-    else
-        -- As a last resort we try to match AreaId and UiMapId by name
+    -- Fast path: O(1) pre-built reverse cache
+    local cached = uiMapIdToAreaIdCache[uiMapId]
+    if cached then return cached end
+
+    -- Slow fallback: name-based lookup (only for unmapped IDs, result is cached for next time)
+    local mapInfo = C_Map.GetMapInfo(uiMapId)
+    if mapInfo then
         for areaId in next, areaIdToUiMapId do
-            local mapInfo = C_Map.GetMapInfo(uiMapId)
             local areaName = C_Map.GetAreaInfo(areaId)
-            if mapInfo and mapInfo.name == areaName then
+            if mapInfo.name == areaName then
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[ZoneDB:GetAreaIdByUiMapId] : ", "Found AreaId", areaName, ":", areaId, "for UiMapId", mapInfo.name, ":", uiMapId, "by name")
+                -- Cache the result so we don't scan again
+                uiMapIdToAreaIdCache[uiMapId] = areaId
                 return areaId
             end
         end
-        if Questie.db.profile.debugEnabled then
-            Questie:Debug(Questie.DEBUG_DEVELOP, "No AreaId found for UiMapId: " .. uiMapId .. ":" .. (C_Map.GetMapInfo(uiMapId) and C_Map.GetMapInfo(uiMapId).name or "nil"))
-        end
-        return nil
     end
+
+    if Questie.db.profile.debugEnabled then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "No AreaId found for UiMapId: " .. uiMapId .. ":" .. (mapInfo and mapInfo.name or "nil"))
+    end
+    return nil
 end
 
 ---@param areaId AreaId
