@@ -73,7 +73,7 @@ function ZoneDB:ApplyCustomZones()
     for uiMapId, data in pairs(QuestieCompat.UiMapData) do
         if not uiMapId or type(uiMapId) ~= "number" then
             -- skip non-numeric keys
-        elseif uiMapId > 1000 and _ZoneDB.areaIdToUiMapId[uiMapId] == nil then
+        elseif _ZoneDB.areaIdToUiMapId[uiMapId] == nil then
             _ZoneDB.areaIdToUiMapId[uiMapId] = uiMapId
         end
 
