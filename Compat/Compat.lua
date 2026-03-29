@@ -1325,7 +1325,9 @@ end
 function QuestieCompat:QuestieTooltips_RegisterObjectiveTooltip(questId, key, objective)
     if string.find(key, "m_") then
         local name = QuestieDB.QueryNPCSingle(tonumber(string.sub(key, 3)), "name")
-        npActiveQuestNPCs[name] = key
+        if name then
+            npActiveQuestNPCs[name] = key
+        end
     end
 end
 
