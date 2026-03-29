@@ -95,16 +95,33 @@ function HBD:GetZoneDistance(oZone, oX, oY, dZone, dX, dY)
     return self:GetWorldDistance(oInstance, oX, oY, dX, dY)
 end
 
+-- Position cache: avoid hammering the C API more than 20 times per second.
+-- These are invalidated on zone-change events below.
+local _pos_cache_interval = 0.05
+local _pzp_x, _pzp_y, _pzp_mapID, _pzp_time = nil, nil, nil, 0
+local _pwp_x, _pwp_y, _pwp_inst, _pwp_time = nil, nil, nil, 0
+
 --- Get the current world position of the player
 -- The position is transformed to the current continent, if applicable
 -- @return x, y, instanceID
 function HBD:GetPlayerWorldPosition()
-    local x, y, uiMapID = HBD:GetPlayerZonePosition()
-    if not x or not y then return nil, nil, nil end
+    local now = GetTime()
+    if now - _pwp_time < _pos_cache_interval then
+        return _pwp_x, _pwp_y, _pwp_inst
+    end
 
-    x, y, instanceID = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
-    if x and y then
-        return x, y, instanceID
+    local x, y, uiMapID = HBD:GetPlayerZonePosition()
+    if not x or not y then
+        _pwp_x, _pwp_y, _pwp_inst = nil, nil, nil
+        _pwp_time = now
+        return nil, nil, nil
+    end
+
+    local wx, wy, inst = HBD:GetWorldCoordinatesFromZone(x, y, uiMapID)
+    _pwp_x, _pwp_y, _pwp_inst = wx, wy, inst
+    _pwp_time = now
+    if wx and wy then
+        return wx, wy, inst
     end
     return nil, nil, nil
 end
@@ -121,13 +138,24 @@ end
 -- @param allowOutOfBounds Allow coordinates to go beyond the current map (ie. outside of the 0-1 range), otherwise nil will be returned
 -- @return x, y, uiMapID, mapType
 function HBD:GetPlayerZonePosition(allowOutOfBounds)
-    -- get the current position
+    local now = GetTime()
+    if now - _pzp_time < _pos_cache_interval then
+        return _pzp_x, _pzp_y, _pzp_mapID
+    end
+
     local uiMapID, x, y = QuestieCompat.GetCurrentPlayerPosition()
+    _pzp_x, _pzp_y, _pzp_mapID = x, y, uiMapID
+    _pzp_time = now
 
     if uiMapID and x and y then
         return x, y, uiMapID
     end
     return nil, nil, nil, nil
+end
+
+local function _InvalidatePositionCache()
+    _pzp_time = 0
+    _pwp_time = 0
 end
 
 -- Data Constants
@@ -598,11 +626,13 @@ local function OnEventHandler(frame, event, ...)
         -- recheck cvars after login
         rotateMinimap = GetCVar("rotateMinimap") == "1"
     elseif event == "PLAYER_ENTERING_WORLD" then
+        _InvalidatePositionCache()
         UpdateMinimap()
         UpdateWorldMap()
     elseif event == "WORLD_MAP_UPDATE" then
         UpdateWorldMap()
     elseif string.find(event, "ZONE_CHANGED") then
+        _InvalidatePositionCache()
         UpdateMinimap()
         UpdateWorldMap()
     end

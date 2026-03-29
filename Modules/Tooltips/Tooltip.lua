@@ -34,6 +34,12 @@ QuestieTooltips.lookupKeysByQuestId = {
 }
 
 local MAX_GROUP_MEMBER_COUNT = 6
+-- Throttle: limit the OnUpdate object-tooltip check to 10 times per second.
+-- Without this, the callback fires every frame (60–144 Hz) and hammers GetText()
+-- + CountTooltip() even when the tooltip hasn't changed.
+local _tooltipUpdateInterval = 0.10
+local _tooltipLastUpdate = 0
+local _tooltipLastText = ""
 
 local _InitObjectiveTexts
 
@@ -491,28 +497,34 @@ function QuestieTooltips:Initialize()
         end
     end)
 
-    -- Fired whenever the cursor hovers something with a tooltip. And then on every frame
+    -- Fired whenever the cursor hovers something with a tooltip. And then on every frame.
+    -- Throttled to _tooltipUpdateInterval (100ms) to avoid per-frame C API pressure.
     GameTooltip:HookScript("OnUpdate", function(self)
         if QuestiePlayer.numberOfGroupMembers > MAX_GROUP_MEMBER_COUNT then
-            -- When in a raid, we want as little code running as possible
             return
         end
 
+        local now = GetTime()
+        if now - _tooltipLastUpdate < _tooltipUpdateInterval then return end
+        _tooltipLastUpdate = now
+
         if (not self.IsForbidden) or (not self:IsForbidden()) then
-            --Because this is an OnUpdate we need to check that it is actually not a Unit or Item to think its a
+            -- Only fires for non-unit, non-item, non-spell tooltips (i.e. object/world tooltips)
             local uName, unit = self:GetUnit()
             local iName, link = self:GetItem()
             local sName, spell = self:GetSpell()
-            if (uName == nil and unit == nil and iName == nil and link == nil and sName == nil and spell == nil) and (
-                    QuestieTooltips.lastGametooltip ~= GameTooltipTextLeft1:GetText() or
-                    (not QuestieTooltips.lastGametooltipCount) or
-                    _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount
-                    or QuestieTooltips.lastGametooltipType ~= "object"
-                ) and (not self.ShownAsMapIcon) then -- We are hovering over a Questie map icon which adds it's own tooltip
-                _QuestieTooltips:AddObjectDataToTooltip(GameTooltipTextLeft1:GetText())
-                QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
+            if (uName == nil and unit == nil and iName == nil and link == nil and sName == nil and spell == nil) and (not self.ShownAsMapIcon) then
+                local currentText = GameTooltipTextLeft1:GetText()
+                if currentText ~= _tooltipLastText
+                    or (not QuestieTooltips.lastGametooltipCount)
+                    or _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount
+                    or QuestieTooltips.lastGametooltipType ~= "object" then
+                    _QuestieTooltips:AddObjectDataToTooltip(currentText)
+                    QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
+                    _tooltipLastText = currentText
+                end
+                QuestieTooltips.lastGametooltip = currentText
             end
-            QuestieTooltips.lastGametooltip = GameTooltipTextLeft1:GetText()
         end
     end)
 end

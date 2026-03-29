@@ -65,7 +65,10 @@ local rateLimitQueue = {}
 
 -- Deduplication & Quarantine
 local messageCache = {}
+local messageCacheCount = 0  -- O(1) counter; avoids pairs() scan on every message
 local incomingMessageQueue = {}
+-- Cached hidden channel ID (avoids GetChannelName every ProcessQueues tick)
+local _hiddenChannelId = 0
 
 -- Sender Trust System
 local senderTrust = {}
@@ -124,10 +127,11 @@ local function IsDuplicateMessage(serializedData)
 
     if messageCache[hash] then return true end
 
-    local count = 0
-    for _ in pairs(messageCache) do count = count + 1 end
-    if count > 500 then
+    -- O(1) size tracking via explicit counter
+    messageCacheCount = messageCacheCount + 1
+    if messageCacheCount > 500 then
         messageCache = {}
+        messageCacheCount = 0
     end
 
     messageCache[hash] = true
@@ -149,9 +153,11 @@ function QuestieLearnerComms:Initialize()
         ChatFrame_RemoveChannel(DEFAULT_CHAT_FRAME, hiddenChannelName)
         DebugLog("CRITICAL", "Joined hidden data-sharing channel: " .. hiddenChannelName)
     end
+    -- Cache for use in ProcessQueues (avoids GetChannelName every tick)
+    _hiddenChannelId = GetChannelName(hiddenChannelName) or 0
 
     -- Process incoming/outgoing queues 
-    QuestieCompat.C_Timer.NewTicker(0.2, function() _QuestieLearnerComms:ProcessQueues() end)
+    QuestieCompat.C_Timer.NewTicker(0.5, function() _QuestieLearnerComms:ProcessQueues() end)
 
     -- Start Reinforcement Loop (every 60 seconds)
     QuestieCompat.C_Timer.NewTicker(60, function() _QuestieLearnerComms:ProcessReinforcement() end)
@@ -209,7 +215,7 @@ function QuestieLearnerComms:BroadcastLearnedData(op, entityType, entityId, data
         return
     end
     serialized = err
-    local compressed = LibDeflate:CompressDeflate(serialized, {level = 9})
+    local compressed = LibDeflate:CompressDeflate(serialized, {level = 1})
     local encoded = LibDeflate:EncodeForPrint(compressed)
 
     -- 3. Broadcast (Token Bucket logic handled in QueueMessage)
@@ -224,28 +230,30 @@ function _QuestieLearnerComms:ProcessQueues()
     -- 1. Refill Tokens
     local now = GetTime()
     local elapsed = now - lastTokenUpdate
-    currentTokens = math.min(bucketCapacity, currentTokens + (elapsed * tokenRefillRate))
+    currentTokens = math_min(bucketCapacity, currentTokens + (elapsed * tokenRefillRate))
     lastTokenUpdate = now
 
     -- 2. Drain Outgoing Queue
-    if table.getn(rateLimitQueue) > 0 and currentTokens >= 1 and (now - lastChatMessageTime) >= minChatInterval then
-        local msg = table.remove(rateLimitQueue, 1)
+    if table_getn(rateLimitQueue) > 0 and currentTokens >= 1 and (now - lastChatMessageTime) >= minChatInterval then
+        local msg = table_remove(rateLimitQueue, 1)
         currentTokens = currentTokens - 1
         lastChatMessageTime = now
         
-        -- Send via Hidden Channel (Global reach)
-        local channelId = GetChannelName(hiddenChannelName)
-        if channelId > 0 then
-            SendChatMessage(msg, "CHANNEL", nil, channelId)
+        -- Use cached channel ID; refresh lazily if 0 (e.g. after disconnect)
+        if _hiddenChannelId == 0 then
+            _hiddenChannelId = GetChannelName(hiddenChannelName) or 0
         end
-        DebugLog("DEVELOP", "Broadcasted message. Tokens left: " .. math.floor(currentTokens))
+        if _hiddenChannelId > 0 then
+            SendChatMessage(msg, "CHANNEL", nil, _hiddenChannelId)
+        end
+        DebugLog("DEVELOP", "Broadcasted message. Tokens left: " .. math_floor(currentTokens))
     end
 
     -- 3. Process Incoming Queue (Combat Aware)
     local processCount = InCombatLockdown() and 2 or 6
     for i = 1, processCount do
-        if table.getn(incomingMessageQueue) == 0 then break end
-        local rawMsg = table.remove(incomingMessageQueue, 1)
+        if table_getn(incomingMessageQueue) == 0 then break end
+        local rawMsg = table_remove(incomingMessageQueue, 1)
         _QuestieLearnerComms:ProcessRawMessage(rawMsg.text, rawMsg.sender)
     end
 end
