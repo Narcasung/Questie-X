@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.5.5 (2026-03-29)
+
+### Performance — Profiler-Driven Optimizations
+
+Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-frequency NPC/player mouseover interactions. Five targeted fixes based on profiler data.
+
+- **[Perf — Position Caching]** Cached `HBD:GetPlayerWorldPosition()` and `HBD:GetPlayerZonePosition()` at a 50ms interval (20 Hz). Previously these called `QuestieCompat.GetCurrentPlayerPosition()` — a C API round-trip — on every minimap `OnUpdate` frame (60–144 times/sec), accounting for **1,171ms / 45,570 calls** over 10 minutes in profiler data. Cache is invalidated immediately on `PLAYER_ENTERING_WORLD` and `ZONE_CHANGED_*` events. Expected call reduction: ~97%.
+
+- **[Perf — ZoneDB O(1) Lookup]** Replaced the O(n) linear scan in `ZoneDB:GetAreaIdByUiMapId` with an O(1) pre-built reverse lookup cache (`uiMapIdToAreaIdCache`). The old implementation iterated the entire `uiMapIdToAreaId` table on every call, accounting for **6.92ms / 375 calls** in the profiler (called by `QuestieArrow` and `QuestiePlayer`). The cache is built once at `ZoneDB:Initialize()` via a new `_ZoneDB:BuildUiMapIdToAreaIdCache()` function and kept in sync by `ApplyCustomZones()`. The name-match fallback remains available for unmapped IDs and now caches its results on first use.
+
+- **[Perf — Tooltip OnUpdate Throttle]** Throttled the `GameTooltip:HookScript("OnUpdate", ...)` callback to a maximum of **10 checks per second** (100ms interval). This hook was previously firing every frame (60–144 Hz) and calling `GetText()`, `CountTooltip()`, and potentially `AddObjectDataToTooltip()` on every frame regardless of whether the tooltip changed. Added a `_tooltipLastText` cache so expensive work is skipped when the hovered object hasn't changed.
+
+- **[Perf — Arrow Closure Hoisting]** Hoisted four inner `local function` declarations out of `_CollectQuestTargets` (called at 1 Hz by `QuestieArrow:UpdateNearestTargets`): `_HasMissingCompletedFlag`, `_GetCompleteIconType`, `_CollectFinisherSpawns`, and `_CollectObjective`. These were re-allocated as closures on every call, producing GC pressure. They are now module-level functions that read per-cycle context from shared `_arrow_*` upvalue variables set at the start of each `UpdateNearestTargets` call.
+
+- **[Perf — LearnerComms Micro-Optimizations]** Four targeted fixes in `QuestieLearnerComms`:
+  - **Ticker rate**: `ProcessQueues` ticker reduced from 0.2s to 0.5s (still 7× faster than the 3.5s `minChatInterval` rate limit, so no messages are delayed).
+  - **Channel ID caching**: Hidden channel ID is now cached at `Initialize()` and lazily refreshed on disconnect, instead of calling `GetChannelName` on every queue tick.
+  - **Compression level**: `LibDeflate:CompressDeflate` level reduced from 9 (slowest/max) to 1 (fastest). For small addon message payloads the size difference is negligible but the CPU cost is substantially lower.
+  - **Dedup counter**: `IsDuplicateMessage` now uses an O(1) integer counter (`messageCacheCount`) to track cache size instead of an O(n) `for _ in pairs(messageCache)` scan on every incoming message.
+
 ## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support
