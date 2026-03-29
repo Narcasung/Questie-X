@@ -7,6 +7,7 @@
 - **[Fix — Killcredit NPC Linking]** Enhanced `killcredit` objective handling to properly link NPCs when database entries have missing or invalid IDs. Added two-pass approach: first tries ID-based lookup, then falls back to name-based search using the objective description text. Also fixed `monster` function to gracefully handle `npcId <= 0` instead of erroring.
 - **[Feature — Existing Quest Scanning]** Added `ScanExistingQuestLog` function to proactively map objectives for quests already in the quest log on addon initialization. Previously, objective mapping only occurred for newly accepted quests.
 - **[Fix — AceComm-3.0]** Added nil check for `RegisterAddonMessagePrefix` on private servers where this API may not be available.
+- **[Feature — Use Quest Item Keybind]** Added configurable keyboard hotkey to automatically use the quest item for the nearest incomplete quest objective. When pressed, Questie scans active quests for usable quest items (items with spells), checks which ones are in the player's bags, calculates proximity to quest objectives, and uses the nearest one. Configurable via Tracker options tab.
 
 ## v1.5.0 (2026-03-28)
 

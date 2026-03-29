@@ -656,41 +656,7 @@ local function _GetContinent(uiMapId)
     end
 end
 
-local function _GetZoneName(zoneOrSort, questId)
-    if not zoneOrSort then return "Unknown Zone" end
-    local zoneName
-    local sortObj = Questie.db.profile.trackerSortObjectives
-    if sortObj == "byZone" or sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
-        if (zoneOrSort) > 0 then
-            -- Valid ZoneID
-            zoneName = TrackerUtils:GetZoneNameByID(zoneOrSort)
-        elseif (zoneOrSort) < 0 then
-            -- Valid CategoryID
-            zoneName = TrackerUtils:GetCategoryNameByID(zoneOrSort)
-        else
-            -- The quest has no explicit zone or category. Fallback to "Unknown Zone"
-            zoneName = "Unknown Zone"
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest",
-                questId, "is not in the Database!")
-        end
-    else
-        -- Let's create custom Zones based on Sorting type.
-        if sortObj == "byComplete" then
-            zoneName = "Quests (By %% Complete)"
-        elseif sortObj == "byCompleteReversed" then
-            zoneName = "Quests (By %% Complete Reversed)"
-        elseif sortObj == "byLevel" then
-            zoneName = "Quests (By Level)"
-        elseif sortObj == "byLevelReversed" then
-            zoneName = "Quests (By Level Reversed)"
-        elseif sortObj == "byProximity" then
-            zoneName = "Quests (By Proximity)"
-        elseif sortObj == "byProximityReversed" then
-            zoneName = "Quests (By Proximity Reversed)"
-        end
-    end
-    return zoneName
-end
+
 
 ---@return table sortedQuestIds Table with sorted Quest ID's by Sort Type
 ---@return table questDetails Table with raw quest table from QuestiePlayer.currentQuestLog, percentage completed value per quest, and a "translated" zoneName
@@ -725,6 +691,47 @@ local function GetQuestLogZoneName(questId)
         end
     end
     return nil
+end
+
+local function _GetZoneName(zoneOrSort, questId, zoneNameOverride)
+    if zoneNameOverride and zoneNameOverride ~= "" then
+        return zoneNameOverride
+    end
+    if not zoneOrSort then return "Unknown Zone" end
+    local zoneName
+    local sortObj = Questie.db.profile.trackerSortObjectives
+    if sortObj == "byZone" or sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
+        if (zoneOrSort) > 0 then
+            zoneName = TrackerUtils:GetZoneNameByID(zoneOrSort)
+            if not zoneName or zoneName == "Unknown Zone" then
+                local logZone = GetQuestLogZoneName(questId)
+                if logZone then
+                    zoneName = logZone
+                end
+            end
+        elseif (zoneOrSort) < 0 then
+            zoneName = TrackerUtils:GetCategoryNameByID(zoneOrSort)
+        else
+            zoneName = "Unknown Zone"
+            Questie:Debug(Questie.DEBUG_CRITICAL, "[TrackerUtils:_GetZoneName] zoneOrSort", zoneOrSort, "of quest",
+                questId, "is not in the Database!")
+        end
+    else
+        if sortObj == "byComplete" then
+            zoneName = "Quests (By %% Complete)"
+        elseif sortObj == "byCompleteReversed" then
+            zoneName = "Quests (By %% Complete Reversed)"
+        elseif sortObj == "byLevel" then
+            zoneName = "Quests (By Level)"
+        elseif sortObj == "byLevelReversed" then
+            zoneName = "Quests (By Level Reversed)"
+        elseif sortObj == "byProximity" then
+            zoneName = "Quests (By Proximity)"
+        elseif sortObj == "byProximityReversed" then
+            zoneName = "Quests (By Proximity Reversed)"
+        end
+    end
+    return zoneName
 end
 
 -- Returns nil if the quest is not currently in the quest log.
@@ -763,6 +770,10 @@ function TrackerUtils:BuildFallbackQuest(questId)
                 end
             end
             local zoneId = (zoneText and GetAreaIdByZoneName(zoneText)) or 0
+            local zoneNameOverride = nil
+            if zoneText and (not zoneId or zoneId == 0) then
+                zoneNameOverride = zoneText
+            end
 
             local quest = {
                 Id               = questId,
@@ -770,6 +781,7 @@ function TrackerUtils:BuildFallbackQuest(questId)
                 level            = level or 0,
                 zoneOrSort       = zoneId,
                 zoneName         = zoneText,
+                zoneNameOverride = zoneNameOverride,
                 Objectives       = objectives,
                 SpecialObjectives = {},
                 isFallback       = true,
@@ -829,7 +841,13 @@ function TrackerUtils:GetSortedQuestIds()
                     local logZone = GetQuestLogZoneName(capturedId)
                     if logZone then
                         quest.zoneName = logZone
-                        quest.zoneOrSort = GetAreaIdByZoneName(logZone) or 0
+                        local areaId = GetAreaIdByZoneName(logZone)
+                        if areaId and areaId > 0 then
+                            quest.zoneOrSort = areaId
+                        else
+                            quest.zoneOrSort = 0
+                            quest.zoneNameOverride = logZone
+                        end
                     end
                 end
                 QuestiePlayer.currentQuestlog[qid] = quest
@@ -860,7 +878,7 @@ function TrackerUtils:GetSortedQuestIds()
             -- Create questDetails table keys and insert values
             questDetails[qid] = {}
             questDetails[qid].quest = quest
-            questDetails[qid].zoneName = quest.zoneName or _GetZoneName(quest.zoneOrSort, qid)
+            questDetails[qid].zoneName = _GetZoneName(quest.zoneOrSort, qid, quest.zoneNameOverride)
 
             if quest:IsComplete() == 1 or (not next(quest.Objectives)) then
                 questDetails[qid].questCompletePercent = 1
@@ -1277,5 +1295,72 @@ function TrackerUtils:UpdateVoiceOverPlayButtons()
                 end
             end
         end
+    end
+end
+
+function TrackerUtils:UseNearestQuestItem()
+    if InCombatLockdown() then
+        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Cannot use items while in combat")
+        return
+    end
+
+    local playerPosition = _GetWorldPlayerPosition()
+    if not playerPosition then
+        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Could not get player position")
+        return
+    end
+
+    local bestDistance = math.huge
+    local bestQuestIndex = nil
+    local bestItemName = nil
+
+    local numEntries, numQuests = GetNumQuestLogEntries()
+
+    for i = 1, numEntries do
+        local title, level, questTag, isHeader, isCollapsed, isComplete, isDaily, questId = GetQuestLogTitle(i)
+
+        if not isHeader and questId then
+            local itemInfo = GetQuestLogSpecialItemInfo(i)
+
+            if itemInfo then
+                local itemName
+                if type(itemInfo) == "string" then
+                    itemName = itemInfo
+                else
+                    itemName = tostring(itemInfo)
+                end
+
+                local quest = QuestieDB.GetQuest(questId)
+                if quest and quest:IsComplete() ~= 1 then
+                    local spawn, zone = QuestieMap:GetNearestQuestSpawn(quest)
+                    if spawn and zone then
+                        local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                        if uiMapId then
+                            local _, worldPosition = C_Map.GetWorldPosFromMapPos(uiMapId, {
+                                x = spawn[1] / 100,
+                                y = spawn[2] / 100
+                            })
+
+                            if worldPosition then
+                                local distance = _GetDistance(playerPosition.x, playerPosition.y, worldPosition.x, worldPosition.y)
+
+                                if distance < bestDistance then
+                                    bestDistance = distance
+                                    bestQuestIndex = i
+                                    bestItemName = itemName
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if bestQuestIndex and bestItemName then
+        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] Using item:", bestItemName, "for quest index:", bestQuestIndex, "distance:", bestDistance)
+        UseItemByName(bestItemName)
+    else
+        Questie:Debug(Questie.DEBUG_INFO, "[TrackerUtils:UseNearestQuestItem] No usable quest item found")
     end
 end
