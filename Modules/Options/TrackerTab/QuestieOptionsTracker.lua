@@ -573,20 +573,6 @@ function QuestieOptions.tabs.tracker:Initialize()
                             Questie.db.profile.trackerbindSetTomTom = key
                         end
                     },
-                    useQuestItemKeybind = {
-                        type = "keybinding",
-                        order = 10.5,
-                        name = function() return l10n('Use Quest Item (Nearest)') end,
-                        desc = function() return l10n('Press this keybind to automatically use a quest item for the nearest incomplete quest objective. The item must be in your bags and be a usable quest item (trigger a spell when used).') end,
-                        disabled = function() return not Questie.db.profile.trackerEnabled end,
-                        get = function() return Questie.db.profile.useQuestItemKeybind end,
-                        set = function(_, key)
-                            Questie.db.profile.useQuestItemKeybind = key
-                            if QuestieTracker_UpdateQuestItemKeybind then
-                                QuestieTracker_UpdateQuestItemKeybind()
-                            end
-                        end
-                    },
                     trackerSetpoint = {
                         type = "select",
                         order = 11,
