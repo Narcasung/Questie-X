@@ -218,6 +218,8 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
         uiMapId, data = next(customUiMapData.uiMapData, uiMapId)
     end
 
+    ZoneDB:ApplyCustomZones()
+
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestiePluginAPI] Plugin '" .. self.name .. "' injected Custom UI Map Data.")
 end
 
