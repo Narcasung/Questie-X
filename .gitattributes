@@ -13,3 +13,4 @@ RELEASE_NOTES.md export-ignore
 changelog.html export-ignore
 .agent/ export-ignore
 *.json export-ignore
+verify_*.lua export-ignore
