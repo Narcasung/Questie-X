@@ -7,3 +7,9 @@
 .git_disabled/ export-ignore
 Tools/ export-ignore
 docs/ export-ignore
+README.md export-ignore
+CHANGELOG.md export-ignore
+RELEASE_NOTES.md export-ignore
+changelog.html export-ignore
+.agent/ export-ignore
+*.json export-ignore

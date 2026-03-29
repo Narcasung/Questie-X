@@ -36,3 +36,5 @@ __pycache__/
 *.tmp
 *.bak
 *.old
+.agent/
+*.json
