@@ -68,9 +68,6 @@ function ZoneDB:Initialize()
 end
 
 function ZoneDB:ApplyCustomZones()
-    if _ZoneDB.customZonesApplied then return end
-    _ZoneDB.customZonesApplied = true
-
     if not QuestieCompat or not QuestieCompat.UiMapData then return end
 
     for uiMapId, data in pairs(QuestieCompat.UiMapData) do
