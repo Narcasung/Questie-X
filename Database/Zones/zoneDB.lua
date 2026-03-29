@@ -410,4 +410,14 @@ function _ZoneDB:RunTests()
     Questie:Debug(Questie.DEBUG_CRITICAL, "[" .. Questie:Colorize("ZoneDBTests", "yellow") .. "] Testing ZoneDB done")
 end
 
+do
+    local originalZoneInitialize = ZoneDB.Initialize
+    if type(originalZoneInitialize) == "function" then
+        function ZoneDB:Initialize(...)
+            ZoneDB:ApplyCustomZones()
+            return originalZoneInitialize(self, ...)
+        end
+    end
+end
+
 return ZoneDB
