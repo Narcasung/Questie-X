@@ -24,19 +24,21 @@ local isDraggingButton = false
 
 function lib:IconCallback(event, name, key, value)
 	if lib.objects[name] then
+		local icon = lib.objects[name].icon
+		if not icon then return end
 		if key == "icon" then
-			lib.objects[name].icon:SetTexture(value)
+			icon:SetTexture(value)
 		elseif key == "iconCoords" then
-			lib.objects[name].icon:UpdateCoord()
+			if icon.UpdateCoord then icon:UpdateCoord() end
 		elseif key == "iconR" then
-			local _, g, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(value, g, b)
+			local _, g, b = icon:GetVertexColor()
+			icon:SetVertexColor(value, g, b)
 		elseif key == "iconG" then
-			local r, _, b = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, value, b)
+			local r, _, b = icon:GetVertexColor()
+			icon:SetVertexColor(r, value, b)
 		elseif key == "iconB" then
-			local r, g = lib.objects[name].icon:GetVertexColor()
-			lib.objects[name].icon:SetVertexColor(r, g, value)
+			local r, g = icon:GetVertexColor()
+			icon:SetVertexColor(r, g, value)
 		end
 	end
 end
@@ -147,12 +149,16 @@ end
 
 local function onMouseDown(self)
 	self.isMouseDown = true
-	self.icon:UpdateCoord()
+	if self.icon and self.icon.UpdateCoord then
+		self.icon:UpdateCoord()
+	end
 end
 
 local function onMouseUp(self)
 	self.isMouseDown = false
-	self.icon:UpdateCoord()
+	if self.icon and self.icon.UpdateCoord then
+		self.icon:UpdateCoord()
+	end
 end
 
 do
@@ -176,7 +182,9 @@ do
 	function onDragStart(self)
 		self:LockHighlight()
 		self.isMouseDown = true
-		self.icon:UpdateCoord()
+		if self.icon and self.icon.UpdateCoord then
+			self.icon:UpdateCoord()
+		end
 		self:SetScript("OnUpdate", onUpdate)
 		isDraggingButton = true
 		lib.tooltip:Hide()
@@ -192,7 +200,9 @@ end
 local function onDragStop(self)
 	self:SetScript("OnUpdate", nil)
 	self.isMouseDown = false
-	self.icon:UpdateCoord()
+	if self.icon and self.icon.UpdateCoord then
+		self.icon:UpdateCoord()
+	end
 	self:UnlockHighlight()
 	isDraggingButton = false
 	for _, button in next, lib.objects do
