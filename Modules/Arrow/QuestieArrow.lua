@@ -155,6 +155,9 @@ end
 
 local function EnsureArrowFrame()
     if arrowFrame then
+        -- Apply current scale and alpha settings even if frame already exists
+        arrowFrame:SetScale(_GetArrowScale())
+        arrowFrame:SetAlpha(_GetArrowAlpha())
         return
     end
 
@@ -767,12 +770,11 @@ end
 
 function QuestieArrow:ResetPosition()
     Questie.db.profile.arrowPosition = nil
-    -- Destroy and recreate the arrow frame to apply default position
+    -- Reset to default center position
     if arrowFrame then
-        arrowFrame:Hide()
         arrowFrame:ClearAllPoints()
         arrowFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
-        arrowFrame:Show()
+        arrowFrame._useDefaultPosition = true
     end
 end
 
