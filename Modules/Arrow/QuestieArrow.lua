@@ -770,11 +770,26 @@ end
 
 function QuestieArrow:ResetPosition()
     Questie.db.profile.arrowPosition = nil
-    -- Reset to default center position
+    -- Ensure frame exists, then reset to default center position
+    EnsureArrowFrame()
     if arrowFrame then
         arrowFrame:ClearAllPoints()
         arrowFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
         arrowFrame._useDefaultPosition = true
+    end
+end
+
+function QuestieArrow:ApplyScale()
+    EnsureArrowFrame()
+    if arrowFrame then
+        arrowFrame:SetScale(_GetArrowScale())
+    end
+end
+
+function QuestieArrow:ApplyAlpha()
+    EnsureArrowFrame()
+    if arrowFrame then
+        arrowFrame:SetAlpha(_GetArrowAlpha())
     end
 end
 

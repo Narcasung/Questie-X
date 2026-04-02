@@ -56,8 +56,8 @@ function QuestieOptions.tabs.arrow:Initialize()
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
                     Questie.db.profile.arrowScale = value
-                    if QuestieArrow and QuestieArrow.Refresh then
-                        QuestieArrow:Refresh()
+                    if QuestieArrow and QuestieArrow.ApplyScale then
+                        QuestieArrow:ApplyScale()
                     end
                 end,
             },
@@ -73,8 +73,8 @@ function QuestieOptions.tabs.arrow:Initialize()
                 get = function() return Questie.db.profile.arrowAlpha or 1.0 end,
                 set = function(_, value)
                     Questie.db.profile.arrowAlpha = value
-                    if QuestieArrow and QuestieArrow.Refresh then
-                        QuestieArrow:Refresh()
+                    if QuestieArrow and QuestieArrow.ApplyAlpha then
+                        QuestieArrow:ApplyAlpha()
                     end
                 end,
             },
