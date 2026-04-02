@@ -1,19 +1,31 @@
-workflow/
+# IDE
 .idea/
-*.iml
 .vscode/
+*.iml
 .DS_Store
+
+# Build artifacts
 *.zip
+*.log
+*.tmp
+*.bak
+*.old
+
+# Scripts
 *.py
 *.js
 *.ps1
-*.txt
+tmp_*.py
+release_notes.txt
+
+# Docs
 !README.md
 !CHANGELOG.md
 !RELEASE_NOTES.md
 !LICENSE
 !Icons/MIT.txt
 
+# Dev files
 coords.lua
 debug.lua
 debug_tooltip.lua
@@ -23,19 +35,10 @@ Research/
 Tools/
 tests/
 Tests/
-!docs/changelog.html
-tmp_*.py
-release_notes.txt
 workflow/
 __pycache__/
 .agents/
-.idea/
-.vscode/
-*.zip
-*.log
-*.tmp
-*.bak
-*.old
-.agent/
-*.json
 .kilocode/
+
+# Assets that shouldn't be in source
+# (Icons/* are needed for release)
