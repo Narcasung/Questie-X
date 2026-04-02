@@ -51,6 +51,8 @@ function QuestieOptionsDefaults:Load()
             questMinimapObjectiveColors = false,
             arrowEnabled = true,
             arrowScale = 1,
+            arrowAlpha = 1.0,
+            debugArrow = false,
             enableObjectives = true,
             enableTurnins = true,
             enableAvailable = true,

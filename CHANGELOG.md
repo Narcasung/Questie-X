@@ -1,5 +1,39 @@
 # Changelog
 
+## Questie-X - Arrow & Options Updates
+
+### New Features
+
+- Added new **Arrow** tab in Questie options with the following settings:
+  - Enable Arrow toggle
+  - Arrow Scale slider (0.5 - 2.0)
+  - Arrow Transparency slider (0.1 - 1.0)
+  - Auto-track Quests toggle
+  - Reset Arrow Position button
+  - Debug Arrow toggle (shows target info in chat)
+  - Print Current Target button
+  - Clear Target button
+  - Debug Print Arrow State button
+
+### Bug Fixes
+
+- **Arrow auto-tracking**: Fixed an issue where the zone filter was comparing zone IDs (e.g., 14) against area IDs (e.g., 1244), causing all spawns to be incorrectly filtered out. Zone filtering has been temporarily disabled until a proper fix can be implemented that correctly converts between zone ID systems.
+- **Arrow transparency**: Added support for arrow transparency/opacity setting.
+- **Debug output**: Fixed spam when debug arrow was enabled and no target was set.
+- **Nil safety**: Added nil checks for TrackedQuests and AutoUntrackedQuests tables.
+- **Options validation**: Fixed Spacer() function calls that were incorrectly passing 0.1 as hidden parameter.
+
+### Known Issues
+
+- Zone filtering is disabled for auto-tracking, which means the arrow may show objectives on other continents. A proper continent-based filter will be implemented in a future update.
+
+## v1.5.6 (2026-04-01)
+
+### Stability & Initialization
+
+- **[Fix — Options Crash]** Resolved a critical runtime error on WotLK 3.3.5a: `attempt to call method 'AddToBlizOptions' (a nil value)`. This was caused by the modern `AceConfigDialog-3.0` library attempting to use the Retail-only `Settings` API. A compatibility shim has been implemented in `!X-Libs` to bridge this call back to the native `InterfaceOptions_AddCategory` API.
+- **[Fix — Library Load Order]** Updated core library package to `!X-Libs` to ensure it loads before all other addons. This guarantees that `LibStub` is initialized and available for addons like `BugSack` that load very early in the sequence.
+
 ## v1.5.5 (2026-03-29)
 
 ### Performance — Profiler-Driven Optimizations
@@ -29,6 +63,7 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Perf — Tracker Cooldown Throttling]** Added a 5Hz (0.2s) execution throttle to the tracker quest item button `btn.OnUpdate` frame handler, dropping baseline `GetItemCooldown` API polls from ~6000+ checks every few minutes down to a fraction of that load.
 
 - **[Fix — Tooltip Duplicates]** Added aggressive regex filtering to automatically strip Ascension's duplicate native custom quest text lines from appearing twice in unit and item tooltips (Before Questie seamlessly injects its own higher-fidelity formatted data).
+
 ## v1.5.4 (2026-03-29)
 
 ### Ascension Custom Zone Support
@@ -134,21 +169,24 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Map Pin Gating]** Learned map pins (sword icons) now only appear after reaching a configurable confidence threshold (default: 2).
 - **[Confidence in Tooltips]** NPC and Object tooltips now display their confidence level (e.g., `(Learned - Confidence: 2)`).
 - **[Timestamp Tracking]** Added `lastSeen` (`ls`) timestamps to all learned entries to track data freshness.
- 
+
 ### QuestieLearnerComms.lua — Global Data Sharing
+
 - **[Community Reinforcement]** Expanded data sharing from Party/Guild to a global hidden channel. Confidence values (`mc`) now increment when identical data is received from other Questie users, allowing the community to verify spawns collectively.
 - **[Network Freshness]** Receiving data over the network now refreshes the `lastSeen` timestamp, keeping active community spawns from being pruned.
- 
+
 ### QuestieLearnerExport.lua — Tiered Stale Data Cleanup
+
 - **[Tiered Pruning]** Implemented a robust cleanup system that protects "Verified" (high-confidence) data from age-based deletion.
 - **[Age-Based Pruning]** "Unconfirmed" data is now automatically pruned if it hasn't been seen within a configurable timeframe (default: 90 days).
 - **[Redundancy Pruning]** Logic to remove data already present in the official Questie database now respects the `pruneVerified` toggle, allowing users to keep verified personal data even if it overlaps with the core DB.
- 
+
 ### QuestieOptionsDatabase.lua — Advanced Cleanup Controls
+
 - **[Stale Data Threshold]** Added a slider to control the age-pruning threshold (1-180 days) for unconfirmed data.
 - **[Verified Data Protection]** Added a toggle to include or exclude verified data from redundancy pruning.
 - **[UI Reorganization]** Refactored the Database tab's cleanup section for better logical flow and clarity.
- 
+
 ---
 
 ## v1.2.9 — QuestieLearner Cross-Link Engine + Tracker Zone Fix + Untrack Fix

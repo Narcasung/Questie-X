@@ -67,6 +67,13 @@ local function _GetArrowScale()
     return Questie.db.profile.arrowScale or 1
 end
 
+local function _GetArrowAlpha()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return 1.0
+    end
+    return Questie.db.profile.arrowAlpha or 1.0
+end
+
 local function _SetArrowScale(scale)
     if not Questie or not Questie.db or not Questie.db.profile then
         return
@@ -424,7 +431,8 @@ local function _CollectFinisherSpawns(finisher, quest)
                                     local zone = value[1]
                                     local x = value[2]
                                     local y = value[3]
-                                    if not (autoLogic and zone ~= pZone and zone ~= pMap) then
+                                    -- Zone filtering disabled (zone ID vs area ID mismatch)
+                                    if true then
                                         local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                                         if uiMapId and x and y then
                                             local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
@@ -442,7 +450,8 @@ local function _CollectFinisherSpawns(finisher, quest)
                                 end
                             end
                         else
-                            if not (autoLogic and finisherZone ~= pZone and finisherZone ~= pMap) then
+                            -- Zone filtering disabled (same zone ID vs area ID mismatch issue)
+                            if true then
                                 local x = coords[1]
                                 local y = coords[2]
                                 local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
@@ -467,7 +476,8 @@ local function _CollectFinisherSpawns(finisher, quest)
     end
     if finisher.waypoints then
         for zone, waypoints in pairs(finisher.waypoints) do
-            if not (autoLogic and zone ~= pZone and zone ~= pMap) then
+            -- Zone filtering disabled (same zone ID vs area ID mismatch issue)
+            if true then
                 if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                     local x = waypoints[1][1][1]
                     local y = waypoints[1][1][2]
@@ -501,18 +511,39 @@ local function _CollectObjective(objective, quest)
     end
     local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
     local autoLogic, pZone, pMap = _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
+    local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+    if debugCollect then
+        print(string.format("    _CollectObjective: spawnList=%s", objective.spawnList and "yes" or "nil"))
+    end
+    if not objective.spawnList then return end
     for _, spawnData in pairs(objective.spawnList) do
+        if debugCollect then
+            print(string.format("      spawnData=%s Spawns=%s", spawnData and "yes" or "nil", spawnData and spawnData.Spawns and "yes" or "nil"))
+        end
         if spawnData and spawnData.Spawns then
             for zone, spawns in pairs(spawnData.Spawns) do
-                if not (autoLogic and zone ~= pZone and zone ~= pMap) then
+                -- Zone filtering is disabled in auto mode because zone IDs and area IDs
+                -- are different systems that don't directly compare. The distance
+                -- calculation handles instance mismatches.
+                local zoneFiltered = false -- Disabled: autoLogic and zone ~= pZone and zone ~= pMap
+                if debugCollect then
+                    print(string.format("        zone=%s filtered=%s (pZone=%s pMap=%s)", tostring(zone), tostring(zoneFiltered), tostring(pZone), tostring(pMap)))
+                end
+                if not zoneFiltered then
                     for _, spawn in pairs(spawns) do
                         local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                        if debugCollect then
+                            print(string.format("          spawn=(%.1f,%.1f) uiMapId=%s", spawn[1], spawn[2], tostring(uiMapId)))
+                        end
                         if uiMapId then
                             local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(spawn[1] / 100.0, spawn[2] / 100.0, uiMapId)
                             if tX and tY and tInst then
                                 local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                                 if dist then
                                     if tInst ~= pInst then dist = 500000 + dist * 100 end
+                                    if debugCollect then
+                                        print(string.format("            ADDED dist=%.0f", dist))
+                                    end
                                     table.insert(sortedTargets, {
                                         x = spawn[1], y = spawn[2], uiMapId = uiMapId,
                                         title = quest.name, questLevel = quest.level,
@@ -563,6 +594,8 @@ function QuestieArrow:UpdateNearestTargets()
     local function _CollectQuestTargets(quest)
         if not quest then return end
 
+        local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+
         -- Avoid spamming QuestieQuest:PopulateQuestLogInfo (it can trigger marker rebuilds and flicker).
         -- Only populate when objective completion flags are missing, and throttle per quest id.
         if QuestieQuest and QuestieQuest.PopulateQuestLogInfo and quest.Id then
@@ -585,6 +618,14 @@ function QuestieArrow:UpdateNearestTargets()
         local isComplete = quest.isComplete or (QuestieDB.IsComplete(quest.Id) == 1)
         if isComplete then quest.isComplete = true end
 
+        if debugCollect then
+            print(string.format("  _CollectQuestTargets: %s isComplete=%s hasObjectives=%s hasSpecialObjectives=%s hasFinisher=%s",
+                tostring(quest.name), tostring(isComplete),
+                tostring(quest.Objectives ~= nil),
+                tostring(quest.SpecialObjectives ~= nil),
+                tostring(quest.Finisher ~= nil)))
+        end
+
         -- _GetCompleteIconType, _CollectFinisherSpawns, _CollectObjective are hoisted
         -- to module level above; no closures are created here.
 
@@ -604,11 +645,15 @@ function QuestieArrow:UpdateNearestTargets()
         end
 
         if quest.Objectives then
+            if debugCollect then print(string.format("    Collecting %d objectives", #quest.Objectives)) end
             for _, objective in pairs(quest.Objectives) do
                 _CollectObjective(objective, quest)
             end
+        else
+            if debugCollect then print("    No Objectives") end
         end
         if quest.SpecialObjectives then
+            if debugCollect then print(string.format("    Collecting %d special objectives", #quest.SpecialObjectives)) end
             for _, objective in pairs(quest.SpecialObjectives) do
                 _CollectObjective(objective, quest)
             end
@@ -616,22 +661,36 @@ function QuestieArrow:UpdateNearestTargets()
     end
 
     if QuestiePlayer and QuestiePlayer.currentQuestlog then
+        local debugCollect = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
         for questId, quest in pairs(QuestiePlayer.currentQuestlog) do
+            if debugCollect then
+                print(string.format("Processing questId=%d type=%s", questId, type(quest)))
+            end
+            if type(quest) == "number" then
+                if QuestieDB and QuestieDB.GetQuest then
+                    quest = QuestieDB.GetQuest(questId)
+                end
+            end
             if type(quest) == "table" then
                 local shouldTrack = false
                 if usingAutoLogic then
-                    -- If using auto logic (implicit or explicit), verify not explicitly hidden
-                    if not Questie.db.char.AutoUntrackedQuests[questId] then
+                    if not Questie.db.char.AutoUntrackedQuests or not Questie.db.char.AutoUntrackedQuests[questId] then
                         shouldTrack = true
                     end
                 else
-                    -- Strict manual tracking
-                    if Questie.db.char.TrackedQuests[questId] then
+                    if Questie.db.char.TrackedQuests and Questie.db.char.TrackedQuests[questId] then
                         shouldTrack = true
                     end
                 end
 
+                if debugCollect then
+                    print(string.format("  questId=%d shouldTrack=%s usingAutoLogic=%s", questId, tostring(shouldTrack), tostring(usingAutoLogic)))
+                end
+
                 if shouldTrack then
+                    if debugCollect then
+                        print(string.format("  Calling _CollectQuestTargets for %s", tostring(quest.name)))
+                    end
                     _CollectQuestTargets(quest)
                 end
             end
@@ -650,16 +709,13 @@ function QuestieArrow:Refresh()
         return
     end
 
-    if hasManualTarget then
-        EnsureArrowFrame()
-        arrowFrame:Show()
-        return
-    end
-
     QuestieArrow:UpdateNearestTargets()
 
     EnsureArrowFrame()
+
+    local alpha = _GetArrowAlpha()
     if sortedTargets[1] then
+        arrowFrame:SetAlpha(alpha)
         arrowFrame:Show()
     else
         arrowFrame:Hide()
@@ -688,6 +744,7 @@ function QuestieArrow:SetTarget(title, zoneOrUiMapId, x, y)
     } }
 
     EnsureArrowFrame()
+    arrowFrame:SetAlpha(_GetArrowAlpha())
     arrowFrame:Show()
 end
 
@@ -741,6 +798,43 @@ function QuestieArrow:PrintTargetCoords()
     print("  Distance: " .. string.format("%.0f", target.distance))
 end
 
+function QuestieArrow:DebugPrint()
+    print("=== Questie Arrow Debug ===")
+    print("sortedTargets count: " .. tostring(#sortedTargets))
+    print("hasManualTarget: " .. tostring(hasManualTarget))
+    print("_arrow_usingAutoLogic: " .. tostring(_arrow_usingAutoLogic))
+    print("_arrow_playerX: " .. tostring(_arrow_playerX))
+    print("_arrow_playerY: " .. tostring(_arrow_playerY))
+    print("_arrow_playerZoneId: " .. tostring(_arrow_playerZoneId))
+    print("_arrow_playerUiMapId: " .. tostring(_arrow_playerUiMapId))
+    if Questie and Questie.db and Questie.db.profile then
+        print("autoTrackQuests: " .. tostring(Questie.db.profile.autoTrackQuests))
+    end
+    if Questie and Questie.db and Questie.db.char then
+        local tracked = Questie.db.char.TrackedQuests or {}
+        local autoUntracked = Questie.db.char.AutoUntrackedQuests or {}
+        local trackedCount = 0
+        for _ in pairs(tracked) do trackedCount = trackedCount + 1 end
+        local autoUntrackedCount = 0
+        for _ in pairs(autoUntracked) do autoUntrackedCount = autoUntrackedCount + 1 end
+        print("TrackedQuests count: " .. tostring(trackedCount))
+        print("AutoUntrackedQuests count: " .. tostring(autoUntrackedCount))
+    end
+    if QuestiePlayer and QuestiePlayer.currentQuestlog then
+        local count = 0
+        for _ in pairs(QuestiePlayer.currentQuestlog) do count = count + 1 end
+        print("currentQuestlog count: " .. tostring(count))
+    end
+    if sortedTargets and #sortedTargets > 0 then
+        print("First 3 targets:")
+        for i = 1, math.min(3, #sortedTargets) do
+            local t = sortedTargets[i]
+            print(string.format("  [%d] %s (%.1f, %.1f) dist=%.0f", i, tostring(t.title), t.x, t.y, t.distance))
+        end
+    end
+    print("========================")
+end
+
 -- Also expose sortedTargets for external access
 function QuestieArrow:GetTargets()
     return sortedTargets
@@ -750,6 +844,9 @@ end
 local _OriginalRefresh = QuestieArrow.Refresh
 QuestieArrow.Refresh = function(self, ...)
     _OriginalRefresh(self, ...)
-    -- You can uncomment the line below to see debug output every refresh:
-    -- QuestieArrow:PrintTargetCoords()
+    if Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow then
+        if sortedTargets and sortedTargets[1] then
+            QuestieArrow:PrintTargetCoords()
+        end
+    end
 end
