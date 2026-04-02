@@ -104,9 +104,8 @@ function QuestieOptions.tabs.arrow:Initialize()
                 name = function() return l10n("Reset Arrow Position") end,
                 desc = function() return l10n("Reset the arrow position to the center of the screen") end,
                 func = function()
-                    Questie.db.profile.arrowPosition = nil
-                    if QuestieArrow and QuestieArrow.Refresh then
-                        QuestieArrow:Refresh()
+                    if QuestieArrow and QuestieArrow.ResetPosition then
+                        QuestieArrow:ResetPosition()
                     end
                 end,
             },

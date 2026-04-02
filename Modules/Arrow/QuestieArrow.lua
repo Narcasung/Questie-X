@@ -167,6 +167,9 @@ local function EnsureArrowFrame()
         arrowFrame:SetPoint("CENTER", 0, -100)
     end
 
+    -- Store whether we should use saved position or default
+    arrowFrame._useDefaultPosition = not (pos and pos.point)
+
     -- Make room for the objective icon below the arrow (no overlap)
     arrowFrame:SetWidth(56)
     arrowFrame:SetHeight(64)
@@ -714,8 +717,13 @@ function QuestieArrow:Refresh()
     EnsureArrowFrame()
 
     local alpha = _GetArrowAlpha()
-    if sortedTargets[1] then
+    local scale = _GetArrowScale()
+    if arrowFrame then
         arrowFrame:SetAlpha(alpha)
+        arrowFrame:SetScale(scale)
+    end
+
+    if sortedTargets[1] then
         arrowFrame:Show()
     else
         arrowFrame:Hide()
@@ -754,6 +762,17 @@ function QuestieArrow:ClearTarget()
 
     if arrowFrame then
         arrowFrame:Hide()
+    end
+end
+
+function QuestieArrow:ResetPosition()
+    Questie.db.profile.arrowPosition = nil
+    -- Destroy and recreate the arrow frame to apply default position
+    if arrowFrame then
+        arrowFrame:Hide()
+        arrowFrame:ClearAllPoints()
+        arrowFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+        arrowFrame:Show()
     end
 end
 
