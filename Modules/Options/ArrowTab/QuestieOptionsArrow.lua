@@ -56,8 +56,9 @@ function QuestieOptions.tabs.arrow:Initialize()
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
                     Questie.db.profile.arrowScale = value
-                    if QuestieArrow and QuestieArrow.ApplyScale then
-                        QuestieArrow:ApplyScale()
+                    local frame = _G.QuestieArrowFrame
+                    if frame then
+                        frame:SetScale(value)
                     end
                 end,
             },
@@ -73,8 +74,9 @@ function QuestieOptions.tabs.arrow:Initialize()
                 get = function() return Questie.db.profile.arrowAlpha or 1.0 end,
                 set = function(_, value)
                     Questie.db.profile.arrowAlpha = value
-                    if QuestieArrow and QuestieArrow.ApplyAlpha then
-                        QuestieArrow:ApplyAlpha()
+                    local frame = _G.QuestieArrowFrame
+                    if frame then
+                        frame:SetAlpha(value)
                     end
                 end,
             },
@@ -104,8 +106,11 @@ function QuestieOptions.tabs.arrow:Initialize()
                 name = function() return l10n("Reset Arrow Position") end,
                 desc = function() return l10n("Reset the arrow position to the center of the screen") end,
                 func = function()
-                    if QuestieArrow and QuestieArrow.ResetPosition then
-                        QuestieArrow:ResetPosition()
+                    Questie.db.profile.arrowPosition = nil
+                    local frame = _G.QuestieArrowFrame
+                    if frame then
+                        frame:ClearAllPoints()
+                        frame:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
                     end
                 end,
             },
