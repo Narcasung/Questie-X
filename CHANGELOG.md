@@ -1,25 +1,25 @@
 # Changelog
 
-## Questie-X - Arrow Font & Real-time Settings
+## Questie-X - Expanded Font Selection
 
 ### New Features
 
 - **Arrow Font Options**: Added font family and size settings for the arrow:
-  - Arrow Font selector (SharedMedia fonts)
+  - Arrow Font selector (SharedMedia + common WoW fonts)
   - Arrow Font Size slider (8-18)
 - **Tracker "Apply to All" Options**: Added ability to set font and size for all tracker elements at once:
   - Font for All - sets font for Header, Zones, Quests, and Objectives simultaneously
   - Font Size for All - sets all font sizes simultaneously
+- **Expanded Font List**: Both Arrow and Tracker font dropdowns now include common WoW fonts in addition to SharedMedia fonts (Friz Quadrata TT, Arial Narrow, GameFont variants, etc.)
 
 ### Bug Fixes
 
 - **Arrow Scale/Alpha Real-time Updates**: Arrow scale, transparency, and font settings now update in real-time when changed in options
 - **Arrow Position Reset**: Reset position button now properly resets the arrow to center screen
 - **Arrow Font**: Fixed font not changing - now properly uses `SharedMedia:Fetch` to get actual font objects
-- **Options Crash Guard**: Added nil check for `QuestieConfigFrame` to prevent crashes during early initialization
-- **SharedMedia Import**: Fixed missing SharedMedia import in Arrow options tab
+- **Font List Blank**: Fixed font list being empty by using `pairs()` instead of `ipairs()` for hash table iteration (Lua 5.x compatible)
 
-## v1.5.6 (2026-04-01)
+## v1.5.7 (2026-04-02)
 
 ### Stability & Initialization
 
