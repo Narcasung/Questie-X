@@ -794,8 +794,11 @@ function QuestieArrow:ApplyAlpha()
 end
 
 function QuestieArrow:UpdateSettings()
+    print("UpdateSettings called, arrowFrame=" .. tostring(arrowFrame))
     EnsureArrowFrame()
+    print("After EnsureArrowFrame, arrowFrame=" .. tostring(arrowFrame))
     if arrowFrame then
+        print("Setting scale to " .. tostring(_GetArrowScale()))
         arrowFrame:SetScale(_GetArrowScale())
         arrowFrame:SetAlpha(_GetArrowAlpha())
     end
