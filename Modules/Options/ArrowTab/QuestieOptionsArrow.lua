@@ -55,7 +55,6 @@ function QuestieOptions.tabs.arrow:Initialize()
                 step = 0.05,
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
-                    print("SCALE SET CALLED: " .. tostring(value))
                     Questie.db.profile.arrowScale = value
                     if QuestieArrow and QuestieArrow.UpdateSettings then
                         QuestieArrow:UpdateSettings()
@@ -76,6 +75,40 @@ function QuestieOptions.tabs.arrow:Initialize()
                     Questie.db.profile.arrowAlpha = value
                     if QuestieArrow and QuestieArrow.UpdateSettings then
                         QuestieArrow:UpdateSettings()
+                    end
+                end,
+            },
+            arrow_spacer_2 = QuestieOptionsUtils:Spacer(6),
+            arrowFont = {
+                type = "select",
+                dialogControl = 'LSM30_Font',
+                order = 7,
+                values = SharedMedia:HashTable("font"),
+                style = 'dropdown',
+                name = function() return l10n("Arrow Font") end,
+                desc = function() return l10n("The font used for the arrow distance and title text.") end,
+                get = function() return Questie.db.profile.arrowFont or "Friz Quadrata TT" end,
+                set = function(_, value)
+                    Questie.db.profile.arrowFont = value
+                    if QuestieArrow and QuestieArrow.UpdateFont then
+                        QuestieArrow:UpdateFont()
+                    end
+                end,
+            },
+            arrowFontSize = {
+                type = "range",
+                order = 8,
+                name = function() return l10n("Arrow Font Size") end,
+                desc = function() return l10n("The font size used for the arrow distance and title text.") end,
+                width = "double",
+                min = 8,
+                max = 18,
+                step = 1,
+                get = function() return Questie.db.profile.arrowFontSize or 10 end,
+                set = function(_, value)
+                    Questie.db.profile.arrowFontSize = value
+                    if QuestieArrow and QuestieArrow.UpdateFont then
+                        QuestieArrow:UpdateFont()
                     end
                 end,
             },

@@ -794,13 +794,23 @@ function QuestieArrow:ApplyAlpha()
 end
 
 function QuestieArrow:UpdateSettings()
-    print("UpdateSettings called, arrowFrame=" .. tostring(arrowFrame))
     EnsureArrowFrame()
-    print("After EnsureArrowFrame, arrowFrame=" .. tostring(arrowFrame))
     if arrowFrame then
-        print("Setting scale to " .. tostring(_GetArrowScale()))
         arrowFrame:SetScale(_GetArrowScale())
         arrowFrame:SetAlpha(_GetArrowAlpha())
+        QuestieArrow:UpdateFont()
+    end
+end
+
+function QuestieArrow:UpdateFont()
+    if not arrowFrame then return end
+    local fontSize = Questie.db.profile.arrowFontSize or 10
+    local fontFace = Questie.db.profile.arrowFont or QuestieFont:GetFont()
+    if arrowFrame.title then
+        arrowFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
+    end
+    if arrowFrame.distance then
+        arrowFrame.distance:SetFont(fontFace, fontSize - 2, "OUTLINE")
     end
 end
 
