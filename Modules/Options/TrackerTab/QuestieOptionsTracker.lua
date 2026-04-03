@@ -924,6 +924,49 @@ function QuestieOptions.tabs.tracker:Initialize()
                             QuestieTracker:Update()
                         end
                     },
+                    applyAllHeader = {
+                        type = "header",
+                        order = 9.1,
+                        name = function() return l10n("Apply to All") end,
+                    },
+                    applyAllFont = {
+                        type = "select",
+                        dialogControl = 'LSM30_Font',
+                        order = 9.2,
+                        values = SharedMedia:HashTable("font"),
+                        style = 'dropdown',
+                        width = 1.5,
+                        name = function() return l10n("Font for All") end,
+                        desc = function() return l10n("Set the font for Header, Zones, Quests, and Objectives all at once.") end,
+                        disabled = function() return not Questie.db.profile.trackerEnabled end,
+                        get = function() return Questie.db.profile.trackerFontHeader or "Friz Quadrata TT" end,
+                        set = function(_, value)
+                            Questie.db.profile.trackerFontHeader = value
+                            Questie.db.profile.trackerFontZone = value
+                            Questie.db.profile.trackerFontQuest = value
+                            Questie.db.profile.trackerFontObjective = value
+                            QuestieTracker:Update()
+                        end
+                    },
+                    applyAllFontSize = {
+                        type = "range",
+                        order = 9.3,
+                        name = function() return l10n("Font Size for All") end,
+                        desc = function() return l10n("Set the font size for Header, Zones, Quests, and Objectives all at once.") end,
+                        width = "double",
+                        min = 8,
+                        max = 26,
+                        step = 1,
+                        disabled = function() return not Questie.db.profile.trackerEnabled end,
+                        get = function() return Questie.db.profile.trackerFontSizeHeader or 12 end,
+                        set = function(_, value)
+                            Questie.db.profile.trackerFontSizeHeader = value
+                            Questie.db.profile.trackerFontSizeZone = value
+                            Questie.db.profile.trackerFontSizeQuest = value
+                            Questie.db.profile.trackerFontSizeObjective = math.min(value, Questie.db.profile.trackerFontSizeQuest)
+                            QuestieTracker:Update()
+                        end
+                    },
                     fontOutline = {
                         type = "select",
                         dialogControl = 'LSM30_Font',

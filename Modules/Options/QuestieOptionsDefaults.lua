@@ -52,6 +52,8 @@ function QuestieOptionsDefaults:Load()
             arrowEnabled = true,
             arrowScale = 1,
             arrowAlpha = 1.0,
+            arrowFontSize = 10,
+            arrowFont = 'Friz Quadrata TT',
             debugArrow = false,
             enableObjectives = true,
             enableTurnins = true,
