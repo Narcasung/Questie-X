@@ -68,13 +68,15 @@ killcredit = function(npcId, objective, objectiveData)
     local foundValid = false
 
     -- First pass: try all IDs in IdList
-    for npcIdIndex = 1, #objectiveData.IdList do
-        local killCreditNpcId = objectiveData.IdList[npcIdIndex]
-        if killCreditNpcId and killCreditNpcId > 0 then
-            local monsterResult = monster(killCreditNpcId, objective)
-            if monsterResult then
-                ret[killCreditNpcId] = monsterResult[killCreditNpcId]
-                foundValid = true
+    if objectiveData.IdList then
+        for npcIdIndex = 1, #objectiveData.IdList do
+            local killCreditNpcId = objectiveData.IdList[npcIdIndex]
+            if killCreditNpcId and killCreditNpcId > 0 then
+                local monsterResult = monster(killCreditNpcId, objective)
+                if monsterResult then
+                    ret[killCreditNpcId] = monsterResult[killCreditNpcId]
+                    foundValid = true
+                end
             end
         end
     end
