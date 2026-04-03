@@ -83,6 +83,9 @@ end
 
 -- Open the configuration window
 function QuestieOptions:OpenConfigWindow()
+    if not QuestieConfigFrame then
+        return
+    end
     if not QuestieConfigFrame:IsShown() then
         PlaySound(882)
         -- AceConfigDialog:Open("Questie", QuestieConfigFrame)
