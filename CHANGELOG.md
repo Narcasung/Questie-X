@@ -1,31 +1,23 @@
 # Changelog
 
-## Questie-X - Arrow & Options Updates
+## Questie-X - Arrow Font & Real-time Settings
 
 ### New Features
 
-- Added new **Arrow** tab in Questie options with the following settings:
-  - Enable Arrow toggle
-  - Arrow Scale slider (0.5 - 2.0)
-  - Arrow Transparency slider (0.1 - 1.0)
-  - Auto-track Quests toggle
-  - Reset Arrow Position button
-  - Debug Arrow toggle (shows target info in chat)
-  - Print Current Target button
-  - Clear Target button
-  - Debug Print Arrow State button
+- **Arrow Font Options**: Added font family and size settings for the arrow:
+  - Arrow Font selector (SharedMedia fonts)
+  - Arrow Font Size slider (8-18)
+- **Tracker "Apply to All" Options**: Added ability to set font and size for all tracker elements at once:
+  - Font for All - sets font for Header, Zones, Quests, and Objectives simultaneously
+  - Font Size for All - sets all font sizes simultaneously
 
 ### Bug Fixes
 
-- **Arrow auto-tracking**: Fixed an issue where the zone filter was comparing zone IDs (e.g., 14) against area IDs (e.g., 1244), causing all spawns to be incorrectly filtered out. Zone filtering has been temporarily disabled until a proper fix can be implemented that correctly converts between zone ID systems.
-- **Arrow transparency**: Added support for arrow transparency/opacity setting.
-- **Debug output**: Fixed spam when debug arrow was enabled and no target was set.
-- **Nil safety**: Added nil checks for TrackedQuests and AutoUntrackedQuests tables.
-- **Options validation**: Fixed Spacer() function calls that were incorrectly passing 0.1 as hidden parameter.
-
-### Known Issues
-
-- Zone filtering is disabled for auto-tracking, which means the arrow may show objectives on other continents. A proper continent-based filter will be implemented in a future update.
+- **Arrow Scale/Alpha Real-time Updates**: Arrow scale, transparency, and font settings now update in real-time when changed in options
+- **Arrow Position Reset**: Reset position button now properly resets the arrow to center screen
+- **Arrow Font**: Fixed font not changing - now properly uses `SharedMedia:Fetch` to get actual font objects
+- **Options Crash Guard**: Added nil check for `QuestieConfigFrame` to prevent crashes during early initialization
+- **SharedMedia Import**: Fixed missing SharedMedia import in Arrow options tab
 
 ## v1.5.6 (2026-04-01)
 
