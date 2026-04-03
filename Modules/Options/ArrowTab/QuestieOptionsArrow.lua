@@ -13,6 +13,8 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
+local SharedMedia = LibStub("LibSharedMedia-3.0")
+
 QuestieOptions.tabs.arrow = { ... }
 
 function QuestieOptions.tabs.arrow:Initialize()
