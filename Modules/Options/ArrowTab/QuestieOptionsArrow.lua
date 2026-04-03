@@ -91,7 +91,6 @@ function QuestieOptions.tabs.arrow:Initialize()
                 desc = function() return l10n("The font used for the arrow distance and title text.") end,
                 get = function() return Questie.db.profile.arrowFont or "Friz Quadrata TT" end,
                 set = function(_, value)
-                    print("Arrow Font set to: " .. tostring(value) .. " type: " .. type(value))
                     Questie.db.profile.arrowFont = value
                     if QuestieArrow and QuestieArrow.UpdateFont then
                         QuestieArrow:UpdateFont()
@@ -115,7 +114,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                     end
                 end,
             },
-            arrow_spacer_2 = QuestieOptionsUtils:Spacer(6),
+            arrow_spacer_3 = QuestieOptionsUtils:Spacer(8),
             autoTrackQuests = {
                 type = "toggle",
                 order = 7,

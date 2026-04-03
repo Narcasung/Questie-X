@@ -808,7 +808,6 @@ function QuestieArrow:UpdateFont()
     local fontSize = Questie.db.profile.arrowFontSize or 10
     local fontName = Questie.db.profile.arrowFont or "Friz Quadrata TT"
     local fontFace = SharedMedia:Fetch("font", fontName) or fontName
-    print("UpdateFont: fontName=" .. tostring(fontName) .. " fontFace=" .. tostring(fontFace))
     if arrowFrame.title then
         arrowFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
     end
