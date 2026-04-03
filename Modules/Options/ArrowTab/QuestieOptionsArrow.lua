@@ -55,6 +55,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                 step = 0.05,
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
+                    print("SCALE SET CALLED: " .. tostring(value))
                     Questie.db.profile.arrowScale = value
                     if QuestieArrow and QuestieArrow.UpdateSettings then
                         QuestieArrow:UpdateSettings()
