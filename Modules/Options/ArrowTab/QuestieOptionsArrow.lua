@@ -18,29 +18,29 @@ local SharedMedia = LibStub("LibSharedMedia-3.0")
 -- Build expanded font list from SharedMedia + common WoW fonts
 local function GetExpandedFontList()
     local fonts = {}
-    -- Add SharedMedia fonts
-    for _, name in ipairs(SharedMedia:HashTable("font")) do
+    -- Add SharedMedia fonts (HashTable returns key-value table)
+    for name, _ in pairs(SharedMedia:HashTable("font")) do
         fonts[name] = name
     end
     -- Add common WoW fonts not typically in SharedMedia
     local wowFonts = {
-        ["Friz Quadrata TT"] = "Friz Quadrata TT",
-        ["Friz Quadrata"] = "Friz Quadrata",
-        ["Arial Narrow"] = "Arial Narrow",
-        ["Arial"] = "Arial",
-        ["Skull"] = "Skull",
-        ["Number Font"] = "Number Font",
-        ["GameFontHighlight"] = "GameFontHighlight",
-        ["GameFontNormal"] = "GameFontNormal",
-        ["GameFontBold"] = "GameFontBold",
-        ["GameFontLarge"] = "GameFontLarge",
-        ["GameFontNormalSmall"] = "GameFontNormalSmall",
-        ["ChatFontNormal"] = "ChatFontNormal",
-        ["QuestFont"] = "QuestFont",
-        ["QuestFont_Large"] = "QuestFont_Large",
-        ["DialogNormal"] = "DialogNormal",
+        ["Friz Quadrata TT"] = true,
+        ["Friz Quadrata"] = true,
+        ["Arial Narrow"] = true,
+        ["Arial"] = true,
+        ["Skull"] = true,
+        ["Number Font"] = true,
+        ["GameFontHighlight"] = true,
+        ["GameFontNormal"] = true,
+        ["GameFontBold"] = true,
+        ["GameFontLarge"] = true,
+        ["GameFontNormalSmall"] = true,
+        ["ChatFontNormal"] = true,
+        ["QuestFont"] = true,
+        ["QuestFont_Large"] = true,
+        ["DialogNormal"] = true,
     }
-    for _, name in ipairs(wowFonts) do
+    for name, _ in pairs(wowFonts) do
         fonts[name] = name
     end
     return fonts
