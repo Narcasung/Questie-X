@@ -803,13 +803,16 @@ function QuestieArrow:UpdateSettings()
 end
 
 function QuestieArrow:UpdateFont()
+    print("UpdateFont called, arrowFrame=" .. tostring(arrowFrame) .. " title=" .. tostring(arrowFrame and arrowFrame.title))
     if not arrowFrame then return end
     local fontSize = Questie.db.profile.arrowFontSize or 10
     local fontFace = Questie.db.profile.arrowFont or QuestieFont:GetFont()
     if arrowFrame.title then
+        print("Setting title font to " .. tostring(fontFace) .. " size " .. fontSize)
         arrowFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
     end
     if arrowFrame.distance then
+        print("Setting distance font to " .. tostring(fontFace) .. " size " .. (fontSize - 2))
         arrowFrame.distance:SetFont(fontFace, fontSize - 2, "OUTLINE")
     end
 end
