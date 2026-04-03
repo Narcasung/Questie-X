@@ -56,9 +56,25 @@ function QuestieOptions.tabs.arrow:Initialize()
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
                     Questie.db.profile.arrowScale = value
-                    -- Ensure frame exists first, then apply scale
-                    if QuestieArrow and QuestieArrow.ApplyScale then
-                        QuestieArrow.ApplyScale()
+                    if QuestieArrow and QuestieArrow.UpdateSettings then
+                        QuestieArrow:UpdateSettings()
+                    end
+                end,
+            },
+            arrow_alpha = {
+                type = "range",
+                order = 5,
+                width = 1.5,
+                name = function() return l10n("Arrow Transparency") end,
+                desc = function() return l10n("Change the transparency of the arrow") end,
+                min = 0.1,
+                max = 1.0,
+                step = 0.05,
+                get = function() return Questie.db.profile.arrowAlpha or 1.0 end,
+                set = function(_, value)
+                    Questie.db.profile.arrowAlpha = value
+                    if QuestieArrow and QuestieArrow.UpdateSettings then
+                        QuestieArrow:UpdateSettings()
                     end
                 end,
             },
@@ -109,6 +125,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                     Questie.db.profile.arrowPosition = nil
                     if QuestieArrow and QuestieArrow.ResetPosition then
                         QuestieArrow:ResetPosition()
+                        QuestieArrow:Refresh()
                     end
                 end,
             },

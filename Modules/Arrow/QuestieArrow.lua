@@ -793,6 +793,14 @@ function QuestieArrow:ApplyAlpha()
     end
 end
 
+function QuestieArrow:UpdateSettings()
+    EnsureArrowFrame()
+    if arrowFrame then
+        arrowFrame:SetScale(_GetArrowScale())
+        arrowFrame:SetAlpha(_GetArrowAlpha())
+    end
+end
+
 function QuestieArrow:Initialize()
     EnsureArrowFrame()
 
