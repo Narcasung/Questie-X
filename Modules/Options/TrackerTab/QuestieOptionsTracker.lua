@@ -29,6 +29,37 @@ local trackerOptions = {}
 
 local SharedMedia = LibStub("LibSharedMedia-3.0")
 
+-- Build expanded font list from SharedMedia + common WoW fonts
+local function GetExpandedFontList()
+    local fonts = {}
+    -- Add SharedMedia fonts
+    for _, name in ipairs(SharedMedia:HashTable("font")) do
+        fonts[name] = name
+    end
+    -- Add common WoW fonts not typically in SharedMedia
+    local wowFonts = {
+        ["Friz Quadrata TT"] = "Friz Quadrata TT",
+        ["Friz Quadrata"] = "Friz Quadrata",
+        ["Arial Narrow"] = "Arial Narrow",
+        ["Arial"] = "Arial",
+        ["Skull"] = "Skull",
+        ["Number Font"] = "Number Font",
+        ["GameFontHighlight"] = "GameFontHighlight",
+        ["GameFontNormal"] = "GameFontNormal",
+        ["GameFontBold"] = "GameFontBold",
+        ["GameFontLarge"] = "GameFontLarge",
+        ["GameFontNormalSmall"] = "GameFontNormalSmall",
+        ["ChatFontNormal"] = "ChatFontNormal",
+        ["QuestFont"] = "QuestFont",
+        ["QuestFont_Large"] = "QuestFont_Large",
+        ["DialogNormal"] = "DialogNormal",
+    }
+    for _, name in ipairs(wowFonts) do
+        fonts[name] = name
+    end
+    return fonts
+end
+
 function QuestieOptions.tabs.tracker:Initialize()
     trackerOptions = {
         name = function() return l10n('Tracker') end,
@@ -813,7 +844,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         type = "select",
                         dialogControl = 'LSM30_Font',
                         order = 2,
-                        values = SharedMedia:HashTable("font"),
+                        values = GetExpandedFontList(),
                         style = 'dropdown',
                         name = function() return l10n("Font for Active Quests Header") end,
                         desc = function() return l10n("The font used for the Active Quests Header.") end,
@@ -844,7 +875,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         type = "select",
                         dialogControl = 'LSM30_Font',
                         order = 4,
-                        values = SharedMedia:HashTable("font"),
+                        values = GetExpandedFontList(),
                         style = 'dropdown',
                         name = function() return l10n('Font for Zone Names') end,
                         desc = function() return l10n('The font used for zone names.') end,
@@ -878,7 +909,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         type = "select",
                         dialogControl = 'LSM30_Font',
                         order = 6,
-                        values = SharedMedia:HashTable("font"),
+                        values = GetExpandedFontList(),
                         style = 'dropdown',
                         name = function() return l10n('Font for Quest Titles') end,
                         desc = function() return l10n('The font used for Quest Titles.') end,
@@ -913,7 +944,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         type = "select",
                         dialogControl = 'LSM30_Font',
                         order = 8,
-                        values = SharedMedia:HashTable("font"),
+                        values = GetExpandedFontList(),
                         style = 'dropdown',
                         name = function() return l10n('Font for Objectives') end,
                         desc = function() return l10n('The font used for Objectives.') end,
@@ -933,7 +964,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         type = "select",
                         dialogControl = 'LSM30_Font',
                         order = 9.2,
-                        values = SharedMedia:HashTable("font"),
+                        values = GetExpandedFontList(),
                         style = 'dropdown',
                         width = 1.5,
                         name = function() return l10n("Font for All") end,
