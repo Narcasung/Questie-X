@@ -83,6 +83,11 @@ end
 ---@return string
 function QuestieLink:GetQuestHyperLink(questId, senderGUID)
     local coloredQuestName = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.trackerShowQuestLevel, true, false)
+
+    if not coloredQuestName then
+        return nil
+    end
+
     local questLevel, _ = QuestieLib.GetTbcLevel(questId)
     local isRepeatable = QuestieDB.IsRepeatable(questId)
 

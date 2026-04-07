@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.8 (2026-04-07)
+
+### Bug Fixes
+
+- **[Fix — QuestLink Crash]** Resolved a critical LUA error in `Link.lua`: `attempt to concatenate local 'coloredQuestName' (a nil value)`. This was caused by the `ChatFilter` misidentifying non-quest bracketed patterns (like Keystone links `[Name (ID)]`) as quests. Added a defensive nil guard in `GetQuestHyperLink` and hardened the `ChatFilter` to verify quest names exist before attempting string replacement.
+
+
 ## Questie-X - Expanded Font Selection
 
 ### New Features
