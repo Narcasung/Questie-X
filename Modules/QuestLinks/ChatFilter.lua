@@ -39,8 +39,9 @@ ChatFilter.Filter = function(chatFrame, _, msg, playerName, languageName, channe
 
                     local questLink = QuestieLink:GetQuestHyperLink(questId, senderGUID)
 
-                    -- Escape the magic characters
-                    local function escapeMagic(toEsc)
+                    if questLink then
+                        -- Escape the magic characters
+                        local function escapeMagic(toEsc)
                         return (toEsc
                                 :gsub("%%", "%%%%")
                                 :gsub("^%^", "%%^")
