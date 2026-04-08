@@ -6,8 +6,10 @@
 
 - **[Fix — Map Search DB]** Resolved a critical database issue where objects and NPCs searched via Advanced Search failed to display all available spawn locations.
   - **Override Prioritization**: Refactored `GetObject`, `GetNPC`, and `GetItem` in `QuestieDB` to prioritize manual corrections (overrides) over the compiled database. This ensures human-verified data is always used when available.
+  - **Correction Loader Fix**: Resolved a fundamental flaw in the correction system where WotLK-specific object fixes were being written to the binary database companion table (`objectData`) instead of the active override table (`objectDataOverrides`), causing overrides to be ignored by the rendering engine.
   - **Data Compatibility**: Hardened the database engine to support both integer and string-based indexing, preventing `nil` errors on legacy clients while maintaining performance.
 - **[Fix — Object Spawn Data]** Restored missing "Blood of Heroes" (ID 176213) spawn locations.
+  - **Override Migration**: Restructured the 150+ verified spawn locations to use the direct override path, ensuring they correctly render for all factions in Plaguelands on WotLK servers.
   - **Data Merge**: Integrated 150+ verified spawn locations from both the Classic database and Wowhead scraping into the WotLK module.
   - **Deduplication**: Sanitized coordinate data to remove duplicate pins, providing a cleaner map interface for high-density spawns in Plaguelands.
 - **[UI — Search Experience]** Improved the Advanced Search results interface.
