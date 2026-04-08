@@ -74,8 +74,9 @@ ChatFilter.Filter = function(chatFrame, _, msg, playerName, languageName, channe
                     end
                 end
             end
-            return false, msg, playerName, languageName, channelName, playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, unused, lineID, senderGUID, bnSenderID, ...
         end
+        return false, msg, playerName, languageName, channelName, playerName2, specialFlags, zoneChannelID, channelIndex, channelBaseName, unused, lineID, senderGUID, bnSenderID, ...
+    end
     end
 end
 
