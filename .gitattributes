@@ -16,6 +16,8 @@
 *.py export-ignore
 *.js export-ignore
 *.ps1 export-ignore
+*.txt export-ignore
+.luarc.json export-ignore
 .coords.lua export-ignore
 debug.lua export-ignore
 debug_tooltip.lua export-ignore
