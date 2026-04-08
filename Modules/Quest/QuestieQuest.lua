@@ -62,8 +62,13 @@ local NewThread = ThreadLib.ThreadSimple
 local NOP_FUNCTION = function()
 end
 local ERR_FUNCTION = function(err)
-    print(err)
-    print(debugstack())
+    Questie:Error("[QuestieQuest] " .. tostring(err))
+    if debugstack then
+        local stack = debugstack()
+        if stack and type(stack) == "string" then
+            Questie:Debug(Questie.DEBUG_CRITICAL, "Stack Trace:\n" .. stack:sub(1, 1000))
+        end
+    end
 end
 
 -- forward declaration
