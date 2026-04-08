@@ -73,7 +73,7 @@ killcredit = function(npcId, objective, objectiveData)
             local killCreditNpcId = objectiveData.IdList[npcIdIndex]
             if killCreditNpcId and killCreditNpcId > 0 then
                 local monsterResult = monster(killCreditNpcId, objective)
-                if monsterResult then
+                if monsterResult and monsterResult[killCreditNpcId] then
                     ret[killCreditNpcId] = monsterResult[killCreditNpcId]
                     foundValid = true
                 end
@@ -96,7 +96,7 @@ killcredit = function(npcId, objective, objectiveData)
             for searchId, npcRecord in pairs(npcData) do
                 if npcRecord and npcRecord[1] and string.lower(npcRecord[1]) == string.lower(targetName) then
                     local monsterResult = monster(searchId, objective)
-                    if monsterResult then
+                    if monsterResult and monsterResult[searchId] then
                         ret[searchId] = monsterResult[searchId]
                         foundValid = true
                         Questie:Debug(Questie.DEBUG_DEVELOP, "[killcredit] Found NPC by name fallback:", searchId, targetName)
@@ -137,7 +137,7 @@ monster = function(npcId, objective)
     local enableWaypoints = enableSpawns and 2 ~= rank -- a rare mob spawn. todo: option for this
 
     ---@type SpawnListNPC
-    local monster = {
+    local monsterData = {
         Id = npcId,
         Name = name,
         Spawns = enableSpawns and spawns or {},
@@ -150,7 +150,7 @@ monster = function(npcId, objective)
     }
 
     return {
-        [npcId] = monster
+        [npcId] = monsterData
     }
 end
 
@@ -231,16 +231,16 @@ item = function(itemId, objective)
     if (not itemId) then
         Questie:Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['item']:",
-            "'" .. objective.Description .. "' -",
+            "'" .. (objective.Description or "Unknown") .. "' -",
             "Please report this error on Discord or GitHub."
         )
         return nil
     end
 
     local ret = {}
-    local item = QuestieDB:GetItem(itemId)
-    if item and item.Sources and (not item.Hidden) then
-        for _, source in pairs(item.Sources) do
+    local itemData = QuestieDB:GetItem(itemId)
+    if itemData and itemData.Sources and (not itemData.Hidden) then
+        for _, source in pairs(itemData.Sources) do
             if _QuestieQuest.objectiveSpawnListCallTable[source.Type] and source.Type ~= "item" then -- anti-recursive-loop check, should never be possible but would be bad if it was
                 local sourceList = _QuestieQuest.objectiveSpawnListCallTable[source.Type](source.Id, objective)
                 if not sourceList then
@@ -261,7 +261,7 @@ item = function(itemId, objective)
                                 Id = id,
                                 Name = sourceData.Name,
                                 Hostile = true,
-                                ItemId = item.Id,
+                                ItemId = itemData.Id,
                                 TooltipKey = sourceData.TooltipKey,
                                 Spawns = {},
                                 Waypoints = {},
@@ -312,7 +312,7 @@ spell = function(spellId, objective, objectiveData)
     if (not spellId) then
         Questie:Error(
             "Corrupted objective data handed to objectiveSpawnListCallTable['spell']:",
-            "'" .. objective.Description .. "' -",
+            "'" .. (objective.Description or "Unknown") .. "' -",
             "Please report this error on Discord or GitHub."
         )
         return nil

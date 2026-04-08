@@ -1,10 +1,14 @@
 # Changelog
 
-## v1.5.8 (2026-04-07)
+## v1.5.9 (2026-04-08)
 
 ### Bug Fixes
 
-- **[Fix — QuestLink Crash]** Resolved a critical LUA error in `Link.lua`: `attempt to concatenate local 'coloredQuestName' (a nil value)`. This was caused by the `ChatFilter` misidentifying non-quest bracketed patterns (like Keystone links `[Name (ID)]`) as quests. Added a defensive nil guard in `GetQuestHyperLink` and hardened the `ChatFilter` to verify quest names exist before attempting string replacement.
+- **[Fix — QuestieQuest Crash]** Resolved a critical runtime crash occurring after killing certain NPCs (specifically Water Revenant 30877 in Wintergrasp). 
+  - **Harden Error Handling**: Replaced the fragile `print(debugstack())` in `ERR_FUNCTION` with a robust `Questie:Error` handler to prevent secondary crashes from masking real errors.
+  - **Fix NPC Mapping**: Resolved a variable shadowing bug and fixed the mapping logic in `QuestieQuestPrivates:killcredit` to ensure NPC objective data is correctly populated during combat updates.
+
+## v1.5.8 (2026-04-07)
 
 
 ## Questie-X - Expanded Font Selection
