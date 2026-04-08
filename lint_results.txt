@@ -1,0 +1,32 @@
+Checking c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua 28 warnings
+
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:2:20: accessing undefined variable 'QuestieLoader'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:4:21: accessing undefined variable 'QuestieLoader'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:6:19: accessing undefined variable 'QuestieLoader'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:14:121: line is too long (204 > 120)
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:15:13: accessing undefined variable 'Questie'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:20:100: accessing undefined variable 'QuestieCompat'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:20:121: line is too long (155 > 120)
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:36:38: accessing undefined variable 'BNGetFriendInfoByID'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:78:121: line is too long (182 > 120)
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:83:20: unused argument 'self'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:86:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:87:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:90:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:91:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:92:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:95:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:96:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:99:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:100:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:103:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:104:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:107:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:108:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:109:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:112:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:113:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:114:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+    c:\Users\kance\Documents\GitHub\Questie-X\Modules\QuestLinks\ChatFilter.lua:117:5: accessing undefined variable 'ChatFrame_AddMessageEventFilter'
+
+Total: 28 warnings / 0 errors in 1 file

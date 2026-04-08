@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.6.0 (2026-04-08)
+
+### Bug Fixes
+
+- **[Fix — Map Search DB]** Resolved a critical database issue where objects and NPCs searched via Advanced Search failed to display all available spawn locations.
+  - **Override Prioritization**: Refactored `GetObject`, `GetNPC`, and `GetItem` in `QuestieDB` to prioritize manual corrections (overrides) over the compiled database. This ensures human-verified data is always used when available.
+  - **Data Compatibility**: Hardened the database engine to support both integer and string-based indexing, preventing `nil` errors on legacy clients while maintaining performance.
+- **[Fix — Object Spawn Data]** Restored missing "Blood of Heroes" (ID 176213) spawn locations.
+  - **Data Merge**: Integrated 150+ verified spawn locations from both the Classic database and Wowhead scraping into the WotLK module.
+  - **Deduplication**: Sanitized coordinate data to remove duplicate pins, providing a cleaner map interface for high-density spawns in Plaguelands.
+- **[UI — Search Experience]** Improved the Advanced Search results interface.
+  - **Dynamic Button States**: Fixed the "Show on Map" button state management to correctly toggle to "Remove from Map" when pins are active.
+  - **Stability**: Removed experimental rendering logic that caused regressions with standard quest objective icons.
+
 ## v1.5.9 (2026-04-08)
 
 ### Bug Fixes

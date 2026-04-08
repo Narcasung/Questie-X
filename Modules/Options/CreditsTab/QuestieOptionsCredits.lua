@@ -100,6 +100,26 @@ function QuestieOptions.tabs.credits:Initialize()
                     },
                 },
             },
+            test_support_group = {
+                type = "group",
+                order = 7,
+                inline = true,
+                name = function() return l10n('Test & Support'); end,
+                args = {
+                    test_support = {
+                        type = "description",
+                        order = 1,
+                        name = function() return 'Dee, Maxine, Disarrayed'; end,
+                        fontSize = "medium",
+                    },
+                    test_support_servers = {
+                        type = "description",
+                        order = 2,
+                        name = function() return 'Project Ebonhold & Project Ascension communities'; end,
+                        fontSize = "medium",
+                    },
+                },
+            },
         },
     }
 end

@@ -374,15 +374,14 @@ function QuestieDB:GetObject(objectId)
         return _QuestieDB.objectCache[objectId];
     end
 
-    --local rawdata = QuestieDB.objectData[objectId];
+    -- Try to get from compiled DB first
     local rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
 
-    if not rawdata and QuestieDB.objectDataOverrides then
-        rawdata = QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)]
-    end
+    -- Check for overrides
+    local override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
 
-    if not rawdata then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] rawdata is nil for objectID:", objectId)
+    if not rawdata and not override then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] data not found for objectID:", objectId)
         return nil
     end
 
@@ -391,12 +390,27 @@ function QuestieDB:GetObject(objectId)
         type = "object"
     }
 
-    local stringKey, intKey = next(QuestieDB.objectKeys)
-    while stringKey do
-        obj[stringKey] = rawdata[intKey]
-        stringKey, intKey = next(QuestieDB.objectKeys, stringKey)
+    if override then
+        -- Prefer override data (corrections)
+        for stringKey, _ in pairs(QuestieDB.objectKeys) do
+            if override[stringKey] ~= nil then
+                obj[stringKey] = override[stringKey]
+            elseif rawdata then
+                -- Fallback to DB if override is partial
+                local intKey = QuestieDB.objectKeys[stringKey]
+                obj[stringKey] = rawdata[intKey]
+            end
+        end
+    else
+        -- Use standard DB data
+        local stringKey, intKey = next(QuestieDB.objectKeys)
+        while stringKey do
+            obj[stringKey] = rawdata[intKey]
+            stringKey, intKey = next(QuestieDB.objectKeys, stringKey)
+        end
     end
-    --_QuestieDB.objectCache[objectId] = obj;
+
+    _QuestieDB.objectCache[objectId] = obj;
     return obj;
 end
 
@@ -413,13 +427,10 @@ function QuestieDB:GetItem(itemId)
     end
 
     local rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
+    local override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
 
-    if not rawdata and QuestieDB.itemDataOverrides then
-        rawdata = QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)]
-    end
-
-    if not rawdata then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] rawdata is nil for itemID:", itemId)
+    if not rawdata and not override then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] data not found for itemID:", itemId)
         return nil
     end
 
@@ -429,44 +440,58 @@ function QuestieDB:GetItem(itemId)
         Hidden = QuestieCorrections.questItemBlacklist[itemId]
     }
 
-    local stringKey, intKey = next(QuestieDB.itemKeys)
-    while stringKey do
-        item[stringKey] = rawdata[intKey]
-        stringKey, intKey = next(QuestieDB.itemKeys, stringKey)
+    if override then
+        -- Prefer override data (corrections)
+        for stringKey, _ in pairs(QuestieDB.itemKeys) do
+            if override[stringKey] ~= nil then
+                item[stringKey] = override[stringKey]
+            elseif rawdata then
+                -- Fallback to DB if override is partial
+                local intKey = QuestieDB.itemKeys[stringKey]
+                item[stringKey] = rawdata[intKey]
+            end
+        end
+    else
+        -- Use standard DB data
+        local stringKey, intKey = next(QuestieDB.itemKeys)
+        while stringKey do
+            item[stringKey] = rawdata[intKey]
+            stringKey, intKey = next(QuestieDB.itemKeys, stringKey)
+        end
     end
 
     local sources = item.Sources
 
-    if rawdata[QuestieDB.itemKeys.npcDrops] then
-        local _npcId, npcId = next(rawdata[QuestieDB.itemKeys.npcDrops])
+    if item.npcDrops then
+        local _npcId, npcId = next(item.npcDrops)
         while _npcId do
             table.insert(sources, {
                 Id = npcId,
                 Type = "monster",
             })
-            _npcId, npcId = next(rawdata[QuestieDB.itemKeys.npcDrops], _npcId)
+            _npcId, npcId = next(item.npcDrops, _npcId)
         end
     end
 
-    if rawdata[QuestieDB.itemKeys.vendors] then
-        local _npcId, npcId = next(rawdata[QuestieDB.itemKeys.vendors])
+    if item.vendors then
+        local _npcId, npcId = next(item.vendors)
         while _npcId do
             table.insert(sources, {
                 Id = npcId,
                 Type = "monster",
             })
-            _npcId, npcId = next(rawdata[QuestieDB.itemKeys.vendors], _npcId)
+            _npcId, npcId = next(item.vendors, _npcId)
         end
     end
 
-    if rawdata[QuestieDB.itemKeys.objectDrops] then
-        local _k, v = next(rawdata[QuestieDB.itemKeys.objectDrops])
+    if item.objectDrops then
+        local _k, v = next(item.objectDrops)
         while _k do
             table.insert(sources, {
                 Id = v,
                 Type = "object",
             })
-            _k, v = next(rawdata[QuestieDB.itemKeys.objectDrops], _k)
+            _k, v = next(item.objectDrops, _k)
         end
     end
 
@@ -1355,10 +1380,11 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
     if overrideData and rawdata ~= overrideData then
         local _sKey, _iKey = next(questKeys)
         while _sKey do
-            if overrideData[_iKey] then
+            local overrideVal = overrideData[_iKey] or overrideData[_sKey]
+            if overrideVal ~= nil then
                 if _sKey == "objectives" and QO.objectives then
-                    -- Merge objectives (index 10)
-                    local _objIdx, _objList = next(overrideData[_iKey])
+                    -- Merge objectives
+                    local _objIdx, _objList = next(overrideVal)
                     while _objIdx do
                         if not QO.objectives[_objIdx] then
                             QO.objectives[_objIdx] = _objList
@@ -1369,10 +1395,10 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
                                 _id, _data = next(_objList, _id)
                             end
                         end
-                        _objIdx, _objList = next(overrideData[_iKey], _objIdx)
+                        _objIdx, _objList = next(overrideVal, _objIdx)
                     end
                 else
-                    QO[_sKey] = overrideData[_iKey]
+                    QO[_sKey] = overrideVal
                 end
             end
             _sKey, _iKey = next(questKeys, _sKey)
@@ -1869,13 +1895,10 @@ function QuestieDB:GetNPC(npcId)
     end
 
     local rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
+    local override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
 
-    if not rawdata and QuestieDB.npcDataOverrides then
-        rawdata = QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)]
-    end
-
-    if (not rawdata) then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] rawdata is nil for npcID:", npcId)
+    if not rawdata and not override then
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] data not found for npcID:", npcId)
         return nil
     end
 
@@ -1884,13 +1907,28 @@ function QuestieDB:GetNPC(npcId)
         id = npcId,
         type = "monster",
     }
-    local stringKey, intKey = next(npcKeys)
-    while stringKey do
-        npc[stringKey] = rawdata[intKey]
-        stringKey, intKey = next(npcKeys, stringKey)
+
+    if override then
+        -- Prefer override data (corrections)
+        for stringKey, _ in pairs(npcKeys) do
+            if override[stringKey] ~= nil then
+                npc[stringKey] = override[stringKey]
+            elseif rawdata then
+                -- Fallback to DB if override is partial
+                local intKey = npcKeys[stringKey]
+                npc[stringKey] = rawdata[intKey]
+            end
+        end
+    else
+        -- Use standard DB data
+        local stringKey, intKey = next(npcKeys)
+        while stringKey do
+            npc[stringKey] = rawdata[intKey]
+            stringKey, intKey = next(npcKeys, stringKey)
+        end
     end
 
-    local friendlyToFaction = rawdata[npcKeys.friendlyToFaction]
+    local friendlyToFaction = npc.friendlyToFaction
     npc.friendly = (not friendlyToFaction) and true or factionReactions[friendlyToFaction]
 
     _QuestieDB.npcCache[npcId] = npc

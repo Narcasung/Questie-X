@@ -169,13 +169,68 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.5.5</code>
+            <code>Version: v1.6.0</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v160">v1.6.0 &mdash; Map Search &amp; Data Integrity</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Map Search DB]</strong> Resolved a critical database issue where objects and NPCs searched via Advanced Search failed to display all available spawn locations.
+                <ul>
+                    <li><strong>Override Prioritization</strong>: Refactored <code>QuestieDB:GetObject</code>, <code>GetNPC</code>, and <code>GetItem</code> to prioritize manual corrections (overrides) over the compiled database. This ensures human-verified data is always used when available.</li>
+                    <li><strong>Data Compatibility</strong>: Hardened the database engine to support both integer and string-based indexing, preventing <code>nil</code> errors on legacy clients while maintaining performance.</li>
+                </ul>
+            </li>
+            <li><strong>[Fix &mdash; Object Spawn Data]</strong> Restored missing "Blood of Heroes" (ID 176213) spawn locations.
+                <ul>
+                    <li><strong>Data Merge</strong>: Integrated 150+ verified spawn locations from both the Classic database and Wowhead scraping into the WotLK module.</li>
+                    <li><strong>Deduplication</strong>: Sanitized coordinate data to remove duplicate pins, providing a cleaner map interface for high-density spawns in Plaguelands.</li>
+                </ul>
+            </li>
+            <li><strong>[UI &mdash; Search Experience]</strong> Improved the Advanced Search results interface.
+                <ul>
+                    <li><strong>Dynamic Button States</strong>: Fixed the "Show on Map" button state management to correctly toggle to "Remove from Map" when pins are active.</li>
+                    <li><strong>Stability</strong>: Removed experimental rendering logic that caused regressions with standard quest objective icons.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v159">v1.5.9 &mdash; Combat Hardening &amp; NPC Mapping</h2>
+        <ul>
+            <li><strong>[Fix &mdash; QuestieQuest Crash]</strong> Resolved a high-frequency crash involving "Water Revenant" (30877) and other entities handled via the <code>QuestieQuest:killcredit</code> path.</li>
+            <li><strong>[Fix &mdash; Error Handling]</strong> Replaced legacy <code>debugstack()</code> calls in <code>ERR_FUNCTION</code> with <code>Questie:Error</code>. This prevents the error handler from causing secondary crashes when generating stacks on older WoW clients.</li>
+            <li><strong>[Fix &mdash; NPC Mapping]</strong> Fixed a variable shadowing issue in the combat tracker that caused NPC mapping logic to fail during rapid kill-credit updates.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v158">v1.5.8 &mdash; Expanded Font Customization</h2>
+        <ul>
+            <li><strong>[Feature &mdash; Arrow Font Selection]</strong> Added dedicated font family and size customization for the Waypoint Arrow. Supports all <code>LibSharedMedia-3.0</code> registered fonts.</li>
+            <li><strong>[Feature &mdash; Tracker Font Controls]</strong> Added "Apply to All" buttons for Quest Tracker headers and objectives, allowing users to synchronize font styles across the entire tracker interface instantly.</li>
+            <li><strong>[Fix &mdash; LibSharedMedia Iteration]</strong> Fixed a bug where font lists appeared empty on certain locales by switching from <code>ipairs</code> to <code>pairs</code> for <code>SharedMedia</code> hash-table iteration.</li>
+            <li><strong>[Fix &mdash; Real-time Options]</strong> Refactored arrow position, scale, and alpha sliders to apply changes in real-time without requiring a UI reload.</li>
+        </ul>
+
+        <hr>
+
+        <h2 id="v157">v1.5.7 &mdash; Ace3 Shim &amp; Load Prioritization</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Options Crash]</strong> Resolved a <code>nil</code> value error in <code>AddToBlizOptions</code> affecting 3.3.5a clients.
+                <ul>
+                    <li><strong>Compatibility Shim</strong>: Implemented an <code>AceConfigDialog-3.0</code> shim in <code>!X-Libs</code> to correctly bridge modern Ace3 options calls to the legacy 3.3.5a <code>InterfaceOptions_AddCategory</code> API.</li>
+                </ul>
+            </li>
+            <li><strong>[Stability &mdash; Load Order]</strong> Updated <code>Questie-X.toc</code> and <code>!X-Libs</code> to ensure the compatibility suite initializes before <code>BugSack</code> and other diagnostic tools, preventing interleaved error reporting.</li>
+        </ul>
+
+        <hr>
+
         <h2 id="v155">v1.5.5 &mdash; Performance &amp; Stability</h2>
         <ul>
             <li><strong>[Performance &mdash; Position Caching]</strong> Implemented a 50ms cache for <code>GetPlayerWorldPosition</code> and <code>GetPlayerZonePosition</code> in <code>Compat/HBD.lua</code>. This drastically reduces C API overhead which was the #1 hotspot, with automatic cache invalidation on zone transitions.</li>

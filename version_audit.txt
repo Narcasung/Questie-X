@@ -1,0 +1,14 @@
+CHANGELOG.md:23: ## v1.5.4 (2026-03-29)
+Questie-X-Classic.toc:2: ## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Classic|cFF00FF00 v1.5.4|r
+Questie-X-Classic.toc:8: ## Version: 1.5.3
+Questie-X-TBC.toc:2: ## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-TBC|cFF00FF00 v1.5.4|r
+Questie-X-TBC.toc:8: ## Version: 1.5.3
+Questie-X-Turtle.toc:2: ## Title: |cFF5EBAF3Questie|r|cFFDAFAFD-X|r-Turtle|cFF00FF00 v1.5.4|r
+Questie-X-Turtle.toc:8: ## Version: 1.5.3
+Questie-X.toc:14: ## Version: 1.5.4
+README.md:5: ![Version](https://img.shields.io/badge/Questie--X-v1.5.4-blue.svg?style=for-the-badge)
+docs\changelog.html:172: <code>Version: v1.5.4</code>
+docs\changelog.html:179: <h2 id="v153">v1.5.4 &mdash; Dedicated Keybinds Tab</h2>
+docs\index.html:213: <code>Version: v1.5.4</code>
+---
+Total: 12

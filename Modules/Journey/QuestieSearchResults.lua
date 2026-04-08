@@ -74,25 +74,31 @@ local function CreateShowHideButton(id)
     -- Initialise button
     local button = AceGUI:Create("Button")
     button.id = id
-    if (not QuestieMap.manualFrames["any"]) or (not QuestieMap.manualFrames["any"][id]) then
-        button:SetText(l10n("Show on Map"))
-        button:SetCallback("OnClick", function(self) self:ShowOnMap(self) end)
-    else
-        button:SetText(l10n("Remove from Map"))
-        button:SetCallback("OnClick", function(self) self:RemoveFromMap(self) end)
-    end
-    -- Functions for showing/hiding and switching behaviour afterwards
-    button.RemoveFromMap = function(self)
+
+    button.UpdateState = function(self)
+        local isOnMap = false
         if self.idsToShow then
             for _, spawnId in pairs(self.idsToShow) do
-                QuestieMap:UnloadManualFrames(spawnId)
+                if QuestieMap.manualFrames["any"] and QuestieMap.manualFrames["any"][spawnId] then
+                    isOnMap = true
+                    break
+                end
             end
         else
-            QuestieMap:UnloadManualFrames(self.id)
+            if QuestieMap.manualFrames["any"] and QuestieMap.manualFrames["any"][self.id] then
+                isOnMap = true
+            end
         end
-        self:SetText(l10n("Show on Map"))
-        self:SetCallback("OnClick", function() self:ShowOnMap(self) end)
+
+        if not isOnMap then
+            self:SetText(l10n("Show on Map"))
+            self:SetCallback("OnClick", function() self:ShowOnMap(self) end)
+        else
+            self:SetText(l10n("Remove from Map"))
+            self:SetCallback("OnClick", function() self:RemoveFromMap(self) end)
+        end
     end
+
     button.ShowOnMap = function(self)
         if self.idsToShow then
             for _, spawnId in pairs(self.idsToShow) do
@@ -109,9 +115,21 @@ local function CreateShowHideButton(id)
                 QuestieMap:ShowObject(-self.id)
             end
         end
-        self:SetText(l10n("Remove from Map"))
-        self:SetCallback("OnClick", function() self:RemoveFromMap(self) end)
+        self:UpdateState()
     end
+
+    button.RemoveFromMap = function(self)
+        if self.idsToShow then
+            for _, spawnId in pairs(self.idsToShow) do
+                QuestieMap:UnloadManualFrames(spawnId)
+            end
+        else
+            QuestieMap:UnloadManualFrames(self.id)
+        end
+        self:UpdateState()
+    end
+
+    button:UpdateState()
     return button
 end
 
@@ -504,6 +522,7 @@ function QuestieSearchResults:ItemDetailsFrame(f, itemId)
         if (#npcIdsWithSpawns > 0) then
             local showHideButton = CreateShowHideButton(itemId)
             showHideButton.idsToShow = npcIdsWithSpawns
+            showHideButton:UpdateState()
             f:AddChild(showHideButton)
         end
     end
@@ -534,6 +553,7 @@ function QuestieSearchResults:ItemDetailsFrame(f, itemId)
         if (#objectIdsWithSpawns > 0) then
             local showHideButton = CreateShowHideButton(itemId)
             showHideButton.idsToShow = objectIdsWithSpawns
+            showHideButton:UpdateState()
             f:AddChild(showHideButton)
         end
     end
@@ -565,6 +585,7 @@ function QuestieSearchResults:ItemDetailsFrame(f, itemId)
         if (#vendorIdsWithSpawns > 0) then
             local showHideButton = CreateShowHideButton(itemId)
             showHideButton.idsToShow = vendorIdsWithSpawns
+            showHideButton:UpdateState()
             f:AddChild(showHideButton)
         end
     end
