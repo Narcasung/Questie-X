@@ -198,6 +198,18 @@
                     <li><strong>Stability</strong>: Removed experimental rendering logic that caused regressions with standard quest objective icons.</li>
                 </ul>
             </li>
+            <li><strong>[Fix &mdash; ChatFilter Mythic Keystone Parsing]</strong> Resolved a bug where mythic keystone IDs posted in chat were incorrectly parsed as quest links and converted to broken clickable quests.
+                <ul>
+                    <li><strong>Pattern Guard</strong>: Added an early skip in <code>ChatFilter.Filter</code> to detect and skip entries where the extracted name starts with <code>"Keystone"</code>, preventing keystones from entering the quest-link conversion path.</li>
+                    <li><strong>Root Cause</strong>: The regex <code>\[(.+) %((%d+)%)]</code> matched chat messages like <code>[Keystone 12345]</code> because the name portion "Keystone 12345" matched <code>.+</code> and the ID happened to correspond to a valid quest ID in <code>QuestPointers</code>, causing a false-positive hyperlink replacement.</li>
+                </ul>
+            </li>
+            <li><strong>[Fix &mdash; Ebonhold Call Board Repeatable Quests]</strong> Resolved a bug where repeatable quests from the Ebonhold Call Board showed as permanently complete in the tracker after re-accepting them.
+                <ul>
+                    <li><strong>State Leak</strong>: On Ebonhold, Call Board quests auto-complete and vanish from the quest log without firing a <code>QUEST_REMOVED</code> event. Questie was marking them as <code>QUEST_TURNED_IN</code> in the internal <code>questLog</code> table but never cleaning that state on re-accept, causing the tracker to render them as already-complete.</li>
+                    <li><strong>Re-Accept Guard</strong>: Added a pre-check in the <code>QUEST_ACCEPTED</code> handler that detects quests already in <code>QUEST_TURNED_IN</code> state and performs full cleanup (<code>QuestLogCache.RemoveQuest</code>, <code>CompleteQuest</code>, <code>Journey:CompleteQuest</code>, <code>Announce:CompletedQuest</code>, <code>Tracker:RemoveQuest</code>, <code>questLog[questId] = nil</code>) before processing the fresh accept.</li>
+                </ul>
+            </li>
         </ul>
 
         <hr>

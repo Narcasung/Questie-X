@@ -241,6 +241,19 @@ function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
         skipNextUQLCEvent = true
     end
 
+    -- If the quest was already in questLog as QUEST_TURNED_IN (e.g. Ebonhold Call Board repeatable
+    -- quests that vanish without a proper QUEST_REMOVED event), clean up before re-accepting so the
+    -- tracker doesn't show it as already complete.
+    if questLog[questId] and questLog[questId].state == QUEST_LOG_STATES.QUEST_TURNED_IN then
+        Questie:Debug(Questie.DEBUG_INFO, "Quest:", questId, "re-accepted after auto-complete, clearing stale state")
+        QuestLogCache.RemoveQuest(questId)
+        QuestieQuest:CompleteQuest(questId) -- clears per-quest data
+        QuestieJourney:CompleteQuest(questId)
+        QuestieAnnounce:CompletedQuest(questId)
+        QuestieTracker:RemoveQuest(questId)
+        questLog[questId] = nil
+    end
+
     QuestieCombatQueue:Queue(function()
         QuestieLib:CacheItemNames(questId)
         _QuestEventHandler:HandleQuestAccepted(questId)
