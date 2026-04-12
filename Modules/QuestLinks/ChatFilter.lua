@@ -31,7 +31,10 @@ ChatFilter.Filter = function(chatFrame, _, msg, playerName, languageName, channe
                     end
                 end
 
-                if questId and QuestieDB.QuestPointers[questId] then
+                -- Skip non-quest patterns like mythic keystones
+                if questName and string.match(questName, "^Keystone") then
+                    -- skip keystone links
+                elseif questId and QuestieDB.QuestPointers[questId] then
                     if (not senderGUID) then
                         playerName = BNGetFriendInfoByID(bnSenderID)
                         senderGUID = bnSenderID

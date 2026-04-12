@@ -15,6 +15,12 @@
 - **[UI — Search Experience]** Improved the Advanced Search results interface.
   - **Dynamic Button States**: Fixed the "Show on Map" button state management to correctly toggle to "Remove from Map" when pins are active.
   - **Stability**: Removed experimental rendering logic that caused regressions with standard quest objective icons.
+- **[Fix — ChatFilter Mythic Keystone Parsing]** Resolved a bug where mythic keystone IDs posted in chat were incorrectly parsed as quest links and converted to broken clickable quests.
+  - **Pattern Guard**: Added an early skip in `ChatFilter.Filter` to detect and skip entries where the extracted name starts with `"Keystone"`, preventing keystones from entering the quest-link conversion path.
+  - **Root Cause**: The regex `\[(.+) %((%d+)%)]` matched chat messages like `[Keystone 12345]` because the name portion "Keystone 12345" matched `.+` and the ID happened to correspond to a valid quest ID in `QuestPointers`, causing a false-positive hyperlink replacement.
+- **[Fix — Ebonhold Call Board Repeatable Quests]** Resolved a bug where repeatable quests from the Ebonhold Call Board showed as permanently complete in the tracker after re-accepting them.
+  - **State Leak**: On Ebonhold, Call Board quests auto-complete and vanish from the quest log without firing a `QUEST_REMOVED` event. Questie was marking them as `QUEST_TURNED_IN` in the internal `questLog` table but never cleaning that state on re-accept, causing the tracker to render them as already-complete.
+  - **Re-Accept Guard**: Added a pre-check in the `QUEST_ACCEPTED` handler that detects quests already in `QUEST_TURNED_IN` state and performs full cleanup (`QuestLogCache.RemoveQuest`, `CompleteQuest`, `Journey:CompleteQuest`, `Announce:CompletedQuest`, `Tracker:RemoveQuest`, `questLog[questId] = nil`) before processing the fresh accept.
 
 ## v1.5.9 (2026-04-08)
 
