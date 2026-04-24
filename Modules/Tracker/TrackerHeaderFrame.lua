@@ -26,7 +26,7 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 local QuestieCombatQueue = QuestieLoader:ImportModule("QuestieCombatQueue")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
-local LSM30 = LibStub("LibSharedMedia-3.0")
+local LSM30 = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 --- COMPATIBILITY ---
 local C_QuestLog = QuestieCompat.C_QuestLog
@@ -209,7 +209,7 @@ function TrackerHeaderFrame:Update()
         headerFrame.questieIcon:SetPoint("TOPLEFT", headerFrame, "TOPLEFT", 6, 0)
         headerFrame.questieIcon:Show()
 
-        headerFrame.trackedQuests.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontHeader), trackerFontSizeHeader, Questie.db.profile.trackerFontOutline)
+        headerFrame.trackedQuests.label:SetFont(LSM30 and LSM30:Fetch("font", Questie.db.profile.trackerFontHeader) or Questie.db.profile.trackerFontHeader, trackerFontSizeHeader, Questie.db.profile.trackerFontOutline)
 
         local maxQuestAmount = "/" .. C_QuestLog.GetMaxNumQuestsCanAccept()
         local _, activeQuests = GetNumQuestLogEntries()

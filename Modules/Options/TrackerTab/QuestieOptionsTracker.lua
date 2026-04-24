@@ -27,14 +27,19 @@ QuestieOptions.tabs.tracker = { ... }
 local _GetShortcuts
 local trackerOptions = {}
 
-local SharedMedia = LibStub("LibSharedMedia-3.0")
+local SharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 -- Build expanded font list from SharedMedia + common WoW fonts
 local function GetExpandedFontList()
     local fonts = {}
-    -- Add SharedMedia fonts (HashTable returns key-value table)
-    for name, _ in pairs(SharedMedia:HashTable("font")) do
-        fonts[name] = name
+    -- Add SharedMedia fonts if available (HashTable returns nil if media type not registered yet)
+    if SharedMedia and SharedMedia.HashTable then
+        local lsmFonts = SharedMedia:HashTable("font")
+        if lsmFonts then
+            for name, _ in pairs(lsmFonts) do
+                fonts[name] = name
+            end
+        end
     end
     -- Add common WoW fonts not typically in SharedMedia
     local wowFonts = {
