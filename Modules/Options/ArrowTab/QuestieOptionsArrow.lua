@@ -13,14 +13,19 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
-local SharedMedia = LibStub("LibSharedMedia-3.0")
+local SharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 -- Build expanded font list from SharedMedia + common WoW fonts
 local function GetExpandedFontList()
     local fonts = {}
-    -- Add SharedMedia fonts (HashTable returns key-value table)
-    for name, _ in pairs(SharedMedia:HashTable("font")) do
-        fonts[name] = name
+    -- Add SharedMedia fonts if available (HashTable returns nil if media type not registered yet)
+    if SharedMedia and SharedMedia.HashTable then
+        local lsmFonts = SharedMedia:HashTable("font")
+        if lsmFonts then
+            for name, _ in pairs(lsmFonts) do
+                fonts[name] = name
+            end
+        end
     end
     -- Add common WoW fonts not typically in SharedMedia
     local wowFonts = {
@@ -116,7 +121,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                 type = "select",
                 dialogControl = 'LSM30_Font',
                 order = 7,
-                values = GetExpandedFontList(),
+                values = function() return GetExpandedFontList() end,
                 style = 'dropdown',
                 name = function() return l10n("Arrow Font") end,
                 desc = function() return l10n("The font used for the arrow distance and title text.") end,
