@@ -48,7 +48,7 @@ local GetQuestLogTitle = QuestieCompat.GetQuestLogTitle
 local GetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
 local GetItemInfo = QuestieCompat.GetItemInfo
 
-local LSM30 = LibStub("LibSharedMedia-3.0")
+local LSM30 = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 -- Local Vars
 local trackerLineWidth = 0
@@ -1275,7 +1275,7 @@ function QuestieTracker:Update()
                                 line.label:SetPoint("TOPLEFT", line, "TOPLEFT", lineWidthQBC, 0)
 
                                 -- Set Timer font
-                                line.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontObjective),
+                                line.label:SetFont(LSM30 and LSM30:Fetch("font", Questie.db.profile.trackerFontObjective) or Questie.db.profile.trackerFontObjective,
                                     Questie.db.profile.trackerFontSizeObjective, Questie.db.profile.trackerFontOutline)
 
                                 -- Set Timer Title based on states

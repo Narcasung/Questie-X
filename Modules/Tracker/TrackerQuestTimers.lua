@@ -16,7 +16,7 @@ local QuestieCombatQueue = QuestieLoader:ImportModule("QuestieCombatQueue")
 --- COMPATIBILITY ---
 local GetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
 
-local LSM30 = LibStub("LibSharedMedia-3.0")
+local LSM30 = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 local WatchFrame = QuestTimerFrame or WatchFrame
 local blizzardTimerLocation = {}
@@ -163,7 +163,7 @@ function TrackerQuestTimers:UpdateTimerFrame()
         local timeRemainingString, timeRemaining = TrackerQuestTimers:GetRemainingTimeByQuestId(timer.questId)
         if timeRemainingString ~= nil then
             Questie:Debug(Questie.DEBUG_SPAM, "[TrackerQuestTimers:UpdateTimerFrame] - ", timeRemainingString)
-            timer.frame.label:SetFont(LSM30:Fetch("font", Questie.db.profile.trackerFontObjective), Questie.db.profile.trackerFontSizeObjective, Questie.db.profile.trackerFontOutline)
+            timer.frame.label:SetFont(LSM30 and LSM30:Fetch("font", Questie.db.profile.trackerFontObjective) or Questie.db.profile.trackerFontObjective, Questie.db.profile.trackerFontSizeObjective, Questie.db.profile.trackerFontOutline)
             timer.frame.label:SetText(Questie:Colorize(timeRemainingString, "blue"))
             timer.frame:SetWidth(timer.frame.label:GetWidth() + ((34) - (18 - Questie.db.profile.trackerFontSizeQuest)) + Questie.db.profile.trackerFontSizeQuest)
         else

@@ -17,7 +17,7 @@ local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 
 local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
-local SharedMedia = LibStub("LibSharedMedia-3.0")
+local SharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
 
 local atan2 = math.atan2
 local pi = math.pi
@@ -807,7 +807,7 @@ function QuestieArrow:UpdateFont()
     if not arrowFrame then return end
     local fontSize = Questie.db.profile.arrowFontSize or 10
     local fontName = Questie.db.profile.arrowFont or "Friz Quadrata TT"
-    local fontFace = SharedMedia:Fetch("font", fontName) or fontName
+    local fontFace = (SharedMedia and SharedMedia.Fetch and SharedMedia:Fetch("font", fontName)) or fontName
     if arrowFrame.title then
         arrowFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
     end
