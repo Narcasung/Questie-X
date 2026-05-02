@@ -27,7 +27,11 @@ Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie
 
 ## Installation
 
-Questie-X uses a **two-part install**: the core engine plus one database plugin matching your server.
+> **⚠️ Two addons are always required — even on supported servers**
+>
+> Questie-X **cannot run alone**. It has no quest, NPC, item, or object data bundled inside it — that data lives entirely in a separate database plugin. You must install **both** the core engine **and** a server-specific database plugin for Questie-X to display anything.
+>
+> **Which database plugin you need depends on your server** — see the table in Step 2 below.
 
 > **⚠️ Upgrading from the old architecture (Questie-335 / PE-Questie / any pre-v1.1.4 Questie fork)?**
 > The old addon loaded its database from files inside the core folder. Questie-X loads data from a separate plugin addon. These two systems are **not compatible** — you must fully remove the old installation before installing Questie-X, or you will get conflicts, duplicate modules, and data errors.
@@ -50,6 +54,8 @@ Questie-X uses a **two-part install**: the core engine plus one database plugin 
    ```
 
 ### Step 2 — Install Your Server's Database Plugin
+
+> **⚠️ This step is not optional. Questie-X will not work without a database plugin loaded.**
 
 Questie-X **requires** a database plugin to function. The plugin provides quest, NPC, object, and item data specific to your private server. Without it, Questie-X has no data to display.
 
