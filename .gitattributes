@@ -39,3 +39,5 @@ changelog.html export-ignore
 docs/ export-ignore
 .claude/ export-ignore
 skills-lock.json export-ignore
+LICENSE.md export-ignore
+**/LICENSE.md export-ignore
