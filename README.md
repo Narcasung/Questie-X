@@ -87,17 +87,38 @@ Questie-X **requires** a database plugin to function. The plugin provides quest,
 4. Extract the archive — you will get a folder named `Questie-X-<ServerName>DB` (e.g., `Questie-X-WotLKDB`).
 5. Move that folder into your `Interface/AddOns/` directory, **alongside** the `Questie-X` folder you installed in Step 1.
 
-Your final folder structure should look like this:
+Your final folder structure should look like one of these:
 
+**For WotLK / Classic / TBC servers:**
 ```
 World of Warcraft/
 └── Interface/
     └── AddOns/
         ├── Questie-X/              ← Step 1 — core addon (REQUIRED)
-        └── Questie-X-WotLKDB/      ← Step 2 — database plugin (REQUIRED for your server)
+        └── Questie-X-WotLKDB/      ← Step 2 — WotLKDB baseline (REQUIRED)
 ```
 
-> **⚠️ Important:** Both folders must be present and at the same level inside `Interface/AddOns/`. If only one is present, Questie-X will show an error message in chat telling you what's missing.
+**For Ascension servers:**
+```
+World of Warcraft/
+└── Interface/
+    └── AddOns/
+        ├── Questie-X/              ← Step 1 — core addon (REQUIRED)
+        ├── Questie-X-WotLKDB/      ← WotLKDB baseline (REQUIRED)
+        └── Questie-X-AscensionDB/  ← AscensionDB overrides (REQUIRED)
+```
+
+**For Ebonhold servers:**
+```
+World of Warcraft/
+└── Interface/
+    └── AddOns/
+        ├── Questie-X/              ← Step 1 — core addon (REQUIRED)
+        ├── Questie-X-WotLKDB/      ← WotLKDB baseline (REQUIRED)
+        └── Questie-X-EbonholdDB/   ← EbonholdDB overrides (REQUIRED)
+```
+
+> **⚠️ Important:** All folders must be present and at the same level inside `Interface/AddOns/`. The server-specific DB (AscensionDB, EbonholdDB, etc.) goes **alongside** `Questie-X-WotLKDB` — it does not replace it. If any folder is missing, Questie-X will show an error message in chat telling you what's missing.
 
 #### After Installation
 
