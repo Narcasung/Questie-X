@@ -1,5 +1,15 @@
 # Changelog
 
+## Session 34 (2026-05-02)
+
+### Maintenance
+
+- **Removed Turtle WoW references** — Deleted Turtle WoW row from the server compatibility table and removed Turtle WoW load tip from installation instructions in README.md. Turtle WoW is shutting down and no longer has a supported plugin.
+
+### Documentation
+
+- **Clarified two-addon installation requirement** — Updated README.md installation instructions to explicitly state that Questie-X requires BOTH the core addon AND a server-specific database plugin to function.
+
 ## v1.6.0 (2026-04-08)
 
 ### Bug Fixes
