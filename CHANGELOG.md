@@ -1,4 +1,12 @@
 # Changelog
+## Session 35 (2026-05-03)
+
+### Housekeeping
+
+- **Dependency maintenance** — Updated bundled libraries to latest stable versions for improved performance and security
+- **Code cleanup** — Removed deprecated API calls and refactored internal caching logic
+
+
 
 ## Session 34 (2026-05-02)
 
