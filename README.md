@@ -75,7 +75,6 @@ Questie-X **requires** a database plugin to function. The plugin provides quest,
 | TBC 2.5.x | **Questie-X-TBCDB** | [Xurkon/Questie-X-TBCDB](https://github.com/Xurkon/Questie-X-TBCDB) |
 | Project Ascension | **Questie-X-AscensionDB** | [Xurkon/Questie-X-AscensionDB](https://github.com/Xurkon/Questie-X-AscensionDB) |
 | Project Ebonhold | **Questie-X-EbonholdDB** | [Xurkon/Questie-X-EbonholdDB](https://github.com/Xurkon/Questie-X-EbonholdDB) |
-| Turtle WoW | *(coming soon — check back later)* | — |
 | Other / Unknown | Use WotLKDB as a starting baseline, then use QuestieLearner to fill gaps | — |
 
 #### How to Install the Plugin
@@ -103,8 +102,6 @@ World of Warcraft/
 1. Launch WoW and log in to your character.
 2. If Questie-X loads successfully, you will see the minimap icon and no error messages.
 3. If no plugin is detected, Questie-X will print a message in chat telling you exactly which plugin to install.
-
-> **Turtle WoW:** Enable **"Load out of date AddOns"** on the character select screen if prompted. This is standard practice for all addons on Turtle WoW.
 
 #### Note for Unsupported Servers
 
