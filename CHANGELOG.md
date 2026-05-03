@@ -892,3 +892,9 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Arrow]** Fixed a nil function error for `_CollectObjective` when processing incomplete quests.
 - **[Arrow]** Fixed syntax issues that prevented `QuestieArrow` module from initializing correctly.
 - **[Database]** Fixed a runtime crash in `ZoneDB` when encountering maps with no AreaId mapping (e.g., Kalimdor).
+
+## Session 35 (2026-05-03)
+
+### Housekeeping
+
+- **Discord relay housekeeping** — Discord thread routing config refreshed, stale webhook references cleaned up, no functional addon changes.
