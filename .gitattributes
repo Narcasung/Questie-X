@@ -37,3 +37,5 @@ README.md export-ignore
 CHANGELOG.md export-ignore
 changelog.html export-ignore
 docs/ export-ignore
+.claude/ export-ignore
+skills-lock.json export-ignore
