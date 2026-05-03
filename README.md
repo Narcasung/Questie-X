@@ -68,6 +68,8 @@ Questie-X **requires** a database plugin to function. The plugin provides quest,
 
 **Download and install the plugin for your server from the table below:**
 
+> **💡 All server plugins also require Questie-X-WotLKDB as the base layer.** Your server-specific plugin (AscensionDB, ClassicDB, etc.) provides the quest data overrides and custom content — but Questie-X-WotLKDB is still needed underneath it for the core WotLK quest data that your server's plugin extends. Install both.
+
 | Your Server | Plugin to Download | Repository |
 |-------------|------------------|------------|
 | WotLK 3.3.5 (most private servers) | **Questie-X-WotLKDB** | [Xurkon/Questie-X-WotLKDB](https://github.com/Xurkon/Questie-X-WotLKDB) |
