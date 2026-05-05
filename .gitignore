@@ -42,3 +42,6 @@ __pycache__/
 
 # Assets that shouldn't be in source
 # (Icons/* are needed for release)
+Questie-X-Turtle.toc
+skills-lock.json
+.luarc.json
