@@ -802,6 +802,15 @@ function QuestieQuest:SetObjectivesDirty(questId)
             objective.isUpdated = false
             objKey, objective = next(quest.Objectives, objKey)
         end
+        -- Also dirty SpecialObjectives (e.g. demonic runestones, portal-closing mechanics).
+        -- Without this, ObjectiveUpdate's isUpdated early-exit prevents objective.Completed
+        -- from being set to true, so _UnloadAlreadySpawnedIcons is never reached and icons
+        -- linger on the map/minimap after the objectives are fulfilled.
+        local soKey, sObjective = next(quest.SpecialObjectives or {})
+        while soKey do
+            sObjective.isUpdated = false
+            soKey, sObjective = next(quest.SpecialObjectives, soKey)
+        end
     end
 end
 
@@ -1336,7 +1345,14 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:PopulateObjective]", objective.Description)
 
     if (not objective.Update) then
-        Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:PopulateObjective] - Quest is already updated. --> Exiting!")
+        -- No Update function means static/pre-populated objective.
+        -- Still check completion state so icons are removed if this objective was
+        -- already marked complete from a previous update cycle.
+        if objective.Completed or quest.isComplete then
+            Questie:Debug(Questie.DEBUG_INFO,
+                "[QuestieQuest:PopulateObjective] - No Update fn but objective is complete, unloading icons.")
+            _UnloadAlreadySpawnedIcons(objective)
+        end
         return
     end
 

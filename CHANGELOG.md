@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.1 (2026-05-04)
+
+### Bug Fixes
+
+- **[Fix — Map Icon Completion]** Resolved a bug where quest objective icons (map pins and minimap markers) persisted on the world map and minimap after objectives were fulfilled, only disappearing after speaking to the quest giver to complete the quest.
+  - **SpecialObjectives Dirty Flag**: Added a missing loop in `SetObjectivesDirty` to reset `isUpdated = false` on `quest.SpecialObjectives` alongside the existing `quest.Objectives` loop. Previously, special objectives (e.g. demonic runestones, portal-closing mechanics) would skip the `ObjectiveUpdate` early-exit guard because their `isUpdated` flag was never cleared, preventing `objective.Completed` from being set to `true` and leaving map icons on-screen indefinitely.
+  - **Completion Guard in PopulateObjective**: Added a defensive check in `PopulateObjective` so that objectives without an `Update` function still unload their spawned icons if `objective.Completed` or `quest.isComplete` is already `true` from a prior update cycle.
+
 ## Session 34 (2026-05-02)
 
 ### Maintenance
