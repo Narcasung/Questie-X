@@ -4,9 +4,12 @@
 
 ### Bug Fixes
 
-- **[Fix — Map Icon Completion]** Resolved a bug where quest objective icons (map pins and minimap markers) persisted on the world map and minimap after objectives were fulfilled, only disappearing after speaking to the quest giver to complete the quest.
+- **[Fix - Map Icon Completion]** Resolved a bug where quest objective icons (map pins and minimap markers) persisted on the world map and minimap after objectives were fulfilled, only disappearing after speaking to the quest giver to complete the quest.
   - **SpecialObjectives Dirty Flag**: Added a missing loop in `SetObjectivesDirty` to reset `isUpdated = false` on `quest.SpecialObjectives` alongside the existing `quest.Objectives` loop. Previously, special objectives (e.g. demonic runestones, portal-closing mechanics) would skip the `ObjectiveUpdate` early-exit guard because their `isUpdated` flag was never cleared, preventing `objective.Completed` from being set to `true` and leaving map icons on-screen indefinitely.
   - **Completion Guard in PopulateObjective**: Added a defensive check in `PopulateObjective` so that objectives without an `Update` function still unload their spawned icons if `objective.Completed` or `quest.isComplete` is already `true` from a prior update cycle.
+- **[Fix - QuestLogCache Error Spam]** Silenced repetitive `[ERROR] Please report this error. GetQuest/GetQuestObjectives: The quest doesn't exist in QuestLogCache` chat messages that fired for quests not present in the cache (e.g. quest IDs 595, 959, 254048).
+  - **Root Cause**: `QuestLogCache.GetQuest` and `QuestLogCache.GetQuestObjectives` called `Questie:Error(...)` unconditionally whenever a quest ID was not found in the cache, flooding chat on every objective update cycle.
+  - **Fix**: Demoted both calls (and the accompanying `debugstack` print) from `Questie:Error` to `Questie:Debug(Questie.DEBUG_DEVELOP, ...)`. The messages are now silent during normal play and only visible when developer debug mode is active.
 
 ## Session 34 (2026-05-02)
 
