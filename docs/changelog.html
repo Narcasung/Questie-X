@@ -184,6 +184,12 @@
                     <li><strong>Completion Guard in PopulateObjective</strong>: Added a defensive check in <code>PopulateObjective</code> so that objectives without an <code>Update</code> function still unload their spawned icons if <code>objective.Completed</code> or <code>quest.isComplete</code> is already <code>true</code> from a prior update cycle.</li>
                 </ul>
             </li>
+            <li><strong>[Fix &mdash; QuestLogCache Error Spam]</strong> Silenced repetitive <code>[ERROR] Please report this error. GetQuest/GetQuestObjectives: The quest doesn't exist in QuestLogCache</code> chat messages that fired for quests not present in the cache (e.g. quest IDs 595, 959, 254048).
+                <ul>
+                    <li><strong>Root Cause</strong>: <code>QuestLogCache.GetQuest</code> and <code>QuestLogCache.GetQuestObjectives</code> called <code>Questie:Error(...)</code> unconditionally whenever a quest ID was not found in the cache, flooding chat on every objective update cycle.</li>
+                    <li><strong>Fix</strong>: Demoted both calls (and the accompanying <code>debugstack</code> print) from <code>Questie:Error</code> to <code>Questie:Debug(Questie.DEBUG_DEVELOP, ...)</code>. The messages are now silent during normal play and only visible when developer debug mode is active.</li>
+                </ul>
+            </li>
         </ul>
 
         <hr>

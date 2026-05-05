@@ -286,8 +286,8 @@ function QuestLogCache.GetQuest(questId)
         if questId == 0 or (not Questie.started) then
             return nil
         end
-        Questie:Print(debugstack(1, 20, 4))
-        Questie:Error("Please report this error. GetQuest: The quest doesn't exist in QuestLogCache.", questId)
+        Questie:Debug(Questie.DEBUG_DEVELOP, debugstack(1, 20, 4))
+        Questie:Debug(Questie.DEBUG_DEVELOP, "GetQuest: The quest doesn't exist in QuestLogCache.", questId)
         return nil
     end
     return cache[questId]
@@ -303,8 +303,8 @@ function QuestLogCache.GetQuestObjectives(questId)
         if questId == 0 or (not Questie.started) then
             return {}
         end
-        Questie:Print(debugstack(1, 20, 4))
-        Questie:Error("Please report this error. GetQuestObjectives: The quest doesn't exist in QuestLogCache.", questId)
+        Questie:Debug(Questie.DEBUG_DEVELOP, debugstack(1, 20, 4))
+        Questie:Debug(Questie.DEBUG_DEVELOP, "GetQuestObjectives: The quest doesn't exist in QuestLogCache.", questId)
         return {}
     end
     return cache[questId].objectives
