@@ -169,13 +169,25 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.0</code>
+            <code>Version: v1.6.1</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
+        <h2 id="v161">v1.6.1 &mdash; Map Icon Completion Fix</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Map Icon Completion]</strong> Resolved a bug where quest objective icons (map pins and minimap markers) persisted on the world map and minimap after objectives were fulfilled, only disappearing after speaking to the quest giver to complete the quest.
+                <ul>
+                    <li><strong>SpecialObjectives Dirty Flag</strong>: Added a missing loop in <code>SetObjectivesDirty</code> to reset <code>isUpdated = false</code> on <code>quest.SpecialObjectives</code> alongside the existing <code>quest.Objectives</code> loop. Previously, special objectives (e.g. demonic runestones, portal-closing mechanics) would skip the <code>ObjectiveUpdate</code> early-exit guard because their <code>isUpdated</code> flag was never cleared, preventing <code>objective.Completed</code> from being set to <code>true</code> and leaving map icons on-screen indefinitely.</li>
+                    <li><strong>Completion Guard in PopulateObjective</strong>: Added a defensive check in <code>PopulateObjective</code> so that objectives without an <code>Update</code> function still unload their spawned icons if <code>objective.Completed</code> or <code>quest.isComplete</code> is already <code>true</code> from a prior update cycle.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <hr>
+
         <h2 id="v160">v1.6.0 &mdash; Map Search &amp; Data Integrity</h2>
         <ul>
             <li><strong>[Fix &mdash; Map Search DB]</strong> Resolved a critical database issue where objects and NPCs searched via Advanced Search failed to display all available spawn locations.
