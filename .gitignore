@@ -45,3 +45,9 @@ __pycache__/
 Questie-X-Turtle.toc
 skills-lock.json
 .luarc.json
+skills/
+scratch/
+workflow/
+Tests/
+Tools/
+.claude/skills/
