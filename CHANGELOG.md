@@ -1,5 +1,19 @@
 # Changelog
 
+## [Unreleased]
+
+### Bug Fixes
+
+- **[Fix — Tooltip NPC/Object Type Guard]** Resolved a crash in `QuestieTooltips` when hovering over NPC or object tooltip keys (`m_<id>`, `o_<id>`) where `learnedNpc[10]` or `learnedObj[10]` was unexpectedly a string instead of a table.
+  - **Root Cause**: `InsertMissingQuestIds` in the WotLKDB corrections files writes directly to `QuestieDB.questData[questId]` but `questData` is stored as a loadable Lua string on Ascension. When code later tried to index into that string as a table, it threw `attempt to index field 'questData' (a string value)`.
+  - **Fix**: Added `if type(objList) ~= "table" then break end` guard in both `m_/NPC` and `o_/object` iteration paths in `Tooltip.lua` before iterating `learnedNpc[10]` / `learnedObj[10]`.
+- **[Fix — InsertMissingQuestIds String Guard]** Added `if type(QuestieDB.questData) ~= "table" then return end` guard at the start of `InsertMissingQuestIds()` in both `tbcQuestFixes.lua` and `wotlkQuestFixes.lua`. Prevents the function from writing to `questData` while it is still an uncompiled string during early loader initialization.
+- **[Fix — Sunstrider Isle Arrow / Zone Override]** Resolved the quest arrow not appearing on Sunstrider Isle (Ascension's starting zone) when the world map is closed.
+  - **Root Cause**: `C_Map.GetBestMapForUnit("player")` returns `946` (ghost/loading map uiMapId) instead of `1241` (Sunstrider Isle's real uiMapId) when the world map is closed. `ZoneDB:GetAreaIdByUiMapId(946)` had no override, causing `GetCurrentZoneId()` to return `946` instead of `3430` (Sunstrider Isle's areaId). This broke target zone filtering in `_CollectObjective` and caused `HBD:GetWorldCoordinatesFromZone` to return `0,0` (no world coord data for map 946).
+  - **Fix — zoneDB.lua**: Added `[946] = 3430` to `UiMapIdOverrides` so `GetAreaIdByUiMapId(946)` resolves to the real Sunstrider Isle areaId even when the game returns the ghost map uiMapId. Also added `[1241] = 3430` to handle the case where `GetBestMapForUnit` returns the correct Sunstrider Isle uiMapId directly.
+  - **Fix — QuestieArrow.lua**: Updated `UpdateNearestTargets` fallback chain to use `QuestiePlayer:GetCurrentUiMapId()` (backed by `C_Map.GetBestMapForUnit`) for player position. When that returns an invalid/ghost map (946/947/0), it falls back to a `ZoneDB` lookup via the actual `zoneId`. This ensures the arrow gets real world coordinates via `C_Map.GetPlayerMapPosition` + `HBD:GetWorldCoordinatesFromZone` regardless of map open/closed state.
+  - **Debug Output**: Added per-frame debug output (respecting `debugArrow` profile setting) showing `frameShown`, `target.title`, player coordinates, and uiMapId values for troubleshooting.
+
 ## v1.6.1 (2026-05-04)
 
 ### Bug Fixes

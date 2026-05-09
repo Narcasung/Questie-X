@@ -176,6 +176,27 @@
     </div>
 
     <div class="container">
+        <h2 id="unreleased">[Unreleased] &mdash; Sunstrider Isle Arrow, Tooltip Guard, QuestData String Safety</h2>
+        <ul>
+            <li><strong>[Fix &mdash; Tooltip NPC/Object Type Guard]</strong> Resolved a crash in <code>QuestieTooltips</code> when hovering over NPC or object tooltip keys (<code>m_&lt;id&gt;</code>, <code>o_&lt;id&gt;</code>) where <code>learnedNpc[10]</code> or <code>learnedObj[10]</code> was unexpectedly a string instead of a table.
+                <ul>
+                    <li><strong>Root Cause</strong>: <code>InsertMissingQuestIds</code> in the WotLKDB corrections files writes directly to <code>QuestieDB.questData[questId]</code> but <code>questData</code> is stored as a loadable Lua string on Ascension. When code later tried to index into that string as a table, it threw <code>attempt to index field 'questData' (a string value)</code>.</li>
+                    <li><strong>Fix</strong>: Added <code>if type(objList) ~= "table" then break end</code> guard in both <code>m_/NPC</code> and <code>o_/object</code> iteration paths in <code>Tooltip.lua</code> before iterating <code>learnedNpc[10]</code> / <code>learnedObj[10]</code>.</li>
+                </ul>
+            </li>
+            <li><strong>[Fix &mdash; InsertMissingQuestIds String Guard]</strong> Added <code>if type(QuestieDB.questData) ~= "table" then return end</code> guard at the start of <code>InsertMissingQuestIds()</code> in both <code>tbcQuestFixes.lua</code> and <code>wotlkQuestFixes.lua</code>. Prevents the function from writing to <code>questData</code> while it is still an uncompiled string during early loader initialization.</li>
+            <li><strong>[Fix &mdash; Sunstrider Isle Arrow / Zone Override]</strong> Resolved the quest arrow not appearing on Sunstrider Isle (Ascension's starting zone) when the world map is closed.
+                <ul>
+                    <li><strong>Root Cause</strong>: <code>C_Map.GetBestMapForUnit("player")</code> returns <code>946</code> (ghost/loading map uiMapId) instead of <code>1241</code> (Sunstrider Isle's real uiMapId) when the world map is closed. <code>ZoneDB:GetAreaIdByUiMapId(946)</code> had no override, causing <code>GetCurrentZoneId()</code> to return <code>946</code> instead of <code>3430</code> (Sunstrider Isle's areaId). This broke target zone filtering in <code>_CollectObjective</code> and caused <code>HBD:GetWorldCoordinatesFromZone</code> to return <code>0,0</code> (no world coord data for map 946).</li>
+                    <li><strong>Fix &mdash; zoneDB.lua</strong>: Added <code>[946] = 3430</code> and <code>[1241] = 3430</code> to <code>UiMapIdOverrides</code> so <code>GetAreaIdByUiMapId</code> always resolves to the real Sunstrider Isle areaId regardless of which ghost or real uiMapId the game returns.</li>
+                    <li><strong>Fix &mdash; QuestieArrow.lua</strong>: Updated <code>UpdateNearestTargets</code> fallback chain to use <code>QuestiePlayer:GetCurrentUiMapId()</code> for player position. When that returns an invalid/ghost map (946/947/0), it falls back to a <code>ZoneDB</code> lookup via the actual zoneId. Ensures the arrow gets real world coordinates via <code>C_Map.GetPlayerMapPosition</code> + <code>HBD:GetWorldCoordinatesFromZone</code> regardless of map open/closed state.</li>
+                    <li><strong>Debug Output</strong>: Added per-frame debug output (respecting <code>debugArrow</code> profile setting) showing <code>frameShown</code>, <code>target.title</code>, player coordinates, and uiMapId values.</li>
+                </ul>
+            </li>
+        </ul>
+
+        <hr>
+
         <h2 id="v161">v1.6.1 &mdash; Map Icon Completion Fix</h2>
         <ul>
             <li><strong>[Fix &mdash; Map Icon Completion]</strong> Resolved a bug where quest objective icons (map pins and minimap markers) persisted on the world map and minimap after objectives were fulfilled, only disappearing after speaking to the quest giver to complete the quest.
