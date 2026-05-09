@@ -2,7 +2,7 @@
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-![Version](https://img.shields.io/badge/Questie--X-v1.6.0-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Questie--X-v1.6.2-blue.svg?style=for-the-badge)
 [![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)](https://github.com/Xurkon/Questie-X/releases)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
@@ -211,6 +211,7 @@ If your server uses non-standard map data, enable **Options → Advanced → Use
 - Fixed `attempt to concatenate nil` error when a quest starter or finisher has no name in the database.
 - Added support for `killcredit` and `spell` objective types in `MapIconTooltip`.
 - Tooltip now displays if an NPC drops an item that starts a quest.
+- Fixed tooltip crash when hovering over NPC/object keys (`m_<id>`, `o_<id>`) where `learnedNpc[10]` or `learnedObj[10]` is unexpectedly a string instead of a table. Added type guard before iterating the objective list array.
 
 ### Quest Arrow
 
@@ -218,6 +219,7 @@ If your server uses non-standard map data, enable **Options → Advanced → Use
 - Fixed arrow pointing to previously completed objective locations instead of the current finisher.
 - Fixed nil error in `_CollectObjective` when processing incomplete quests.
 - Fixed arrow direction for quests that require speaking to an NPC as a prerequisite step.
+- **Sunstrider Isle (Ascension starting zone)**: Resolved arrow not appearing when the world map is closed. `C_Map.GetBestMapForUnit("player")` returns a ghost/loading map uiMapId (946) instead of Sunstrider Isle's real uiMapId (1241) with the map closed. Added `UiMapIdOverrides` entries for both 946 and 1241 mapping to Sunstrider Isle's areaId (3430). Updated the arrow's `UpdateNearestTargets` fallback to use `ZoneDB` lookups when the ghost map is detected, ensuring the arrow gets real world coordinates regardless of map state.
 
 ### Nameplates
 
