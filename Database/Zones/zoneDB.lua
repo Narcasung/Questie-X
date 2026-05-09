@@ -49,6 +49,8 @@ local UiMapIdOverrides = {
     [246] = 3713,
     [1415] = 668, -- Eastern Kingdoms (matches Undercity on Ascension)
     [947] = 668,  -- Azeroth (matches Undercity on Ascension)
+    [1241] = 3430, -- Sunstrider Isle (uiMapId 1241 → areaId 3430)
+    [946] = 3430,  -- Sunstrider Isle ghost/loading map → areaId 3430
 }
 local parentZoneToSubZone = {} -- Generated
 local zoneMap = {}             -- Generated

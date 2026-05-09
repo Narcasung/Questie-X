@@ -257,7 +257,7 @@ local function EnsureArrowFrame()
         end
     end)
 
-    arrowFrame:SetScript("OnUpdate", function(self)
+arrowFrame:SetScript("OnUpdate", function(self)
         local now = GetTime()
 
         local target = sortedTargets[1]
@@ -273,30 +273,96 @@ local function EnsureArrowFrame()
         if (self._lastUpdate or 0) + UPDATE_THROTTLE_SECONDS > now then
             return
         end
-        self._lastUpdate = now
+self._lastUpdate = now
 
-        local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
-        if not playerX or not playerY or not playerInstance then
-            self.distance:SetText("Distance: --")
-            return
+        -- Persistent debug: print every frame so we can see what OnUpdate sees
+        local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+        if debugArrow then
+            print(string.format("QuestieArrow OnUpdate: frameShown=%s target=%s pX=%s pY=%s pInst=%s _playerUiMapId=%s targetUiMapId=%s",
+                tostring(self:IsShown()), tostring(target and target.title),
+                tostring(_arrow_playerX), tostring(_arrow_playerY), tostring(_arrow_playerInstance),
+                tostring(_arrow_playerUiMapId), tostring(target and target.uiMapId)))
         end
 
-        local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0,
-            target.uiMapId)
-        if not targetX or not targetY or not targetInstance then
-            self.distance:SetText("Distance: --")
-            return
+local pX, pY, pInst = _arrow_playerX, _arrow_playerY, _arrow_playerInstance
+        if not pX or not pY or not pInst then
+            -- Fallback to HBD if upvalues aren't set yet
+            pX, pY, pInst = HBD:GetPlayerWorldPosition()
         end
-
-        if targetInstance ~= playerInstance then
+        if not pX or not pY or not pInst then
+            local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+            if debugArrow then
+                print(string.format("QuestieArrow OnUpdate: player position nil (x=%s y=%s inst=%s)", tostring(pX), tostring(pY), tostring(pInst)))
+            end
+            self.distance:SetText("Distance: --")
             self:Hide()
             return
         end
 
+        -- Use the same uiMapId that _CollectObjective used for spawns to ensure consistent
+        -- instance ID. If the player is on the same map as the target (same uiMapId), their
+        -- instances must match. We get this from _arrow_playerUiMapId as a fallback.
+        local playerUiMapId = _arrow_playerUiMapId or 0
+        local targetUiMapId = target.uiMapId or 0
+
+        -- Declare world coords outside the branches so they're in scope for direction calc
+        local playerWorldX, playerWorldY
+
+-- If target and player are on the same uiMapId, they're in the same instance.
+        -- If they're on different maps, we need to compare instances via HBD.
+        if playerUiMapId ~= targetUiMapId then
+            -- Different maps: just skip instance check since UnitPosition gives us
+            -- the real instance — if player and target instances differ, HBD will return
+            -- nil for distance anyway. Fall through to direction calc with player coords.
+        end
+
         -- Calculate arrow direction using pfQuest's method, but in world coordinates
         -- (map coordinates break when the target is in a different zone)
-        local xDelta = (playerX - targetX) * 1.5
-        local yDelta = (playerY - targetY)
+        local targetX, targetY, targetInstance
+        if playerUiMapId == targetUiMapId and playerUiMapId ~= 0 then
+            -- Same uiMapId: compute target world coords using HBD
+            targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0, targetUiMapId)
+            if not targetX or not targetY or not targetInstance then
+                self.distance:SetText("Distance: --")
+                return
+            end
+        else
+            -- Different maps: convert target to world coords using its uiMapId (works for 1941).
+            -- Player is already in world coords from UnitPosition via pX/pY.
+            local tWX, tWY, tInst = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0, targetUiMapId)
+            if tWX and tWY then
+                targetX, targetY, targetInstance = tWX, tWY, tInst or pInst or 0
+            else
+                -- HBD failed too: use raw map coords as last resort
+                targetX, targetY = target.x, target.y
+                targetInstance = pInst or 0
+            end
+        end
+
+        -- If targetX is still nil at this point, bail out
+        if not targetX or not targetY then
+            self.distance:SetText("Distance: --")
+            return
+        end
+
+        -- Use world coords for direction: both player and target must be in world coordinate space.
+        -- UnitPosition("player") gives world coords directly. For same-uiMapId: pX/pY from
+        -- UpdateNearestTargets are world coords from UnitPosition — use directly.
+        local worldPlayerX, worldPlayerY
+        if playerWorldX then
+            worldPlayerX, worldPlayerY = playerWorldX, playerWorldY
+        else
+            worldPlayerX, worldPlayerY = pX, pY
+        end
+
+-- targetX/Y are already world coords from the same-map or cross-map branch above
+        if not targetX or not targetY then
+            self.distance:SetText("Distance: --")
+            return
+        end
+
+        local xDelta = (worldPlayerX - targetX) * 1.5
+        local yDelta = (worldPlayerY - targetY)
         local angle = atan2(xDelta, -(yDelta))
         angle = angle > 0 and (pi * 2) - angle or -angle
         if angle < 0 then angle = angle + (pi * 2) end
@@ -325,9 +391,14 @@ local function EnsureArrowFrame()
         xend = xend - padX
         yend = yend - padY
 
-        -- Calculate distance and alpha
-        local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
+-- Calculate distance and alpha
+        -- worldPlayerX/Y are in world coords (converted from cross-map or same-map path)
+        local dist = HBD:GetWorldDistance(targetInstance, worldPlayerX, worldPlayerY, targetX, targetY)
         if dist then
+            local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+            if debugArrow then
+                print(string.format("QuestieArrow OnUpdate: dist=%.1f worldPlayerX=%.1f worldPlayerY=%.1f targetX=%.1f targetY=%.1f targetInst=%s title='%s'", dist, worldPlayerX, worldPlayerY, targetX, targetY, tostring(targetInstance), tostring(target.title)))
+            end
             local area = 1
             local alpha = dist - area
             alpha = alpha > 1 and 1 or alpha
@@ -574,15 +645,69 @@ function QuestieArrow:UpdateNearestTargets()
         return
     end
 
-    sortedTargets = {}
+sortedTargets = {}
 
     if not Questie.db or not Questie.db.char then
         return
     end
 
+    local debugArrow = Questie and Questie.db and Questie.db.profile and Questie.db.profile.debugArrow
+
+    -- Get player position — first try HBD's direct method (works when map is OPEN).
+    -- If that returns nil (map closed), fall back to C_Map.GetPlayerMapPosition +
+    -- HBD:GetWorldCoordinatesFromZone which works regardless of map open/closed state.
     local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
+if not playerX or not playerY or not playerInstance then
+        -- Fallback: get map-relative position then convert to world coords via HBD.
+        -- Use the player's current uiMapId as the map basis for the conversion.
+        -- IMPORTANT: never use 946 (ghost window/world map) — it has no world coord data.
+        -- If GetCurrentUiMapId returns 946, fall back to ZoneDB from the actual zone.
+        local pUiMapId = QuestiePlayer:GetCurrentUiMapId()
+        if not pUiMapId or pUiMapId == 947 or pUiMapId == 0 or pUiMapId == 946 then
+            local zoneId = QuestiePlayer:GetCurrentZoneId() or select(7, GetInstanceInfo())
+            if debugArrow then
+                print(string.format("UpdateNearestTargets: pUiMapId=%s (invalid), looking up via zoneId=%s", tostring(pUiMapId), tostring(zoneId)))
+            end
+            if zoneId then
+                pUiMapId = ZoneDB:GetUiMapIdByAreaId(zoneId)
+            end
+        end
+        pUiMapId = pUiMapId or 0
+
+        if debugArrow then
+            print(string.format("UpdateNearestTargets: trying C_Map with pUiMapId=%s", tostring(pUiMapId)))
+        end
+
+        local mapX, mapY = C_Map.GetPlayerMapPosition(pUiMapId, "player")
+        if debugArrow then
+            print(string.format("UpdateNearestTargets: C_Map.GetPlayerMapPosition(%s,'player') -> mapX=%.4f mapY=%.4f", tostring(pUiMapId), mapX or -1, mapY or -1))
+        end
+        if mapX and mapY and mapX > 0 and mapY > 0 then
+            playerX, playerY, playerInstance = HBD:GetWorldCoordinatesFromZone(mapX, mapY, pUiMapId)
+            playerInstance = playerInstance or 0
+            if debugArrow then
+                print(string.format("UpdateNearestTargets: HBD fallback via mapId=%d mapX=%.4f mapY=%.4f -> worldX=%.4f worldY=%.4f",
+                    pUiMapId, mapX, mapY, playerX or 0, playerY or 0))
+            end
+        else
+            if debugArrow then
+                print(string.format("UpdateNearestTargets: C_Map.GetPlayerMapPosition returned invalid coords (%.4f, %.4f), mapId=%s", mapX or 0, mapY or 0, tostring(pUiMapId)))
+            end
+        end
+    end
+
     if not playerX or not playerY or not playerInstance then
+        if debugArrow then
+            print("UpdateNearestTargets: player position unavailable, returning early")
+        end
         return
+    end
+
+    playerInstance = playerInstance or 0
+
+    if debugArrow then
+        print(string.format("UpdateNearestTargets: playerX=%.4f playerY=%.4f playerInstance=%s",
+            playerX, playerY, tostring(playerInstance)))
     end
 
     local tracked = Questie.db.char.TrackedQuests or {}
@@ -591,7 +716,17 @@ function QuestieArrow:UpdateNearestTargets()
     -- Auto mode logic: If autoTrack is on OR NOTHING is tracked
     local usingAutoLogic = Questie.db.profile.autoTrackQuests or not hasTracked
     local playerZoneId = QuestiePlayer:GetCurrentZoneId()
+    -- Get a valid uiMapId for the player — needed for _CollectObjective zone filtering.
+    -- Use QuestiePlayer which calls C_Map.GetBestMapForUnit — if that returns 947 (wrong)
+    -- fall back to ZoneDB from the player's actual zone (areaId).
     local playerUiMapId = QuestiePlayer:GetCurrentUiMapId()
+    if not playerUiMapId or playerUiMapId == 947 then
+        local zoneId = playerZoneId or select(7, GetInstanceInfo())
+        if zoneId then
+            playerUiMapId = ZoneDB:GetUiMapIdByAreaId(zoneId) or playerUiMapId
+        end
+    end
+    playerUiMapId = playerUiMapId or 0
 
     -- Publish context for hoisted helper functions (avoids closure allocation every call)
     _arrow_playerX, _arrow_playerY, _arrow_playerInstance = playerX, playerY, playerInstance
