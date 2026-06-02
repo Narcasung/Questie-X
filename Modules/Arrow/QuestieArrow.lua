@@ -270,18 +270,19 @@ local function _ApplyArrowStyle()
 
     if styleChanged then
         arrowFrame.arrow:SetTexture(style.texturePath)
+        arrowFrame._arrowStyleMode = nil
     end
 
-    if style.mode == "sheet" then
-        arrowFrame.arrow:SetTexCoord(0, ARROW_CELL_W / ARROW_SHEET_SIZE, 0, ARROW_CELL_H / ARROW_SHEET_SIZE)
+    if arrowFrame._arrowStyleMode ~= style.mode then
+        if style.mode == "sheet" then
+            arrowFrame.arrow:SetTexCoord(0, ARROW_CELL_W / ARROW_SHEET_SIZE, 0, ARROW_CELL_H / ARROW_SHEET_SIZE)
+        else
+            arrowFrame.arrow:SetTexCoord(0, 1, 0, 1)
+        end
         if arrowFrame.arrow.SetRotation then
             arrowFrame.arrow:SetRotation(0)
         end
-    else
-        arrowFrame.arrow:SetTexCoord(0, 1, 0, 1)
-        if arrowFrame.arrow.SetRotation then
-            arrowFrame.arrow:SetRotation(0)
-        end
+        arrowFrame._arrowStyleMode = style.mode
     end
 
     local scale = _GetArrowScale()
