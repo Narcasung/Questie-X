@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.6.3]
 
 ### Bug Fixes
 
@@ -90,7 +90,7 @@
 
 ### Notes
 
-- The Unreleased section reflects the current working tree, including local in-progress fixes that are not yet part of a pushed release.
+- The 1.6.3 section reflects the published release state. Future entries will be added above this section in the next release cycle.
 - Several Sunstrider experiments did NOT work and are intentionally not the documented fix path: relying on `HBD:GetPlayerWorldPosition()` on the closed map, using ghost map `946` for `C_Map.GetPlayerMapPosition`, and treating `QuestieLearner` tooltip data as `{ questId -> objList }` instead of flat quest-id arrays.
 
 ## v1.6.1 (2026-05-04)

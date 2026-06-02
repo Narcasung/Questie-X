@@ -169,14 +169,14 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.3 + Unreleased</code>
+            <code>Version: v1.6.3</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
-        <h2 id="unreleased">[Unreleased] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
+        <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
             <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>
             <li><strong>[Fix &mdash; Arrow Asset Regression &amp; Redesign]</strong> Rebuilt the bundled arrow set so the live dropdown is backed by four image arrows (<code>Arrow1</code> through <code>Arrow4</code>) plus one legacy sheet arrow (<code>arrowold</code>). The old default <code>arrow.tga</code> cache path was retired in favor of the new image-specific asset names, and a regression test now asserts that only <code>arrowold</code> remains a bundled sprite sheet.
@@ -246,14 +246,14 @@
             <li><strong>[Fix &mdash; Sunstrider Map Pin System]</strong> Removed the 1241&rarr;1941 redirect in <code>_ResolveMapUiMapId()</code>. Pins on 1241 now render natively using Ascension-calibrated bounds instead of being forced to 1941's coordinate space. Added <code>areaIdToUiMapId[1241] = 1241</code> mapping in zoneDB.lua so <code>DrawWorldIcon</code> can place pins directly on the Sunstrider sub-map.</li>
             <li><strong>[Fix &mdash; Northshire Valley UiMapData Registration]</strong> Added explicit <code>QuestieCompat.UiMapData[1238]</code> for Northshire Valley so custom/private-server zone lookups have concrete geometry for the child map instead of relying on incomplete parent fallbacks.</li>
             <li><strong>[Fix &mdash; QuestieLearner Icon Preservation]</strong> Preserved the learned objective icon when registering with the tooltip system so nameplates can render the correct learned slay/loot/talk marker. Previously the icon was always nil on fresh registration.</li>
-            <li><strong>[Notes &mdash; Failed Approaches Documented]</strong> The unreleased notes now explicitly capture the Sunstrider approaches that did <em>not</em> work:
+            <li><strong>[Notes &mdash; Failed Approaches Documented]</strong> The release notes now explicitly capture the Sunstrider approaches that did <em>not</em> work:
                 <ul>
                     <li>Relying on <code>HBD:GetPlayerWorldPosition()</code> while the world map is closed on Sunstrider, which returned the wrong world space.</li>
                     <li>Using ghost map <code>946</code> for <code>C_Map.GetPlayerMapPosition</code>, which returned invalid or misleading local coordinates.</li>
                     <li>Treating <code>QuestieLearner</code> tooltip data as legacy <code>{ questId -&gt; objList }</code> maps instead of the actual flat quest-id arrays.</li>
                 </ul>
             </li>
-            <li><strong>[Note]</strong> The Unreleased section reflects the current working tree, including documentation for local in-progress fixes that are not yet part of a pushed release.</li>
+            <li><strong>[Note]</strong> This section documents the published v1.6.3 release state. Future development work will appear in the next versioned section.</li>
         </ul>
 
         <hr>
