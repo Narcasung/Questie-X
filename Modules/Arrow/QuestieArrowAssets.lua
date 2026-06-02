@@ -41,15 +41,6 @@ QuestieArrowAssets.styles = {
         displayHeight = 96,
         visualBottomInset = 0,
     },
-    ["arcanearrow"] = {
-        label = "Arcane Arrow",
-        texture = "Icons\\Arrows\\ArcaneArrow.tga",
-        preview = "Icons\\Arrows\\ArcaneArrow_preview.tga",
-        mode = "image",
-        displayWidth = 72,
-        displayHeight = 96,
-        visualBottomInset = 0,
-    },
     ["hordearrow"] = {
         label = "Horde Arrow",
         texture = "Icons\\Arrows\\HordeArrow.tga",
@@ -111,7 +102,6 @@ QuestieArrowAssets.order = {
     "arrow2",
     "arrow3",
     "arrow4",
-    "arcanearrow",
     "hordearrow",
     "alliancearrow",
     "minimal1",
