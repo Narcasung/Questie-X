@@ -8,15 +8,19 @@ tests/
 Modules/*_spec.lua
 
 # Dev notes and session artifacts
+docs/arrow-options.png
 docs/sunstrider-pin-fix.md
 docs/sunstrider-coordinate-collection.md
 docs/PROGRESS.md
 docs/testing-macros.md
+docs/sunstrider*.md
+docs/testing*.md
 handoff.md
 QUESTIE-LEARNER-HANDOFF.md
 
 # Generated/lock files
 skills-lock.json
+*.zip
 
 # CodexBot artifacts
 .codex/
@@ -34,6 +38,7 @@ scratch/
 .busted
 .luarc.json
 selene.toml
+temp_*.png
 Compat/Debug.lua
 Modules/Arrow/QuestieArrow.lua.bak4
 Modules/Arrow/QuestieArrow_HEAD.lua

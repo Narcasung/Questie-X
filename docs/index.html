@@ -210,7 +210,7 @@
         <img src="QuestieXlogo.png" alt="Questie-X Logo" width="400" />
         <p class="subtitle">A universal WoW quest-helper with a plugin architecture for any private server.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.2 + Unreleased</code>
+            <code>Version: v1.6.3 + Unreleased</code>
             <a href="changelog.html"
                 style="background: var(--bg-tertiary); color: var(--accent-green); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">View
                 Changelog</a>
@@ -224,16 +224,20 @@
 
             <div class="grid">
                 <div class="card">
-                    <h4>Sunstrider Coordinate Normalization (Final)</h4>
-                    <p>Arrow and world-map code now normalize Sunstrider's child map <code>1241</code>, ghost map <code>946</code>, and parent Eversong map <code>1941</code> into a consistent coordinate path. <code>GetCurrentZoneId()</code> can return 3430 <em>or</em> 3431 on Sunstrider &mdash; all 4 detection checks now accept both values plus uiMapId 1241. The 1241&rarr;1941 redirect in <code>_ResolveMapUiMapId()</code> was removed; pins render natively on 1241 via <code>areaIdToUiMapId[1241] = 1241</code>.</p>
+                    <h4>Arrow Redesign</h4>
+                    <p>The Arrow tab now ships with `Arrow1`-`Arrow4` as bundled image styles, keeps `arrowold` as the only sprite sheet, and lets users detach, lock, reattach, and preview custom arrow textures from `Icons/Arrows` without touching core files.</p>
                 </div>
                 <div class="card">
-                    <h4>Learned Tooltip Schema Fix</h4>
-                    <p><code>QuestieTooltips</code> now reconstructs learned objective text from <code>QuestieLearner.data.quests[questId][10]</code> instead of treating learner arrays like legacy <code>{ questId -&gt; objList }</code> maps, preventing the Stormwind City Guard-style <code>objList</code>-as-number crash reported from Bronzebeard.</p>
+                    <h4>Sunstrider Coordinate Normalization (Final)</h4>
+                    <p>Arrow and world-map code now normalize Sunstrider's child map <code>1241</code>, ghost map <code>946</code>, and parent Eversong map <code>1941</code> into a consistent coordinate path. <code>GetCurrentZoneId()</code> can return 3430 <em>or</em> 3431 on Sunstrider &mdash; all 4 detection checks now accept both values plus uiMapId 1241. The 1241&rarr;1941 redirect in <code>_ResolveMapUiMapId()</code> was removed; pins render natively on 1241 via <code>areaIdToUiMapId[1241] = 1241</code>.</p>
                 </div>
             </div>
 
             <div class="grid">
+                <div class="card">
+                    <h4>Learned Tooltip Schema Fix</h4>
+                    <p><code>QuestieTooltips</code> now reconstructs learned objective text from <code>QuestieLearner.data.quests[questId][10]</code> instead of treating learner arrays like legacy <code>{ questId -&gt; objList }</code> maps, preventing the Stormwind City Guard-style <code>objList</code>-as-number crash reported from Bronzebeard.</p>
+                </div>
                 <div class="card">
                     <h4>Arrow Rotation &amp; Collection Fixes</h4>
                     <p>Fixed arrow rotation direction (<code>SetRotation</code> is CW-positive, not CCW) and collection function distance mismatch where targets were converted through 1941 bounds while player coords were in 1241 bounds, causing 1261-yard errors instead of ~48 yards.</p>

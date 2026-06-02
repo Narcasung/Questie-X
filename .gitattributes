@@ -4,6 +4,14 @@
 # Exclude dev/meta files from release archives
 .gitattributes export-ignore
 .gitignore export-ignore
+.busted export-ignore
+.luarc.json export-ignore
+selene.toml export-ignore
+.codex/ export-ignore
+.codex/skills/ export-ignore
+.codex-plugin/ export-ignore
+handoff.md export-ignore
+QUESTIE-LEARNER-HANDOFF.md export-ignore
 .kilocode/ export-ignore
 .idea/ export-ignore
 .vscode/ export-ignore
@@ -11,6 +19,11 @@
 *.zip export-ignore
 *.log export-ignore
 *.tmp export-ignore
+temp_*.png export-ignore
+docs/arrow-options.png export-ignore
+docs/PROGRESS.md export-ignore
+docs/sunstrider*.md export-ignore
+docs/testing*.md export-ignore
 *.bak export-ignore
 *.old export-ignore
 *.py export-ignore

@@ -3,6 +3,8 @@
 -------------------------
 ---@type QuestieOptions
 local QuestieOptions = QuestieLoader:ImportModule("QuestieOptions")
+---@type QuestieOptionsDefaults
+local QuestieOptionsDefaults = QuestieLoader:ImportModule("QuestieOptionsDefaults")
 ---@type QuestieOptionsUtils
 local QuestieOptionsUtils = QuestieLoader:ImportModule("QuestieOptionsUtils")
 ---@type QuestieArrow
@@ -14,6 +16,14 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
 local l10n = QuestieLoader:ImportModule("l10n")
 
 local SharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
+local AceConfigRegistry = LibStub and LibStub("AceConfigRegistry-3.0", true)
+local optionsDefaults = QuestieOptionsDefaults:Load()
+
+local function RefreshOptions()
+    if AceConfigRegistry and AceConfigRegistry.NotifyChange then
+        AceConfigRegistry:NotifyChange("Questie")
+    end
+end
 
 -- Build expanded font list from SharedMedia + common WoW fonts
 local function GetExpandedFontList()
@@ -82,6 +92,84 @@ function QuestieOptions.tabs.arrow:Initialize()
                 end,
             },
             arrow_spacer_1 = QuestieOptionsUtils:Spacer(3),
+            arrowStyle = {
+                type = "select",
+                order = 3.1,
+                width = 1.5,
+                values = function()
+                    if QuestieArrow and QuestieArrow.GetArrowStyleOptions then
+                        return QuestieArrow:GetArrowStyleOptions()
+                    end
+                    return {
+                        arrow1 = "Arrow 1",
+                    }
+                end,
+                sorting = function()
+                    if QuestieArrow and QuestieArrow.GetArrowStyleOrder then
+                        return QuestieArrow:GetArrowStyleOrder()
+                    end
+                    return { "arrow1", "custom" }
+                end,
+                style = 'dropdown',
+                name = function() return l10n("Arrow Style") end,
+                desc = function()
+                    return l10n("Choose which arrow artwork Questie uses. Sprite sheets animate through directional frames; regular images rotate as a single texture.")
+                end,
+                get = function() return Questie.db.profile.arrowStyle or optionsDefaults.profile.arrowStyle end,
+                set = function(_, value)
+                    Questie.db.profile.arrowStyle = value
+                    if QuestieArrow and QuestieArrow.UpdateSettings then
+                        QuestieArrow:UpdateSettings()
+                    elseif QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
+                    RefreshOptions()
+                end,
+            },
+            arrowCustomTexture = {
+                type = "input",
+                order = 3.2,
+                width = 1.8,
+                hidden = function()
+                    return Questie.db.profile.arrowStyle ~= "custom"
+                end,
+                name = function() return l10n("Custom Arrow File") end,
+                desc = function()
+                    return l10n("Enter the filename of a .tga file placed in Icons\\Arrows. Only the file name is used, not the full path.")
+                end,
+                get = function()
+                    return Questie.db.profile.arrowCustomTexture or ""
+                end,
+                set = function(_, value)
+                    Questie.db.profile.arrowCustomTexture = value
+                    if QuestieArrow and QuestieArrow.UpdateSettings then
+                        QuestieArrow:UpdateSettings()
+                    end
+                    RefreshOptions()
+                end,
+            },
+            arrowCustomIsSheet = {
+                type = "toggle",
+                order = 3.3,
+                width = 1.4,
+                hidden = function()
+                    return Questie.db.profile.arrowStyle ~= "custom"
+                end,
+                name = function() return l10n("Custom Is Sprite Sheet") end,
+                desc = function()
+                    return l10n("Enable this only if your custom TGA is a directional sprite sheet.")
+                end,
+                get = function()
+                    return Questie.db.profile.arrowCustomIsSheet == true
+                end,
+                set = function(_, value)
+                    Questie.db.profile.arrowCustomIsSheet = value
+                    if QuestieArrow and QuestieArrow.UpdateSettings then
+                        QuestieArrow:UpdateSettings()
+                    end
+                    RefreshOptions()
+                end,
+            },
             arrow_scale = {
                 type = "range",
                 order = 4,
@@ -89,13 +177,73 @@ function QuestieOptions.tabs.arrow:Initialize()
                 name = function() return l10n("Arrow Scale") end,
                 desc = function() return l10n("Change the size of the arrow") end,
                 min = 0.5,
-                max = 2.0,
+                max = 4.0,
                 step = 0.05,
                 get = function() return Questie.db.profile.arrowScale or 1 end,
                 set = function(_, value)
                     Questie.db.profile.arrowScale = value
                     if QuestieArrow and QuestieArrow.UpdateSettings then
                         QuestieArrow:UpdateSettings()
+                    end
+                end,
+            },
+            arrowLocked = {
+                type = "toggle",
+                order = 4.1,
+                width = 1.7,
+                name = function() return l10n("Lock Arrow Position") end,
+                desc = function() return l10n("Prevent the arrow frame from being moved independently.") end,
+                get = function() return Questie.db.profile.arrowLocked == true end,
+                set = function(_, value)
+                    Questie.db.profile.arrowLocked = value
+                end,
+            },
+            arrowObjectiveLocked = {
+                type = "toggle",
+                order = 4.2,
+                width = 1.9,
+                name = function() return l10n("Lock Objective Position") end,
+                desc = function() return l10n("Prevent the objective text block from being moved independently.") end,
+                get = function() return Questie.db.profile.arrowObjectiveLocked == true end,
+                set = function(_, value)
+                    Questie.db.profile.arrowObjectiveLocked = value
+                end,
+            },
+            arrowObjectiveAttached = {
+                type = "toggle",
+                order = 4.3,
+                width = 1.9,
+                name = function() return l10n("Attach Objective To Arrow") end,
+                desc = function() return l10n("Keep the objective block anchored to the arrow instead of moving it separately.") end,
+                get = function() return Questie.db.profile.arrowObjectiveAttached == true end,
+                set = function(_, value)
+                    Questie.db.profile.arrowObjectiveAttached = value
+                    if QuestieArrow then
+                        if value and QuestieArrow.AttachObjectiveToArrow then
+                            QuestieArrow:AttachObjectiveToArrow()
+                        elseif not value and QuestieArrow.DetachObjectiveFromArrow then
+                            QuestieArrow:DetachObjectiveFromArrow()
+                        end
+                    end
+                    RefreshOptions()
+                end,
+            },
+            arrowObjectiveGap = {
+                type = "range",
+                order = 4.4,
+                width = 1.8,
+                name = function() return l10n("Attached Gap") end,
+                desc = function() return l10n("Control the spacing between the arrow and the attached objective block.") end,
+                min = 0,
+                max = 40,
+                step = 1,
+                get = function() return Questie.db.profile.arrowObjectiveGap or 10 end,
+                set = function(_, value)
+                    Questie.db.profile.arrowObjectiveGap = value
+                    if QuestieArrow and QuestieArrow.SetObjectiveGap then
+                        QuestieArrow:SetObjectiveGap(value)
+                    elseif QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
                     end
                 end,
             },
@@ -113,6 +261,44 @@ function QuestieOptions.tabs.arrow:Initialize()
                     Questie.db.profile.arrowAlpha = value
                     if QuestieArrow and QuestieArrow.UpdateSettings then
                         QuestieArrow:UpdateSettings()
+                    end
+                end,
+            },
+            arrowObjectiveAlpha = {
+                type = "range",
+                order = 5.1,
+                width = 1.5,
+                name = function() return l10n("Objective Transparency") end,
+                desc = function() return l10n("Change the transparency of the objective text block") end,
+                min = 0.1,
+                max = 1.0,
+                step = 0.05,
+                get = function() return Questie.db.profile.arrowObjectiveAlpha or 1.0 end,
+                set = function(_, value)
+                    Questie.db.profile.arrowObjectiveAlpha = value
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
+                end,
+            },
+            arrowDistanceUnit = {
+                type = "select",
+                order = 5.2,
+                width = 1.5,
+                name = function() return l10n("Distance Units") end,
+                desc = function() return l10n("Choose the unit used for the distance label.") end,
+                values = function()
+                    return {
+                        yards = "Yards",
+                        meters = "Meters",
+                        feet = "Feet",
+                    }
+                end,
+                get = function() return Questie.db.profile.arrowDistanceUnit or "yards" end,
+                set = function(_, value)
+                    Questie.db.profile.arrowDistanceUnit = value
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
                     end
                 end,
             },
@@ -140,7 +326,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                 desc = function() return l10n("The font size used for the arrow distance and title text.") end,
                 width = "double",
                 min = 8,
-                max = 18,
+                max = 30,
                 step = 1,
                 get = function() return Questie.db.profile.arrowFontSize or 10 end,
                 set = function(_, value)
@@ -150,10 +336,10 @@ function QuestieOptions.tabs.arrow:Initialize()
                     end
                 end,
             },
-            arrow_spacer_3 = QuestieOptionsUtils:Spacer(8),
+            arrow_spacer_3 = QuestieOptionsUtils:Spacer(8.5),
             autoTrackQuests = {
                 type = "toggle",
-                order = 7,
+                order = 9,
                 width = 1.5,
                 name = function() return l10n("Auto-track Quests") end,
                 desc = function() return l10n("Automatically track all quests in your quest log. If disabled, only manually tracked quests will show on the arrow.") end,
@@ -168,10 +354,10 @@ function QuestieOptions.tabs.arrow:Initialize()
                     end
                 end,
             },
-            arrow_spacer_3 = QuestieOptionsUtils:Spacer(8),
+            arrow_spacer_4 = QuestieOptionsUtils:Spacer(9.5),
             resetArrowPosition = {
                 type = "execute",
-                order = 9,
+                order = 10,
                 width = 1.0,
                 name = function() return l10n("Reset Arrow Position") end,
                 desc = function() return l10n("Reset the arrow position to the center of the screen") end,
@@ -182,10 +368,39 @@ function QuestieOptions.tabs.arrow:Initialize()
                     end
                 end,
             },
-            arrow_spacer_4 = QuestieOptionsUtils:Spacer(10),
+            resetObjectivePosition = {
+                type = "execute",
+                order = 10.1,
+                width = 1.3,
+                name = function() return l10n("Reset Objective Position") end,
+                desc = function() return l10n("Reset the objective text block position to its default") end,
+                func = function()
+                    Questie.db.profile.arrowObjectivePosition = nil
+                    if QuestieArrow and QuestieArrow.ResetObjectivePosition then
+                        QuestieArrow:ResetObjectivePosition()
+                    end
+                end,
+            },
+            resetAndAttachObjective = {
+                type = "execute",
+                order = 10.2,
+                width = 1.6,
+                name = function() return l10n("Reset & Reattach") end,
+                desc = function() return l10n("Reset both arrow layouts and reattach the objective block to the arrow.") end,
+                func = function()
+                    Questie.db.profile.arrowPosition = nil
+                    Questie.db.profile.arrowObjectivePosition = nil
+                    Questie.db.profile.arrowObjectiveAttached = true
+                    if QuestieArrow and QuestieArrow.ResetAndAttachObjective then
+                        QuestieArrow:ResetAndAttachObjective()
+                    end
+                    RefreshOptions()
+                end,
+            },
+            arrow_spacer_5 = QuestieOptionsUtils:Spacer(11),
             debugArrow = {
                 type = "toggle",
-                order = 11,
+                order = 12,
                 width = 1.5,
                 name = function() return l10n("Debug Arrow") end,
                 desc = function() return l10n("Show debug information about the arrow target in chat") end,
@@ -196,7 +411,7 @@ function QuestieOptions.tabs.arrow:Initialize()
             },
             printArrowTarget = {
                 type = "execute",
-                order = 12,
+                order = 13,
                 width = 1.0,
                 name = function() return l10n("Print Current Target") end,
                 desc = function() return l10n("Print the current arrow target coordinates to chat") end,
@@ -208,7 +423,7 @@ function QuestieOptions.tabs.arrow:Initialize()
             },
             debugPrintArrow = {
                 type = "execute",
-                order = 12.5,
+                order = 13.5,
                 width = 1.0,
                 name = function() return l10n("Debug Print Arrow State") end,
                 desc = function() return l10n("Print detailed debug info about arrow state to chat") end,
@@ -220,7 +435,7 @@ function QuestieOptions.tabs.arrow:Initialize()
             },
             clearArrowTarget = {
                 type = "execute",
-                order = 13,
+                order = 14,
                 width = 1.0,
                 name = function() return l10n("Clear Target") end,
                 desc = function() return l10n("Clear the current arrow target and resume auto-tracking") end,

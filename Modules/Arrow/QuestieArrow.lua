@@ -15,6 +15,8 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+---@type QuestieArrowAssets
+local QuestieArrowAssets = QuestieLoader:ImportModule("QuestieArrowAssets")
 
 local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
 local SharedMedia = LibStub and LibStub("LibSharedMedia-3.0", true)
@@ -29,9 +31,11 @@ local min = math.min
 local ARROW_SHEET_SIZE = 512
 local ARROW_CELL_W = 56
 local ARROW_CELL_H = 42
+local ARROW_IMAGE_SIZE = 96
 local ARROW_SHEET_COLS = 9
 local ARROW_SHEET_ROWS = 12
 local ARROW_TOTAL_CELLS = ARROW_SHEET_COLS * ARROW_SHEET_ROWS
+local ARROW_DEFAULT_STYLE = "arrow1"
 
 local UPDATE_THROTTLE_SECONDS = 0.05
 local RECALC_NEAREST_SECONDS = 1.0
@@ -39,6 +43,8 @@ local TRACKER_REFRESH_THROTTLE_SECONDS = 0.5
 
 ---@type Frame?
 local arrowFrame = nil
+---@type Frame?
+local objectiveFrame = nil
 ---@type Frame?
 local driverFrame = nil
 
@@ -53,6 +59,12 @@ local _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
 local _arrow_quest  -- current quest being processed by the hoisted helpers
 
 local lastPopulateByQuestId = {}
+
+local _GetBundledArrowStyle
+local _GetProfilePosition
+local _GetObjectiveProfilePosition
+local EnsureObjectiveFrame
+local EnsureArrowFrame
 
 local function _IsArrowEnabled()
     if not Questie or not Questie.db or not Questie.db.profile then
@@ -75,6 +87,334 @@ local function _GetArrowAlpha()
     return Questie.db.profile.arrowAlpha or 1.0
 end
 
+local function _GetObjectiveAlpha()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return 1.0
+    end
+    return Questie.db.profile.arrowObjectiveAlpha or 1.0
+end
+
+local function _IsArrowLocked()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return false
+    end
+    return Questie.db.profile.arrowLocked == true
+end
+
+local function _IsObjectiveLocked()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return false
+    end
+    return Questie.db.profile.arrowObjectiveLocked == true
+end
+
+local function _IsObjectiveAttached()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return false
+    end
+    return Questie.db.profile.arrowObjectiveAttached == true
+end
+
+local function _GetObjectiveGap()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return 10
+    end
+    return Questie.db.profile.arrowObjectiveGap or 10
+end
+
+local function _GetDistanceUnit()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return "yards"
+    end
+
+    local unit = Questie.db.profile.arrowDistanceUnit or "yards"
+    if unit ~= "yards" and unit ~= "meters" and unit ~= "feet" then
+        return "yards"
+    end
+
+    return unit
+end
+
+local function _FormatDistance(dist)
+    local unit = _GetDistanceUnit()
+    local value = dist
+    local suffix = " yd"
+
+    if unit == "meters" then
+        value = dist * 0.9144
+        suffix = " m"
+    elseif unit == "feet" then
+        value = dist * 3
+        suffix = " ft"
+    end
+
+    return string.format("%.1f%s", value, suffix)
+end
+
+local function _GetArrowStyleKey()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return ARROW_DEFAULT_STYLE
+    end
+
+    local styleKey = Questie.db.profile.arrowStyle
+    if styleKey == "arrow" then
+        styleKey = "arrow1"
+    end
+    if styleKey and styleKey ~= "custom" and _GetBundledArrowStyle(styleKey) then
+        return styleKey
+    end
+    if styleKey == "custom" then
+        return styleKey
+    end
+
+    return ARROW_DEFAULT_STYLE
+end
+
+local function _IsBundledSheetStyle(styleKey)
+    return styleKey == "arrowold"
+end
+
+_GetBundledArrowStyle = function(styleKey)
+    if QuestieArrowAssets and QuestieArrowAssets.GetStyleData then
+        return QuestieArrowAssets:GetStyleData(styleKey)
+    end
+    return nil
+end
+
+local function _GetCustomArrowTexturePath()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return nil
+    end
+
+    local fileName = Questie.db.profile.arrowCustomTexture
+    if not fileName or fileName == "" then
+        return nil
+    end
+
+    fileName = string.match(fileName, "[^\\/]+$") or fileName
+    fileName = string.gsub(fileName, "^%s+", "")
+    fileName = string.gsub(fileName, "%s+$", "")
+    if fileName == "" then
+        return nil
+    end
+
+    if not string.find(string.lower(fileName), "%.tga$") then
+        fileName = fileName .. ".tga"
+    end
+
+    return QuestieLib.AddonPath .. "Icons\\Arrows\\" .. fileName
+end
+
+local function _GetArrowStyle()
+    local styleKey = _GetArrowStyleKey()
+    if styleKey == "custom" then
+        local customTexture = _GetCustomArrowTexturePath()
+        local isSheet = Questie and Questie.db and Questie.db.profile and Questie.db.profile.arrowCustomIsSheet
+        local defaultStyle = _GetBundledArrowStyle(ARROW_DEFAULT_STYLE)
+        local fallbackTexture = defaultStyle and (QuestieLib.AddonPath .. defaultStyle.texture) or ""
+        local displayWidth = isSheet and ARROW_CELL_W or ARROW_IMAGE_SIZE
+        local displayHeight = isSheet and ARROW_CELL_H or ARROW_IMAGE_SIZE
+        return {
+            label = "Custom TGA",
+            texturePath = customTexture or fallbackTexture,
+            previewPath = customTexture or fallbackTexture,
+            mode = isSheet and "sheet" or "image",
+            displayWidth = displayWidth,
+            displayHeight = displayHeight,
+        }
+    end
+
+    local style = _GetBundledArrowStyle(styleKey) or _GetBundledArrowStyle(ARROW_DEFAULT_STYLE)
+    local isSheet = _IsBundledSheetStyle(styleKey)
+    local runtimeTexture = style.preview
+    if isSheet then
+        runtimeTexture = style.texture
+    end
+    return {
+        label = style.label,
+        texturePath = QuestieLib.AddonPath .. runtimeTexture,
+        sourceTexturePath = QuestieLib.AddonPath .. style.texture,
+        previewPath = QuestieLib.AddonPath .. style.preview,
+        mode = isSheet and "sheet" or "image",
+        displayWidth = isSheet and (style.displayWidth or ARROW_CELL_W) or (style.displayWidth or ARROW_IMAGE_SIZE),
+        displayHeight = isSheet and (style.displayHeight or ARROW_CELL_H) or (style.displayHeight or ARROW_IMAGE_SIZE),
+        visualBottomInset = style.visualBottomInset or 0,
+    }
+end
+
+local function _GetArrowTexturePath()
+    local style = _GetArrowStyle()
+    return style.texturePath
+end
+
+local function _GetArrowPreviewPath()
+    local style = _GetArrowStyle()
+    return style.previewPath
+end
+
+local function _IsArrowSpriteSheet()
+    return (_GetArrowStyle().mode == "sheet")
+end
+
+local function _ApplyArrowStyle()
+    if not arrowFrame or not arrowFrame.arrow then
+        return
+    end
+
+    local style = _GetArrowStyle()
+    local styleSignature = table.concat({ _GetArrowStyleKey(), style.texturePath or "", style.previewPath or "", style.mode or "" }, "|")
+    local styleChanged = arrowFrame._arrowStyleSignature ~= styleSignature
+
+    arrowFrame._arrowStyle = style
+    arrowFrame._arrowStyleSignature = styleSignature
+
+    if styleChanged then
+        arrowFrame.arrow:SetTexture(style.texturePath)
+    end
+
+    if style.mode == "sheet" then
+        arrowFrame.arrow:SetTexCoord(0, ARROW_CELL_W / ARROW_SHEET_SIZE, 0, ARROW_CELL_H / ARROW_SHEET_SIZE)
+        if arrowFrame.arrow.SetRotation then
+            arrowFrame.arrow:SetRotation(0)
+        end
+    else
+        arrowFrame.arrow:SetTexCoord(0, 1, 0, 1)
+        if arrowFrame.arrow.SetRotation then
+            arrowFrame.arrow:SetRotation(0)
+        end
+    end
+
+    local scale = _GetArrowScale()
+    local width = (style.displayWidth or ARROW_IMAGE_SIZE) * scale
+    local height = (style.displayHeight or ARROW_IMAGE_SIZE) * scale
+    arrowFrame._arrowScaleSignature = table.concat({ styleSignature, tostring(scale) }, "|")
+    arrowFrame.arrow:SetWidth(width)
+    arrowFrame.arrow:SetHeight(height)
+    if not arrowFrame._arrowStylePointSet then
+        arrowFrame.arrow:SetPoint("TOP", arrowFrame, "TOP", 0, 0)
+        arrowFrame._arrowStylePointSet = true
+    end
+end
+
+local function _UpdateArrowFrameDimensions()
+    if not arrowFrame or not arrowFrame.arrow then
+        return
+    end
+
+    local style = _GetArrowStyle()
+    local scale = _GetArrowScale()
+    local width = (style.displayWidth or ARROW_IMAGE_SIZE) * scale
+    local height = (style.displayHeight or ARROW_IMAGE_SIZE) * scale
+
+    arrowFrame:SetWidth(width)
+    arrowFrame:SetHeight(height)
+end
+
+local function _UpdateObjectiveFrameDimensions()
+    if not objectiveFrame then
+        return
+    end
+
+    local fontSize = 10
+    if Questie and Questie.db and Questie.db.profile then
+        fontSize = Questie.db.profile.arrowFontSize or fontSize
+    end
+
+    objectiveFrame:SetWidth(320)
+    objectiveFrame:SetHeight(max(72, (fontSize * 2) + 40))
+end
+
+local function _UpdateObjectiveFramePosition()
+    if not objectiveFrame then
+        return
+    end
+
+    if objectiveFrame._isDragging then
+        return
+    end
+
+    if _IsObjectiveAttached() and arrowFrame then
+        local style = arrowFrame._arrowStyle or _GetArrowStyle()
+        local inset = (style and style.visualBottomInset) or 0
+        local scale = _GetArrowScale()
+        local visibleBottomOffset = math.floor(inset * scale + 0.5)
+        local gap = _GetObjectiveGap()
+        objectiveFrame:ClearAllPoints()
+        objectiveFrame:SetPoint("TOP", arrowFrame, "BOTTOM", 0, gap - visibleBottomOffset)
+        objectiveFrame._useDefaultPosition = false
+        return
+    end
+
+    local pos = _GetObjectiveProfilePosition()
+    if pos and pos.point and pos.relativePoint and pos.x and pos.y then
+        objectiveFrame:ClearAllPoints()
+        objectiveFrame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+        objectiveFrame._useDefaultPosition = false
+        return
+    end
+
+    objectiveFrame:ClearAllPoints()
+    objectiveFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -170)
+    objectiveFrame._useDefaultPosition = true
+end
+
+local function _UpdateArrowFramePosition()
+    if not arrowFrame then
+        return
+    end
+
+    if arrowFrame._isDragging then
+        return
+    end
+
+    local pos = _GetProfilePosition()
+    if pos and pos.point and pos.relativePoint and pos.x and pos.y then
+        arrowFrame:ClearAllPoints()
+        arrowFrame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+        arrowFrame._useDefaultPosition = false
+        return
+    end
+
+    arrowFrame:ClearAllPoints()
+    arrowFrame:SetPoint("CENTER", 0, -100)
+    arrowFrame._useDefaultPosition = true
+end
+
+local function _UpdateObjectText(target)
+    if not objectiveFrame then
+        return
+    end
+
+    if not target then
+        objectiveFrame.title:SetText("")
+        objectiveFrame.distance:SetText("Distance: --")
+        objectiveFrame.icon:Hide()
+        return
+    end
+
+    local title = target.title or ""
+    if target.questLevel then
+        title = "[" .. target.questLevel .. "] " .. title
+    end
+    objectiveFrame.title:SetText(Questie:Colorize(title, "gold"))
+
+    if target.iconPath then
+        objectiveFrame.icon:SetTexture(target.iconPath)
+        objectiveFrame.icon:Show()
+    else
+        objectiveFrame.icon:Hide()
+    end
+end
+
+local function _ApplyArrowVisualScale()
+    if not arrowFrame or not arrowFrame.arrow then
+        return
+    end
+
+    _ApplyArrowStyle()
+    _UpdateArrowFrameDimensions()
+end
+
 local function _SetArrowScale(scale)
     if not Questie or not Questie.db or not Questie.db.profile then
         return
@@ -82,11 +422,18 @@ local function _SetArrowScale(scale)
     Questie.db.profile.arrowScale = scale
 end
 
-local function _GetProfilePosition()
+_GetProfilePosition = function()
     if not Questie or not Questie.db or not Questie.db.profile then
         return nil
     end
     return Questie.db.profile.arrowPosition
+end
+
+_GetObjectiveProfilePosition = function()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return nil
+    end
+    return Questie.db.profile.arrowObjectivePosition
 end
 
 local function _SaveProfilePosition(point, relativePoint, x, y)
@@ -99,6 +446,75 @@ local function _SaveProfilePosition(point, relativePoint, x, y)
         x = x,
         y = y,
     }
+end
+
+local function _SaveObjectiveProfilePosition(point, relativePoint, x, y)
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return
+    end
+    Questie.db.profile.arrowObjectivePosition = {
+        point = point,
+        relativePoint = relativePoint,
+        x = x,
+        y = y,
+    }
+end
+
+local function _SaveObjectiveCurrentScreenPosition()
+    if not objectiveFrame then
+        return
+    end
+
+    local centerX, centerY = objectiveFrame:GetCenter()
+    if not centerX or not centerY then
+        return
+    end
+
+    _SaveObjectiveProfilePosition("CENTER", "BOTTOMLEFT", centerX, centerY)
+end
+
+local function _SaveArrowCurrentScreenPosition()
+    if not arrowFrame then
+        return
+    end
+
+    local centerX, centerY = arrowFrame:GetCenter()
+    if not centerX or not centerY then
+        return
+    end
+
+    _SaveProfilePosition("CENTER", "BOTTOMLEFT", centerX, centerY)
+end
+
+local function _AttachObjectiveToArrow()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return
+    end
+
+    Questie.db.profile.arrowObjectiveAttached = true
+
+    EnsureArrowFrame()
+    EnsureObjectiveFrame()
+    _UpdateArrowFramePosition()
+    _UpdateObjectiveFramePosition()
+end
+
+local function _DetachObjectiveFromArrow()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return
+    end
+
+    if arrowFrame then
+        _SaveArrowCurrentScreenPosition()
+    end
+    if objectiveFrame then
+        _SaveObjectiveCurrentScreenPosition()
+    end
+    Questie.db.profile.arrowObjectiveAttached = false
+
+    EnsureObjectiveFrame()
+    _UpdateObjectiveFramePosition()
+    _UpdateArrowFramePosition()
 end
 
 local function modulo(val, by)
@@ -154,10 +570,81 @@ local function _ApplyOutline(fontString)
     fontString:SetFont(font, size, flags)
 end
 
-local function EnsureArrowFrame()
+EnsureObjectiveFrame = function()
+    if objectiveFrame then
+        _UpdateObjectiveFrameDimensions()
+        _UpdateObjectiveFramePosition()
+        _UpdateObjectText(sortedTargets[1])
+        objectiveFrame:SetAlpha(_GetObjectiveAlpha())
+        return
+    end
+
+    objectiveFrame = CreateFrame("Frame", "QuestieArrowObjectiveFrame", UIParent)
+    objectiveFrame:SetClampedToScreen(true)
+    objectiveFrame:SetMovable(true)
+    objectiveFrame:EnableMouse(true)
+    objectiveFrame:RegisterForDrag("LeftButton")
+    objectiveFrame._useDefaultPosition = true
+    _UpdateObjectiveFrameDimensions()
+    _UpdateObjectiveFramePosition()
+
+    objectiveFrame:SetScript("OnDragStart", function(self)
+        if _IsObjectiveLocked() then
+            return
+        end
+        if _IsObjectiveAttached() then
+            return
+        end
+        if IsShiftKeyDown() then
+            self._isDragging = true
+            self:StartMoving()
+        end
+    end)
+
+    objectiveFrame:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self._isDragging = false
+        local point, _, relativePoint, x, y = self:GetPoint(1)
+        if point and relativePoint and x and y and not _IsObjectiveLocked() then
+            _SaveObjectiveProfilePosition(point, relativePoint, x, y)
+            self._useDefaultPosition = false
+        end
+    end)
+
+    objectiveFrame:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            hasManualTarget = false
+            sortedTargets = {}
+            QuestieArrow:Refresh()
+        end
+    end)
+
+    objectiveFrame.icon = objectiveFrame:CreateTexture(nil, "OVERLAY")
+    objectiveFrame.icon:SetWidth(28)
+    objectiveFrame.icon:SetHeight(28)
+    objectiveFrame.icon:SetPoint("TOP", objectiveFrame, "TOP", 0, 0)
+
+    objectiveFrame.title = objectiveFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    objectiveFrame.title:SetPoint("TOP", objectiveFrame.icon, "BOTTOM", 0, -2)
+    objectiveFrame.title:SetJustifyH("CENTER")
+    _ApplyOutline(objectiveFrame.title)
+
+    objectiveFrame.distance = objectiveFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    objectiveFrame.distance:SetPoint("TOP", objectiveFrame.title, "BOTTOM", 0, -2)
+    objectiveFrame.distance:SetJustifyH("CENTER")
+    objectiveFrame.distance:SetTextColor(1, 1, 1, 1)
+    _ApplyOutline(objectiveFrame.distance)
+
+    objectiveFrame._lastTarget = nil
+    _UpdateObjectText(sortedTargets[1])
+    QuestieArrow:UpdateFont()
+    objectiveFrame:Hide()
+end
+
+EnsureArrowFrame = function()
     if arrowFrame then
-        -- Apply current scale and alpha settings even if frame already exists
-        arrowFrame:SetScale(_GetArrowScale())
+        _UpdateArrowFrameDimensions()
+        _ApplyArrowStyle()
         arrowFrame:SetAlpha(_GetArrowAlpha())
         return
     end
@@ -167,33 +654,35 @@ local function EnsureArrowFrame()
     local pos = _GetProfilePosition()
     if pos and pos.point and pos.relativePoint and pos.x and pos.y then
         arrowFrame:SetPoint(pos.point, UIParent, pos.relativePoint, pos.x, pos.y)
+        arrowFrame._useDefaultPosition = false
     else
         arrowFrame:SetPoint("CENTER", 0, -100)
+        arrowFrame._useDefaultPosition = true
     end
 
-    -- Store whether we should use saved position or default
-    arrowFrame._useDefaultPosition = not (pos and pos.point)
-
-    -- Make room for the objective icon below the arrow (no overlap)
-    arrowFrame:SetWidth(56)
-    arrowFrame:SetHeight(64)
-    arrowFrame:SetScale(_GetArrowScale())
+    _UpdateArrowFrameDimensions()
     arrowFrame:SetClampedToScreen(true)
     arrowFrame:SetMovable(true)
     arrowFrame:EnableMouse(true)
     arrowFrame:EnableMouseWheel(true)
     arrowFrame:RegisterForDrag("LeftButton")
     arrowFrame:SetScript("OnDragStart", function(self)
+        if _IsArrowLocked() then
+            return
+        end
         if IsShiftKeyDown() then
+            self._isDragging = true
             self:StartMoving()
         end
     end)
     arrowFrame:SetScript("OnDragStop", function(self)
         self:StopMovingOrSizing()
+        self._isDragging = false
 
         local point, _, relativePoint, x, y = self:GetPoint(1)
-        if point and relativePoint and x and y then
+        if point and relativePoint and x and y and not _IsArrowLocked() then
             _SaveProfilePosition(point, relativePoint, x, y)
+            self._useDefaultPosition = false
         end
     end)
 
@@ -211,44 +700,20 @@ local function EnsureArrowFrame()
         end
 
         if scale < 0.5 then scale = 0.5 end
-        if scale > 2.0 then scale = 2.0 end
+        if scale > 4.0 then scale = 4.0 end
 
         _SetArrowScale(scale)
-        self:SetScale(scale)
+        _ApplyArrowVisualScale()
     end)
 
-    -- Arrow sprite sheet texture (108 cells: 9 columns, 12 rows)
     arrowFrame.arrow = arrowFrame:CreateTexture(nil, "MEDIUM")
-    arrowFrame.arrow:SetTexture(QuestieLib.AddonPath .. "Icons\\arrow.tga")
-    -- Render at native cell size; use frame scaling if you want it larger.
-    arrowFrame.arrow:SetWidth(ARROW_CELL_W)
-    arrowFrame.arrow:SetHeight(ARROW_CELL_H)
-    arrowFrame.arrow:SetPoint("TOP", arrowFrame, "TOP", 0, 0)
-    arrowFrame.arrow:SetTexCoord(0, 0.109375, 0, 0.08203125) -- First cell
-
-    -- Quest icon texture at bottom (pfQuest style)
-    arrowFrame.icon = arrowFrame:CreateTexture(nil, "OVERLAY")
-    arrowFrame.icon:SetWidth(28)
-    arrowFrame.icon:SetHeight(28)
-    arrowFrame.icon:SetPoint("BOTTOM", arrowFrame.arrow, "BOTTOM", 0, -20)
-
-    arrowFrame.title = arrowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    arrowFrame.title:SetPoint("TOP", arrowFrame.icon, "BOTTOM", 0, -2)
-    arrowFrame.title:SetJustifyH("CENTER")
-    _ApplyOutline(arrowFrame.title)
-
-    arrowFrame.distance = arrowFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    arrowFrame.distance:SetPoint("TOP", arrowFrame.title, "BOTTOM", 0, -2)
-    arrowFrame.distance:SetJustifyH("CENTER")
-    arrowFrame.distance:SetTextColor(1, 1, 1, 1)
-    _ApplyOutline(arrowFrame.distance)
+    _ApplyArrowStyle()
+    _UpdateArrowFrameDimensions()
 
     arrowFrame._lastUpdate = 0
     arrowFrame._lastRecalc = 0
     arrowFrame._lastTarget = nil
 
-    -- Right-click to clear manual target and resume auto-tracking
-    arrowFrame:EnableMouse(true)
     arrowFrame:SetScript("OnMouseUp", function(self, button)
         if button == "RightButton" then
             hasManualTarget = false
@@ -263,11 +728,17 @@ local function EnsureArrowFrame()
         local target = sortedTargets[1]
         if not target then
             self:Hide()
+            if objectiveFrame then
+                objectiveFrame:Hide()
+            end
             return
         end
 
         if not self:IsShown() then
             self:Show()
+        end
+        if objectiveFrame and not objectiveFrame:IsShown() then
+            objectiveFrame:Show()
         end
 
         if (self._lastUpdate or 0) + UPDATE_THROTTLE_SECONDS > now then
@@ -277,24 +748,29 @@ local function EnsureArrowFrame()
 
         local playerX, playerY, playerInstance = HBD:GetPlayerWorldPosition()
         if not playerX or not playerY or not playerInstance then
-            self.distance:SetText("Distance: --")
+            if objectiveFrame then
+                objectiveFrame.distance:SetText("Distance: --")
+            end
             return
         end
 
         local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0,
             target.uiMapId)
         if not targetX or not targetY or not targetInstance then
-            self.distance:SetText("Distance: --")
+            if objectiveFrame then
+                objectiveFrame.distance:SetText("Distance: --")
+            end
             return
         end
 
         if targetInstance ~= playerInstance then
             self:Hide()
+            if objectiveFrame then
+                objectiveFrame:Hide()
+            end
             return
         end
 
-        -- Calculate arrow direction using pfQuest's method, but in world coordinates
-        -- (map coordinates break when the target is in a different zone)
         local xDelta = (playerX - targetX) * 1.5
         local yDelta = (playerY - targetY)
         local angle = atan2(xDelta, -(yDelta))
@@ -304,28 +780,12 @@ local function EnsureArrowFrame()
         local player = GetPlayerFacing and GetPlayerFacing() or 0
         angle = angle - player
 
-        -- Calculate color gradient based on direction
-        local perc = abs(((pi - abs(angle)) / pi))
-        local r, g, b = GetColorGradient(perc)
+        local r, g, b = 1, 1, 1
+        if self._arrowStyle and self._arrowStyle.mode == "sheet" then
+            local perc = abs(((pi - abs(angle)) / pi))
+            r, g, b = GetColorGradient(perc)
+        end
 
-        -- Select sprite sheet cell
-        local cell = modulo(floor(angle / (pi * 2) * ARROW_TOTAL_CELLS + 0.5), ARROW_TOTAL_CELLS)
-        local column = modulo(cell, ARROW_SHEET_COLS)
-        local row = floor(cell / ARROW_SHEET_COLS)
-        local xstart = (column * ARROW_CELL_W) / ARROW_SHEET_SIZE
-        local ystart = (row * ARROW_CELL_H) / ARROW_SHEET_SIZE
-        local xend = ((column + 1) * ARROW_CELL_W) / ARROW_SHEET_SIZE
-        local yend = ((row + 1) * ARROW_CELL_H) / ARROW_SHEET_SIZE
-
-        -- Avoid bleeding from neighboring cells when texture filtering is enabled.
-        local padX = 0.5 / ARROW_SHEET_SIZE
-        local padY = 0.5 / ARROW_SHEET_SIZE
-        xstart = xstart + padX
-        ystart = ystart + padY
-        xend = xend - padX
-        yend = yend - padY
-
-        -- Calculate distance and alpha
         local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
         if dist then
             local area = 1
@@ -339,34 +799,44 @@ local function EnsureArrowFrame()
 
             r, g, b = r + texalpha, g + texalpha, b + texalpha
 
-            self.arrow:SetTexCoord(xstart, xend, ystart, yend)
+            if self._arrowStyle and self._arrowStyle.mode == "sheet" then
+                local cell = modulo(floor(angle / (pi * 2) * ARROW_TOTAL_CELLS + 0.5), ARROW_TOTAL_CELLS)
+                local column = modulo(cell, ARROW_SHEET_COLS)
+                local row = floor(cell / ARROW_SHEET_COLS)
+                local xstart = (column * ARROW_CELL_W) / ARROW_SHEET_SIZE
+                local ystart = (row * ARROW_CELL_H) / ARROW_SHEET_SIZE
+                local xend = ((column + 1) * ARROW_CELL_W) / ARROW_SHEET_SIZE
+                local yend = ((row + 1) * ARROW_CELL_H) / ARROW_SHEET_SIZE
+                local padX = 0.5 / ARROW_SHEET_SIZE
+                local padY = 0.5 / ARROW_SHEET_SIZE
+                xstart = xstart + padX
+                ystart = ystart + padY
+                xend = xend - padX
+                yend = yend - padY
+                self.arrow:SetTexCoord(xstart, xend, ystart, yend)
+            else
+                self.arrow:SetTexCoord(0, 1, 0, 1)
+                if self.arrow.SetRotation then
+                    self.arrow:SetRotation(angle)
+                end
+            end
+
             self.arrow:SetVertexColor(r, g, b)
             self.arrow:SetAlpha(alpha)
 
-            local distText = string.format("%.1f", dist)
-            self.distance:SetText("Distance: " .. distText)
+            if objectiveFrame then
+                objectiveFrame.distance:SetText("Distance: " .. _FormatDistance(dist))
+            end
         end
 
-        -- Update title and icon when target changes
         if target ~= self._lastTarget then
             self._lastTarget = target
-
-            local title = target.title or ""
-            if target.questLevel then
-                title = "[" .. target.questLevel .. "] " .. title
-            end
-            self.title:SetText(Questie:Colorize(title, "gold"))
-
-            if target.iconPath then
-                self.icon:SetTexture(target.iconPath)
-                self.icon:Show()
-            else
-                self.icon:Hide()
-            end
+            _UpdateObjectText(target)
         end
     end)
 
     arrowFrame:Hide()
+    EnsureObjectiveFrame()
 end
 
 local function EnsureDriverFrame()
@@ -713,24 +1183,35 @@ function QuestieArrow:Refresh()
         if arrowFrame then
             arrowFrame:Hide()
         end
+        if objectiveFrame then
+            objectiveFrame:Hide()
+        end
         return
     end
 
     QuestieArrow:UpdateNearestTargets()
 
     EnsureArrowFrame()
+    EnsureObjectiveFrame()
 
     local alpha = _GetArrowAlpha()
-    local scale = _GetArrowScale()
     if arrowFrame then
+        arrowFrame:SetMovable(true)
         arrowFrame:SetAlpha(alpha)
-        arrowFrame:SetScale(scale)
+        _ApplyArrowVisualScale()
+        _UpdateArrowFramePosition()
+    end
+    if objectiveFrame then
+        objectiveFrame:SetAlpha(_GetObjectiveAlpha())
+        _UpdateObjectiveFramePosition()
     end
 
     if sortedTargets[1] then
         arrowFrame:Show()
+        objectiveFrame:Show()
     else
         arrowFrame:Hide()
+        objectiveFrame:Hide()
     end
 end
 
@@ -756,8 +1237,10 @@ function QuestieArrow:SetTarget(title, zoneOrUiMapId, x, y)
     } }
 
     EnsureArrowFrame()
+    EnsureObjectiveFrame()
     arrowFrame:SetAlpha(_GetArrowAlpha())
     arrowFrame:Show()
+    objectiveFrame:Show()
 end
 
 function QuestieArrow:ClearTarget()
@@ -766,6 +1249,9 @@ function QuestieArrow:ClearTarget()
 
     if arrowFrame then
         arrowFrame:Hide()
+    end
+    if objectiveFrame then
+        objectiveFrame:Hide()
     end
 end
 
@@ -780,10 +1266,57 @@ function QuestieArrow:ResetPosition()
     end
 end
 
+function QuestieArrow:ResetObjectivePosition()
+    Questie.db.profile.arrowObjectivePosition = nil
+    EnsureObjectiveFrame()
+    if objectiveFrame then
+        if _IsObjectiveAttached() then
+            _UpdateObjectiveFramePosition()
+        else
+            objectiveFrame:ClearAllPoints()
+            objectiveFrame:SetPoint("CENTER", UIParent, "CENTER", 0, -170)
+            objectiveFrame._useDefaultPosition = true
+        end
+    end
+end
+
+function QuestieArrow:AttachObjectiveToArrow()
+    _AttachObjectiveToArrow()
+end
+
+function QuestieArrow:DetachObjectiveFromArrow()
+    _DetachObjectiveFromArrow()
+end
+
+function QuestieArrow:ResetAndAttachObjective()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return
+    end
+
+    Questie.db.profile.arrowPosition = nil
+    Questie.db.profile.arrowObjectiveAttached = true
+
+    EnsureArrowFrame()
+    EnsureObjectiveFrame()
+    _UpdateArrowFramePosition()
+    _UpdateObjectiveFramePosition()
+end
+
+function QuestieArrow:SetObjectiveGap(gap)
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return
+    end
+
+    Questie.db.profile.arrowObjectiveGap = gap
+    if objectiveFrame then
+        _UpdateObjectiveFramePosition()
+    end
+end
+
 function QuestieArrow:ApplyScale()
     EnsureArrowFrame()
     if arrowFrame then
-        arrowFrame:SetScale(_GetArrowScale())
+        _ApplyArrowVisualScale()
     end
 end
 
@@ -792,15 +1325,74 @@ function QuestieArrow:ApplyAlpha()
     if arrowFrame then
         arrowFrame:SetAlpha(_GetArrowAlpha())
     end
+    if objectiveFrame then
+        objectiveFrame:SetAlpha(_GetObjectiveAlpha())
+    end
 end
 
 function QuestieArrow:UpdateSettings()
     EnsureArrowFrame()
+    EnsureObjectiveFrame()
     if arrowFrame then
-        arrowFrame:SetScale(_GetArrowScale())
+        _UpdateArrowFrameDimensions()
+        _ApplyArrowStyle()
         arrowFrame:SetAlpha(_GetArrowAlpha())
-        QuestieArrow:UpdateFont()
     end
+    if objectiveFrame then
+        _UpdateObjectiveFrameDimensions()
+        _UpdateObjectiveFramePosition()
+        objectiveFrame:SetAlpha(_GetObjectiveAlpha())
+    end
+    QuestieArrow:UpdateFont()
+end
+
+function QuestieArrow:GetArrowStyleOptions()
+    local values = {}
+
+    if QuestieArrowAssets and QuestieArrowAssets.GetStyleOrder and QuestieArrowAssets.GetStyleOptions then
+        values = QuestieArrowAssets:GetStyleOptions()
+    else
+        local fallback = _GetBundledArrowStyle(ARROW_DEFAULT_STYLE)
+        if fallback then
+            values[ARROW_DEFAULT_STYLE] = fallback.label
+        end
+    end
+
+    local customPreview = _GetArrowPreviewPath()
+    if customPreview then
+        values.custom = string.format("|T%s:32:32:0:0|t    %s", customPreview, "Custom")
+    else
+        values.custom = "Custom"
+    end
+
+    return values
+end
+
+function QuestieArrow:GetArrowStyleOrder()
+    local order = {}
+
+    if QuestieArrowAssets and QuestieArrowAssets.GetStyleOrder then
+        for _, key in ipairs(QuestieArrowAssets:GetStyleOrder()) do
+            order[#order + 1] = key
+        end
+    else
+        order[#order + 1] = ARROW_DEFAULT_STYLE
+    end
+
+    order[#order + 1] = "custom"
+    return order
+end
+
+function QuestieArrow:GetArrowStylePreviewPath()
+    return _GetArrowPreviewPath()
+end
+
+function QuestieArrow:GetArrowStyleLabel()
+    return _GetArrowStyle().label
+end
+
+function QuestieArrow:IsArrowSpriteSheet()
+    return _IsArrowSpriteSheet()
 end
 
 function QuestieArrow:UpdateFont()
@@ -808,11 +1400,11 @@ function QuestieArrow:UpdateFont()
     local fontSize = Questie.db.profile.arrowFontSize or 10
     local fontName = Questie.db.profile.arrowFont or "Friz Quadrata TT"
     local fontFace = (SharedMedia and SharedMedia.Fetch and SharedMedia:Fetch("font", fontName)) or fontName
-    if arrowFrame.title then
-        arrowFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
+    if objectiveFrame and objectiveFrame.title then
+        objectiveFrame.title:SetFont(fontFace, fontSize, "OUTLINE")
     end
-    if arrowFrame.distance then
-        arrowFrame.distance:SetFont(fontFace, fontSize - 2, "OUTLINE")
+    if objectiveFrame and objectiveFrame.distance then
+        objectiveFrame.distance:SetFont(fontFace, fontSize - 2, "OUTLINE")
     end
 end
 
@@ -854,7 +1446,7 @@ function QuestieArrow:PrintTargetCoords()
     print("  Level: " .. tostring(target.questLevel))
     print("  Zone Coords: " .. string.format("%.1f, %.1f", target.x, target.y))
     print("  UI Map ID: " .. tostring(target.uiMapId))
-    print("  Distance: " .. string.format("%.0f", target.distance))
+    print("  Distance: " .. _FormatDistance(target.distance or 0))
 end
 
 function QuestieArrow:DebugPrint()

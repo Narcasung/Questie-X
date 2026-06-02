@@ -2,7 +2,7 @@
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-![Version](https://img.shields.io/badge/Questie--X-v1.6.2-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Questie--X-v1.6.3-blue.svg?style=for-the-badge)
 [![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)](https://github.com/Xurkon/Questie-X/releases)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
@@ -185,6 +185,23 @@ plugin:FinishLoading()
 The database tables follow the same schema as Questie's built-in databases. See [`Modules/Libs/QuestiePluginAPI.lua`](Modules/Libs/QuestiePluginAPI.lua) for the full API reference.
 
 If your server uses non-standard map data, enable **Options → Advanced → Use WotLK map data** after logging in.
+
+---
+
+## Arrow Styles
+
+Questie-X includes a configurable arrow style picker with preview swatches, plus independent controls for arrow scale, transparency, font size, and objective attachment.
+
+Bundled arrow assets are detected automatically as either sprite sheets or regular textures, and custom `.tga` files can be dropped into `Icons/Arrows` for use in the dropdown.
+
+### Arrow Redesign
+
+- `Arrow1` through `Arrow4` are the bundled image styles, while `arrowold` remains the only bundled sprite sheet.
+- The dropdown now uses generated preview swatches from `Icons/Arrows`, so each bundled style shows a live thumbnail instead of a text-only entry.
+- Image arrows rotate as a single texture and keep their native art, while sprite sheets only use sheet-cell logic when the style is explicitly `arrowold` or a custom sheet is marked as such.
+- The arrow and objective text can be detached or reattached independently, locked separately, and reset with one-click actions.
+- The attached gap, objective transparency, arrow transparency, font size, and distance unit are all configurable directly from the Arrow tab.
+- Custom `.tga` files can still be dropped into `Icons/Arrows` and picked from the same dropdown without editing core files.
 
 ---
 

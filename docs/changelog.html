@@ -169,17 +169,38 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.2 + Unreleased</code>
+            <code>Version: v1.6.3 + Unreleased</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
     </div>
 
     <div class="container">
-        <h2 id="unreleased">[Unreleased] &mdash; Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
+        <h2 id="unreleased">[Unreleased] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
+            <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>
+            <li><strong>[Fix &mdash; Arrow Asset Regression &amp; Redesign]</strong> Rebuilt the bundled arrow set so the live dropdown is backed by four image arrows (<code>Arrow1</code> through <code>Arrow4</code>) plus one legacy sheet arrow (<code>arrowold</code>). The old default <code>arrow.tga</code> cache path was retired in favor of the new image-specific asset names, and a regression test now asserts that only <code>arrowold</code> remains a bundled sprite sheet.
+                <ul>
+                    <li><strong>Bundled asset layout</strong>: The new arrow images live under <code>Icons\\Arrows</code>, with matching generated preview TGAs so the dropdown can show a visible swatch for each style.</li>
+                    <li><strong>Runtime split</strong>: Image styles rotate as single textures; sprite-sheet logic is reserved for <code>arrowold</code> and explicitly custom sheet uploads only.</li>
+                    <li><strong>Regression proofing</strong>: <code>Tests\\QuestieArrowAssets_spec.lua</code> now checks the manifest labels, texture paths, sheet guard, and folder contents so a future asset rename cannot silently reintroduce sheet mode for every style.</li>
+                </ul>
+            </li>
+            <li><strong>[Fix &mdash; Arrow UI/Attachment Redesign]</strong> The Arrow tab now exposes independent arrow/objective positioning, individual lock toggles, attach/detach behavior, a gap slider, objective transparency, distance-unit selection, and larger font sizing. The objective text can be attached to the arrow again with a one-click reset, but it can also be moved and locked independently when detached.
+                <ul>
+                    <li><strong>Attached mode</strong>: When attached, the arrow and objective frame move together as a pair, and the gap slider controls the distance between the visible arrow and the objective block.</li>
+                    <li><strong>Detached mode</strong>: When detached, the arrow and objective text each remember their own saved position instead of snapping back to a shared default anchor.</li>
+                    <li><strong>Preview handling</strong>: The dropdown uses preview swatches from the generated <code>Icons\\Arrows\\*_preview.tga</code> files so users can see the artwork at a glance instead of guessing from the name.</li>
+                </ul>
+            </li>
+            <li><strong>[Fix &mdash; Arrow Runtime Texture Fallback]</strong> Bundled image arrows now use the generated preview texture path at runtime as the live render source, while the raw source TGA remains available for packaging and regeneration. This keeps image arrows stable even when the client behaves oddly with a specific source TGA, while the sheet arrow stays isolated to <code>arrowold</code>.</li>
             <li><strong>[Fix &mdash; Minimap Pin Drift: Live View-Radius API + Corrected Pixel Math]</strong> Resolved the long-running minimap pin drift bug where quest pins appeared to &quot;follow&quot; the player or jump on every frame. Pins now stay anchored to their world positions across all minimap zoom levels (0-5+) and across both Stock UI and ElvUI.
                 <ul>
+                    <li><strong>Time-to-fix note</strong>: This took roughly three weeks of iteration. The first three attempts either crashed, partially fixed only some zoom levels, or regressed zoom 0. The final patch was the first one that held across the full zoom range without the pin math drifting again.</li>
+                    <li><strong>Iteration 1 &mdash; mapRadius reuse (broken)</strong>: The first attempt reused <code>mapRadius</code> for both the radius and the pixel multiplier, which crashed on 3.3.5a because the live API fallback was not wired in yet.</li>
+                    <li><strong>Iteration 2 &mdash; direct half-width (partial)</strong>: The second attempt used <code>GetWidth() * GetScale() / 2</code> directly and fixed low zoom levels, but higher zooms still drifted because the map radius source was still wrong.</li>
+                    <li><strong>Iteration 3 &mdash; scaleFactor normalization (regressed)</strong>: The third attempt added a normalization factor based on a reference radius and inverted the ratio, which made zoom 0 worse and had to be backed out.</li>
+                    <li><strong>Iteration 4 &mdash; final fix</strong>: The final patch combined the native 3.3.5a <code>Minimap:GetViewRadius()</code> API with the correct pixel half-width formula, which aligned the world-yard math with the on-screen pixel math.</li>
                     <li><strong>Root Cause 1 &mdash; Hardcoded lookup table used on 3.3.5a</strong>: <code>Compat/HBD.lua</code> was reading <code>mapRadius</code> from a hardcoded <code>minimap_size</code> lookup table calibrated for stock WoW zoom levels. The API check <code>C_Minimap and C_Minimap.GetViewRadius</code> evaluated to <code>nil</code> on 3.3.5a (and Ascension), so the broken lookup table was always used. The lookup value <code>minimap_size.outdoor[5] = 250</code> produced <code>mapRadius = 125</code>, but the actual live minimap view radius at zoom 5 is <code>116.67</code> yards (from <code>Minimap:GetViewRadius()</code>). This 6.7% error compounded across all pin offsets.</li>
                     <li><strong>Root Cause 2 &mdash; Factor-of-2 in pixel math</strong>: <code>minimapWidth</code> was computed as <code>(GetWidth() * mapRadius / 155.52) / 2</code>, mixing pixel-half-width with a yards-based scale factor. The <code>/ 155.52</code> constant was a hardcoded normalization that did not match the live API value. The math was self-inconsistent: ratio <code>minimapWidth / mapRadius</code> was <code>0.56</code> (off by ~7% from the correct <code>0.6</code>).</li>
                     <li><strong>Root Cause 3 &mdash; Scale not applied to pixel dimensions</strong>: <code>minimapWidth</code> was based on <code>GetWidth()</code> alone, ignoring <code>GetScale()</code>. When UI scale changed, the pixel dimensions reported by <code>GetWidth()</code> would diverge from the actual on-screen size, while <code>mapRadius</code> (in yards) stayed fixed. This caused drift to worsen at higher zoom levels where the ratio was most sensitive.</li>
