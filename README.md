@@ -197,6 +197,8 @@ Bundled arrow assets are detected automatically as either sprite sheets or regul
 ### Arrow Redesign
 
 - `Arrow1` through `Arrow4` are the bundled image styles, while `arrowold` remains the only bundled sprite sheet.
+- `Arcane Arrow` adds a more ornate gold-and-blue option for players who want something a little fancier than the plain waypoint shapes.
+- `Waypoint 1` through `Waypoint 3` add a calmer, lower-profile look for players who want something closer to a plain game marker.
 - The dropdown now uses generated preview swatches from `Icons/Arrows`, so each bundled style shows a live thumbnail instead of a text-only entry.
 - Image arrows rotate as a single texture and keep their native art, while sprite sheets only use sheet-cell logic when the style is explicitly `arrowold` or a custom sheet is marked as such.
 - The arrow and objective text can be detached or reattached independently, locked separately, and reset with one-click actions.
