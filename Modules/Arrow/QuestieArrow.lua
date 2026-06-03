@@ -221,15 +221,16 @@ local function _GetArrowStyle()
             mode = isSheet and "sheet" or "image",
             displayWidth = displayWidth,
             displayHeight = displayHeight,
+            textureCoordLeft = 0,
+            textureCoordRight = 1,
+            textureCoordTop = 0,
+            textureCoordBottom = 1,
         }
     end
 
     local style = _GetBundledArrowStyle(styleKey) or _GetBundledArrowStyle(ARROW_DEFAULT_STYLE)
     local isSheet = _IsBundledSheetStyle(styleKey)
-    local runtimeTexture = style.preview
-    if isSheet then
-        runtimeTexture = style.texture
-    end
+    local runtimeTexture = style.texture
     return {
         label = style.label,
         texturePath = QuestieLib.AddonPath .. runtimeTexture,
@@ -239,6 +240,10 @@ local function _GetArrowStyle()
         displayWidth = isSheet and (style.displayWidth or ARROW_CELL_W) or (style.displayWidth or ARROW_IMAGE_SIZE),
         displayHeight = isSheet and (style.displayHeight or ARROW_CELL_H) or (style.displayHeight or ARROW_IMAGE_SIZE),
         visualBottomInset = style.visualBottomInset or 0,
+        textureCoordLeft = style.textureCoordLeft or 0,
+        textureCoordRight = style.textureCoordRight or 1,
+        textureCoordTop = style.textureCoordTop or 0,
+        textureCoordBottom = style.textureCoordBottom or 1,
     }
 end
 
@@ -262,13 +267,23 @@ local function _ApplyArrowStyle()
     end
 
     local style = _GetArrowStyle()
-    local styleSignature = table.concat({ _GetArrowStyleKey(), style.texturePath or "", style.previewPath or "", style.mode or "" }, "|")
+    local styleSignature = table.concat({
+        _GetArrowStyleKey(),
+        style.texturePath or "",
+        style.previewPath or "",
+        style.mode or "",
+        tostring(style.textureCoordLeft or 0),
+        tostring(style.textureCoordRight or 1),
+        tostring(style.textureCoordTop or 0),
+        tostring(style.textureCoordBottom or 1),
+    }, "|")
     local styleChanged = arrowFrame._arrowStyleSignature ~= styleSignature
 
     arrowFrame._arrowStyle = style
     arrowFrame._arrowStyleSignature = styleSignature
 
     if styleChanged then
+        arrowFrame.arrow:SetTexture(nil)
         arrowFrame.arrow:SetTexture(style.texturePath)
         arrowFrame._arrowStyleMode = nil
     end
@@ -277,7 +292,12 @@ local function _ApplyArrowStyle()
         if style.mode == "sheet" then
             arrowFrame.arrow:SetTexCoord(0, ARROW_CELL_W / ARROW_SHEET_SIZE, 0, ARROW_CELL_H / ARROW_SHEET_SIZE)
         else
-            arrowFrame.arrow:SetTexCoord(0, 1, 0, 1)
+            arrowFrame.arrow:SetTexCoord(
+                style.textureCoordLeft or 0,
+                style.textureCoordRight or 1,
+                style.textureCoordTop or 0,
+                style.textureCoordBottom or 1
+            )
         end
         if arrowFrame.arrow.SetRotation then
             arrowFrame.arrow:SetRotation(0)
@@ -816,7 +836,13 @@ EnsureArrowFrame = function()
                 yend = yend - padY
                 self.arrow:SetTexCoord(xstart, xend, ystart, yend)
             else
-                self.arrow:SetTexCoord(0, 1, 0, 1)
+                local style = self._arrowStyle or _GetArrowStyle()
+                self.arrow:SetTexCoord(
+                    style.textureCoordLeft or 0,
+                    style.textureCoordRight or 1,
+                    style.textureCoordTop or 0,
+                    style.textureCoordBottom or 1
+                )
                 if self.arrow.SetRotation then
                     self.arrow:SetRotation(angle)
                 end

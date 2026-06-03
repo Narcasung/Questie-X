@@ -225,7 +225,7 @@
             <div class="grid">
                 <div class="card">
                     <h4>Arrow Redesign</h4>
-                    <p>The Arrow tab now ships with `Arrow1`-`Arrow4` as bundled image styles, keeps `arrowold` as the only sprite sheet, and lets users detach, lock, reattach, and preview custom arrow textures from `Icons/Arrows` without touching core files.</p>
+                    <p>The Arrow tab now ships with `Arrow1`-`Arrow4` as bundled image styles, keeps `arrowold` as the only sprite sheet, and lets users detach, lock, reattach, and preview custom arrow textures from `Icons/Arrows` without touching core files. Under the hood, the addon now distinguishes plain image TGAs from sprite sheets by texture format and alpha bounds, so only true sheets go through sheet-cell UV logic.</p>
                 </div>
                 <div class="card">
                     <h4>Sunstrider Coordinate Normalization (Final)</h4>
@@ -249,7 +249,7 @@
             </div>
 
             <div class="important">
-                <strong>Documentation scope:</strong> The landing page and changelog now describe the published v1.6.3 release state so collaborators can review what is currently shipped.
+                <strong>Documentation scope:</strong> The landing page and changelog now describe the published v1.6.3 release state so collaborators can review what is currently shipped. The arrow notes here are intentionally developer-level: they call out the runtime split, the texture-format detection, and why the old sheet fallback only applies to <code>arrowold</code> or an explicitly custom sheet upload.
             </div>
         </section>
 
