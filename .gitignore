@@ -39,6 +39,8 @@ scratch/
 .luarc.json
 selene.toml
 temp_*.png
+Icons/arrow.tga
+Icons/arrowold.tga
 Compat/Debug.lua
 Modules/Arrow/QuestieArrow.lua.bak4
 Modules/Arrow/QuestieArrow_HEAD.lua
