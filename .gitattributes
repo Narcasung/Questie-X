@@ -61,3 +61,5 @@ workflow/ export-ignore
 Tests/ export-ignore
 Tools/ export-ignore
 .claude/skills/ export-ignore
+Modules/Arrow/QuestieArrow.lua.bak4 export-ignore
+Modules/Arrow/QuestieArrow_HEAD.lua export-ignore
