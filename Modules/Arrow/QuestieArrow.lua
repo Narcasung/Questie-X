@@ -254,7 +254,15 @@ end
 
 local function _GetArrowPreviewPath()
     local style = _GetArrowStyle()
-    return style.previewPath
+    if not style then
+        return nil
+    end
+
+    if style.previewPath and (type(DoesFileExist) ~= "function" or DoesFileExist(style.previewPath)) then
+        return style.previewPath
+    end
+
+    return style.texturePath
 end
 
 local function _IsArrowSpriteSheet()
@@ -355,13 +363,9 @@ local function _UpdateObjectiveFramePosition()
     end
 
     if _IsObjectiveAttached() and arrowFrame then
-        local style = arrowFrame._arrowStyle or _GetArrowStyle()
-        local inset = (style and style.visualBottomInset) or 0
-        local scale = _GetArrowScale()
-        local visibleBottomOffset = math.floor(inset * scale + 0.5)
         local gap = _GetObjectiveGap()
         objectiveFrame:ClearAllPoints()
-        objectiveFrame:SetPoint("TOP", arrowFrame, "BOTTOM", 0, gap - visibleBottomOffset)
+        objectiveFrame:SetPoint("TOP", arrowFrame, "BOTTOM", 0, gap)
         objectiveFrame._useDefaultPosition = false
         return
     end
@@ -810,9 +814,12 @@ EnsureArrowFrame = function()
         local dist = HBD:GetWorldDistance(targetInstance, playerX, playerY, targetX, targetY)
         if dist then
             local area = 1
-            local alpha = dist - area
-            alpha = alpha > 1 and 1 or alpha
-            alpha = alpha < 0.5 and 0.5 or alpha
+            local alpha = 1
+            if dist <= area then
+                alpha = dist / area
+                alpha = alpha > 1 and 1 or alpha
+                alpha = alpha < 0.5 and 0.5 or alpha
+            end
 
             local texalpha = (1 - alpha) * 2
             texalpha = texalpha > 1 and 1 or texalpha

@@ -5,6 +5,7 @@
 ### Bug Fixes
 
 - **[Docs - Release Metadata Sync]** Updated the README badge, documentation version badges, and in-game addon version to `v1.6.3`, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.
+- **[Docs — Minimap Range Cutoff]** Documented the new minimap icon range cutoff slider and its real-time refresh behavior so the published release notes match the current UI and runtime behavior.
 - **[Fix - Arrow Asset Regression]** Restored the default `Arrow1` asset from the original `XPArrow4.png` source, renamed the bundled image arrows to `Arrow1` through `Arrow4`, regenerated the bundled arrow manifest from the actual image data, and added a busted regression test so `arrowold` remains the only bundled sprite sheet.
 - **[Fix - Arrow UI / Attachment Redesign]** Reworked the Arrow tab so the arrow and objective text can be detached, reattached, locked independently, and reset independently. Added an attached-gap slider, objective transparency slider, distance-unit selector, larger font sizing, and drop-in preview support for the generated arrow swatches.
 - **[Fix - Arrow Asset Size Reduction]** Rewrote the bundled image arrows to their visible bounds and saved them with TGA RLE compression, which keeps the same in-game appearance while reducing the arrow asset footprint dramatically.

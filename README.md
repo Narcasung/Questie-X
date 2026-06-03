@@ -198,7 +198,6 @@ Bundled arrow assets are detected automatically as either sprite sheets or regul
 
 - `Arrow1` through `Arrow4` are the bundled image styles, while `arrowold` remains the only bundled sprite sheet.
 - `Horde Arrow` and `Alliance Arrow` add faction-themed styles with their insignia built into the art.
-- `Waypoint 1` through `Waypoint 3` add a calmer, lower-profile look for players who want something closer to a plain game marker.
 - The dropdown now uses generated preview swatches from `Icons/Arrows`, so each bundled style shows a live thumbnail instead of a text-only entry.
 - Image arrows rotate as a single texture and keep their native art, while sprite sheets only use sheet-cell logic when the style is explicitly `arrowold` or a custom sheet is marked as such.
 - The arrow and objective text can be detached or reattached independently, locked separately, and reset with one-click actions.
@@ -224,6 +223,7 @@ Bundled arrow assets are detected automatically as either sprite sheets or regul
 - Fixed `RequestMapUpdate` logic that caused completed quest icons to persist across zone transitions.
 - Downgraded spurious `[CRITICAL] No AreaId found for UiMapId` log spam to debug level. On some servers, `C_Map.GetBestMapForUnit` returns a continent-level UiMapId for capital cities; the nil return was already handled gracefully but was incorrectly logged as critical.
 - Fixed map pins for `killCredit`-type objectives not resolving spawn locations correctly.
+- Added a configurable minimap icon range cutoff so players can choose how far away quest icons remain visible before fading out.
 
 ### Tooltips
 

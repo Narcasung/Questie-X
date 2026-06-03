@@ -256,6 +256,7 @@ function QuestieMap:ProcessShownMinimapIcons()
     while true do
         count = 0
         playerX, playerY = getWorldPos()
+
         xd = (playerX or 0) - (QuestieMap.playerX or 0)
         yd = (playerY or 0) - (QuestieMap.playerY or 0)
         totalDistance = totalDistance + (xd * xd + yd * yd)
@@ -293,6 +294,30 @@ function QuestieMap:ProcessShownMinimapIcons()
         end
         cYield()
         doEdgeUpdate = false
+    end
+end
+
+function QuestieMap:RefreshMinimapIconVisibility()
+    if not HBDPins or not HBDPins.activeMinimapPins then
+        return
+    end
+
+    local minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
+    if HBDPins.SetMinimapVisibilityCutoff then
+        HBDPins:SetMinimapVisibilityCutoff(minimapVisibilityCutoff)
+    end
+    if HBDPins.RefreshMinimap then
+        HBDPins:RefreshMinimap()
+    end
+
+    for minimapFrame, data in pairs(HBDPins.activeMinimapPins) do
+        if minimapFrame and minimapFrame.miniMapIcon and minimapFrame.FadeLogic then
+            minimapFrame.minimapVisibilityCutoff = minimapVisibilityCutoff
+            minimapFrame:FadeLogic()
+            if minimapFrame.GlowUpdate then
+                minimapFrame:GlowUpdate()
+            end
+        end
     end
 end
 
@@ -570,6 +595,71 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     iconMinimap.texture:SetTexture(texture)
     iconMinimap.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], 1);
     iconMinimap.miniMapIcon = true;
+    iconMinimap.minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
+
+    if (not iconMinimap.FadeLogic) then
+        function iconMinimap:SetFade(value)
+            if self.lastGlowFade ~= value then
+                self.lastGlowFade = value
+                if self.glowTexture then
+                    local r, g, b = self.glowTexture:GetVertexColor()
+                    self.glowTexture:SetVertexColor(r, g, b, value)
+                end
+                self.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], value)
+            end
+        end
+
+        function iconMinimap:FadeLogic()
+            local profile = Questie.db.profile
+            if self.miniMapIcon and self.x and self.y and self.texture and self.UiMapID and self.texture.SetVertexColor and HBD and HBD.GetPlayerZonePosition then
+                if (QuestieMap.playerX and QuestieMap.playerY) then
+                    local x, y
+                    if not self.worldX then
+                        x, y = HBD:GetWorldCoordinatesFromZone(self.x / 100, self.y / 100, self.UiMapID)
+                        self.worldX = x
+                        self.worldY = y
+                    else
+                        x = self.worldX
+                        y = self.worldY
+                    end
+                    if (x and y) then
+                        local xd = QuestieMap.playerX - x
+                        local yd = QuestieMap.playerY - y
+                        local distance = math.sqrt(xd * xd + yd * yd)
+                        local minimapVisibilityCutoff = self.minimapVisibilityCutoff or profile.minimapIconRangeCutoff or 100
+
+                        if (distance > minimapVisibilityCutoff) then
+                            self:FakeHide()
+                            return
+                        elseif self.hidden then
+                            self:FakeShow()
+                        elseif (distance > profile.fadeLevel) then
+                            local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue)
+                            self:SetFade(fade)
+                        elseif (distance < profile.fadeOverPlayerDistance) and profile.fadeOverPlayer then
+                            local fadeAmount = profile.fadeOverPlayerLevel + distance * (1 - profile.fadeOverPlayerLevel) / profile.fadeOverPlayerDistance
+                            if self.faded and fadeAmount > profile.iconFadeLevel then
+                                fadeAmount = profile.iconFadeLevel
+                            end
+                            self:SetFade(fadeAmount)
+                        else
+                            if self.faded then
+                                self:SetFade(profile.iconFadeLevel)
+                            else
+                                self:SetFade(1)
+                            end
+                        end
+                    end
+                else
+                    if self.faded then
+                        self:SetFade(profile.iconFadeLevel)
+                    else
+                        self:SetFade(1)
+                    end
+                end
+            end
+        end
+    end
 
     QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, true);
     tinsert(QuestieMap.manualFrames[typ][data.id], iconMinimap:GetName())
@@ -650,6 +740,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
     iconMinimap.AreaID = areaID
     iconMinimap.UiMapID = uiMapId
     iconMinimap.miniMapIcon = true;
+    iconMinimap.minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
     iconMinimap:UpdateTexture(Questie.usedIcons[data.Icon]);
 
     if (not iconMinimap.FadeLogic) then
@@ -680,9 +771,17 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                     if (x and y) then
                         local xd = QuestieMap.playerX - x
                         local yd = QuestieMap.playerY - y
-                        local distance = math.sqrt(xd * xd + yd * yd) / 10;
+                        local distance = math.sqrt(xd * xd + yd * yd);
+                        local minimapVisibilityCutoff = self.minimapVisibilityCutoff or profile.minimapIconRangeCutoff or 100;
 
-                        if (distance > profile.fadeLevel) then
+                        -- Hard stop: keep minimap pins from remaining visible beyond
+                        -- the configured minimap range cutoff.
+                        if (distance > minimapVisibilityCutoff) then
+                            self:FakeHide()
+                            return
+                        elseif self.hidden then
+                            self:FakeShow()
+                        elseif (distance > profile.fadeLevel) then
                             local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue);
                             self:SetFade(fade)
                         elseif (distance < profile.fadeOverPlayerDistance) and profile.fadeOverPlayer then

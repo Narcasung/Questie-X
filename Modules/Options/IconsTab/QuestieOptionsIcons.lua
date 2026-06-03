@@ -510,6 +510,21 @@ function QuestieOptions.tabs.icons:Initialize()
                             QuestieFramePool:UpdateColorConfig(true, value)
                         end,
                     },
+                    minimapIconRangeCutoff = {
+                        type = "range",
+                        order = 4.35,
+                        name = function() return l10n('Minimap Icon Range Cutoff'); end,
+                        desc = function() return l10n('How far away minimap icons can remain visible.\n(Default: %s)', optionsDefaults.profile.minimapIconRangeCutoff); end,
+                        width = 3.1,
+                        min = 25,
+                        max = 200,
+                        step = 5,
+                        disabled = function() return ((not Questie.db.profile.enabled) or (not Questie.db.profile.enableMiniMapIcons)); end,
+                        get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                        set = function (info, value)
+                            QuestieOptions:SetProfileValue(info, value)
+                        end,
+                    },
                     fadeLevel = {
                         type = "range",
                         order = 4.4,

@@ -102,10 +102,18 @@ end
 
 -- set option value
 function QuestieOptions:SetProfileValue(info, value)
-    if debug and Questie.db.profile[info[#info]] ~= value then
-        Questie:Debug(Questie.DEBUG_SPAM, "DEBUG: global option", info[#info], "changed from '" .. tostring(Questie.db.profile[info[#info]]) .. "' to '" .. tostring(value) .. "'")
+    local key = info[#info]
+    if debug and Questie.db.profile[key] ~= value then
+        Questie:Debug(Questie.DEBUG_SPAM, "DEBUG: global option", key, "changed from '" .. tostring(Questie.db.profile[key]) .. "' to '" .. tostring(value) .. "'")
     end
-    Questie.db.profile[info[#info]] = value
+    Questie.db.profile[key] = value
+
+    if key == "minimapIconRangeCutoff" then
+        local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
+        if QuestieMap and QuestieMap.RefreshMinimapIconVisibility then
+            QuestieMap:RefreshMinimapIconVisibility()
+        end
+    end
 end
 
 function QuestieOptions:ClusterRedraw()

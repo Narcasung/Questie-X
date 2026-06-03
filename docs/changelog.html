@@ -179,6 +179,7 @@
         <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
             <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>
+            <li><strong>[Docs &mdash; Minimap Range Cutoff]</strong> Documented the new minimap icon range cutoff slider and its real-time refresh behavior so the published notes match the current UI and runtime behavior.</li>
             <li><strong>[Fix &mdash; Arrow Asset Regression &amp; Redesign]</strong> Rebuilt the bundled arrow set so the live dropdown is backed by four image arrows (<code>Arrow1</code> through <code>Arrow4</code>) plus one legacy sheet arrow (<code>arrowold</code>). The old default <code>arrow.tga</code> cache path was retired in favor of the new image-specific asset names, and the generator now keeps sheet-mode detection isolated so only <code>arrowold</code> or an explicitly custom sheet can enter the sprite-sheet path.
                 <ul>
                     <li><strong>Bundled asset layout</strong>: The new arrow images live under <code>Icons\\Arrows</code>, with matching generated preview TGAs so the dropdown can show a visible swatch for each style.</li>

@@ -468,6 +468,19 @@ local function drawMinimapPin(pin, data)
     -- data.floatOnEdge is replaced by (data.floatOnEdge and ((pin.texture and pin.texture.a and pin.texture.a ~= 0) or pin.texture == nil))
     -- icons will now only float on edge if they have an opacity which is not 0 or if no texture exist.
     data.distanceFromMinimapCenter = dist
+    local minimapVisibilityCutoff = pin.minimapVisibilityCutoff
+        or (Questie and Questie.db and Questie.db.profile and Questie.db.profile.minimapIconRangeCutoff)
+    if minimapVisibilityCutoff and lastXY and lastYY and data.x and data.y then
+        local xd, yd = lastXY - data.x, lastYY - data.y
+        local distance = (xd * xd + yd * yd)^0.5
+        if distance > minimapVisibilityCutoff then
+            pin:Hide()
+            data.onEdge = nil
+            data.keep = nil
+            return
+        end
+    end
+
     if dist <= 1 or (data.floatOnEdge and ((pin.texture and pin.texture.a and pin.texture.a ~= 0) or pin.texture == nil)) then
         pin:Show()
         pin:ClearAllPoints()
@@ -705,6 +718,24 @@ local function UpdateMinimapZoom()
         end
         indoors = GetCVar("minimapZoom")+0 == pins.Minimap:GetZoom() and "outdoor" or "indoor"
         pins.Minimap:SetZoom(zoom)
+    end
+end
+
+function pins:RefreshMinimap()
+    queueFullUpdate = true
+    UpdateMinimapPins(true)
+    UpdateMinimapIconPosition()
+end
+
+function pins:SetMinimapVisibilityCutoff(cutoff)
+    for pin, data in pairs(minimapPins) do
+        pin.minimapVisibilityCutoff = cutoff
+        data.minimapVisibilityCutoff = cutoff
+    end
+
+    for pin, data in pairs(activeMinimapPins) do
+        pin.minimapVisibilityCutoff = cutoff
+        data.minimapVisibilityCutoff = cutoff
     end
 end
 
