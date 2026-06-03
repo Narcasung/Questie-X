@@ -1690,6 +1690,26 @@ function QuestieLearner:InjectLearnedData()
     end
 
     local learned = Questie.dbLearner.global
+    -- Normalize malformed saved variables before any migration or injection.
+    -- This prevents old learner rows from carrying numeric spawn fields
+    -- into the suppression path and crashing the quest objective filter.
+    local sanitizedEntries = 0
+    if QuestieDB and QuestieDB.private and QuestieDB.private.NormalizeLearnerSpawnEntry then
+        for _, data in pairs(learned.npcs) do
+            if QuestieDB.private.NormalizeLearnerSpawnEntry(data, 7, 4) then
+                sanitizedEntries = sanitizedEntries + 1
+            end
+        end
+        for _, data in pairs(learned.objects) do
+            if QuestieDB.private.NormalizeLearnerSpawnEntry(data, 4, 7) then
+                sanitizedEntries = sanitizedEntries + 1
+            end
+        end
+        if sanitizedEntries > 0 then
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Sanitized", sanitizedEntries, "malformed learned spawn entries")
+        end
+    end
+
     -- Migrate old-format NPC data ([4]=spawns, [5]=zoneId) to new format ([7]=spawns, [9]=zoneId)
     -- Always merge [4] into [7], even when [7] already has partial data from a recent session.
     for npcId, data in pairs(learned.npcs) do

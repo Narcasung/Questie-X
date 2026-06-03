@@ -68,6 +68,68 @@ local function MergeSpawnTables(baseSpawns, overrideSpawns)
     return merged
 end
 
+local function GetSpawnTable(entry, primaryKey, legacyKey)
+    if type(entry) ~= "table" then
+        return nil
+    end
+
+    local spawns = entry[primaryKey]
+    if type(spawns) == "table" then
+        return spawns
+    end
+
+    spawns = entry[legacyKey]
+    if type(spawns) == "table" then
+        return spawns
+    end
+
+    return nil
+end
+
+local function NormalizeLearnerSpawnEntry(entry, primaryKey, legacyKey)
+    if type(entry) ~= "table" then
+        return false
+    end
+
+    local changed = false
+    local currentSpawns = entry[primaryKey]
+    local legacySpawns = entry[legacyKey]
+
+    if currentSpawns ~= nil and type(currentSpawns) ~= "table" then
+        entry[primaryKey] = nil
+        currentSpawns = nil
+        changed = true
+    end
+
+    if legacySpawns ~= nil and type(legacySpawns) ~= "table" then
+        entry[legacyKey] = nil
+        legacySpawns = nil
+        changed = true
+    end
+
+    if type(currentSpawns) ~= "table" and type(legacySpawns) == "table" then
+        entry[primaryKey] = CopySpawnTable(legacySpawns)
+        entry[legacyKey] = nil
+        return true
+    end
+
+    if type(currentSpawns) == "table" and type(legacySpawns) == "table" then
+        entry[primaryKey] = MergeSpawnTables(currentSpawns, legacySpawns)
+        entry[legacyKey] = nil
+        return true
+    end
+
+    if type(currentSpawns) == "table" and legacySpawns ~= nil then
+        entry[legacyKey] = nil
+        changed = true
+    end
+
+    return changed
+end
+
+QuestieDB.private.GetLearnerSpawnTable = GetSpawnTable
+QuestieDB.private.NormalizeLearnerSpawnEntry = NormalizeLearnerSpawnEntry
+
 local function _MergeOverride(result, override, rawdata, keyMap)
     for stringKey, intKey in pairs(keyMap) do
         local overrideValue = override[stringKey]
@@ -749,8 +811,7 @@ function QuestieDB.GetSuppressedNPCs(zoneId)
         local threshold = ld.settings.minConfidencePins or 2
         local npcId, entry = next(ld.npcs)
         while npcId do
-            -- Support both old format ([4]=spawns) and new format ([7]=spawns)
-            local spawns = entry[7] or entry[4]
+            local spawns = GetSpawnTable(entry, 7, 4)
             if entry.mc and entry.mc >= threshold and spawns and spawns[zoneId] then
                 suppressed[npcId] = true
             end
@@ -771,8 +832,7 @@ function QuestieDB.GetSuppressedObjects(zoneId)
         local threshold = ld.settings.minConfidencePins or 2
         local objId, entry = next(ld.objects)
         while objId do
-            -- Support both old format ([4]=spawns) and new format ([7]=spawns)
-            local spawns = entry[4] or entry[7]
+            local spawns = GetSpawnTable(entry, 4, 7)
             if entry.mc and entry.mc >= threshold and spawns and spawns[zoneId] then
                 suppressed[objId] = true
             end
