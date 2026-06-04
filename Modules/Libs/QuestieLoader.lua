@@ -1,5 +1,5 @@
 -- Shim for Lua 5.2+ (Retail) where table.getn was removed.
--- We cannot use the '#' length operator directly because Lua 5.0 (Turtle WoW)
+-- We cannot use the '#' length operator directly because Lua 5.0
 -- will trigger a compile-time syntax error parsing the file.
 -- Using loadstring bypasses the 5.0 compiler and safely injects the # operator in 5.2+.
 if not table.getn then
@@ -19,7 +19,7 @@ if not math.mod then
     end
 end
 
--- Shim for Lua 5.0 (Turtle WoW) where string.match is missing.
+-- Shim for Lua 5.0 where string.match is missing.
 -- Supports up to 5 captures (sufficient for all Questie uses).
 if not string.match then
     string.match = function(str, pattern, init)
@@ -41,7 +41,7 @@ if not string.gmatch then
     string.gmatch = string.gfind
 end
 
--- Shim for Lua 5.0 (Turtle WoW) where select() was not yet implemented.
+-- Shim for Lua 5.0 where select() was not yet implemented.
 -- Fix #7: The original used a `while n > 0` loop that never decremented n,
 -- making the loop body run exactly once before returning.  Use a plain
 -- sequential block instead so the intent is obvious.
@@ -136,4 +136,3 @@ function Questie:Colorize(str, color)
     -- Initial stub: just return the string without color or with basic color
     return str
 end
-

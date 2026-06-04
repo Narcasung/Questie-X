@@ -278,9 +278,9 @@
 
         <hr>
 
-        <h2 id="session-34">Session 34 &mdash; Turtle WoW Cleanup (2026-05-04)</h2>
+        <h2 id="session-34">Session 34 &mdash; Unsupported Legacy Server Cleanup (2026-05-04)</h2>
         <ul>
-            <li><strong>[Maintenance]</strong> Removed Turtle WoW references &mdash; Deleted Turtle WoW row from the server compatibility table and removed Turtle WoW load tip from installation instructions in README.md. Turtle WoW is shutting down and no longer has a supported plugin.</li>
+            <li><strong>[Maintenance]</strong> Removed unsupported legacy server references &mdash; Deleted an unsupported legacy server row from the server compatibility table and removed its load tip from installation instructions in README.md.</li>
             <li><strong>[Documentation]</strong> Clarified two-addon installation requirement &mdash; Updated README.md installation instructions to explicitly state that Questie-X requires BOTH the core addon AND a server-specific database plugin to function.</li>
         </ul>
 
@@ -426,7 +426,7 @@
             <li><strong>[Fix &mdash; Ascension Zone Mapping]</strong> Fixed a regression in <code>QuestieCompat</code> where <code>uiMapData</code> for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.</li>
             <li><strong>[Fix &mdash; QuestieLearner]</strong> Centralized zone/area ID lookup in <code>l10n</code> module to prevent <code>GetAreaIdByLocalName</code> nil errors (Fixes Project Ebonhold runtime crash).</li>
             <li><strong>[Feature &mdash; Session Export]</strong> Added <code>session_export</code> skill for standardized documentation and session artifact exports.</li>
-            <li><strong>[Fix &mdash; Custom Server Compilation]</strong> Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.</li>
+            <li><strong>[Fix &mdash; Custom Server Compilation]</strong> Fixed database compilation not running on custom servers (Ascension, Ebonhold, etc.) where plugins inject data after initial load.</li>
             <li><strong>[Fix &mdash; Zone Mapping Bug]</strong> Fixed incorrect key assignment in <code>QuestiePluginAPI:InjectZoneTables()</code>. This caused zone lookups to fail, resulting in "No UiMapID or fitting parentAreaId" errors for custom zone IDs.</li>
         </ul>
 
@@ -450,7 +450,7 @@
         <h2 id="v148">v1.4.8 &mdash; Plugin Synchronization &amp; Lua 5.0 Refactor</h2>
         <ul>
             <li><strong>[Plugin Synchronization]</strong> Overhauled the Questie-X plugin loading architecture. Introduced <code>QuestiePluginAPI:FinishLoading()</code> and a registration handshake to resolve race conditions during addon initialization. By ensuring that database plugins report their data-injection status before <code>QuestieInit</code> Stage 3 completes, we eliminated "ghost maps" where pins and statistics would fail to render until a manual <code>/reload</code>.</li>
-            <li><strong>[Universal Lua 5.0 Refactor]</strong> Executed a codebase-wide transition from <code>pairs()</code> and <code>ipairs()</code> to <code>next()</code> and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients (e.g., Turtle WoW), which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across all WoW versions from 1.12 to 3.3.5+.</li>
+            <li><strong>[Universal Lua 5.0 Refactor]</strong> Executed a codebase-wide transition from <code>pairs()</code> and <code>ipairs()</code> to <code>next()</code> and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients, which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across supported WoW versions.</li>
             <li><strong>[Fix &mdash; MapIconTooltip]</strong> Fixed a critical syntax error in <code>MapIconTooltip.lua</code> at line 239. A malformed <code>if</code> statement was trapping execution, preventing tooltips from updating when hovering over Quest objectives on the World Map.</li>
             <li><strong>[Fix &mdash; AscensionDB]</strong> Enhanced realm-specific logic in <code>AscensionLoader.lua</code>. The loader now utilizes an pattern-matching check against <code>GetRealmName()</code> to correctly identify and apply custom database overrides for all Project Ascension realms, including seasonal and specialized rule-set servers.</li>
             <li><strong>[Performance]</strong> Refined the background loading throttler in <code>QuestieInit</code>. The initialization sequence now yields more efficiently to the main UI thread during massive database injections, reducing "frame-stutter" during the initial login sequence while strictly maintaining loading priority for essential UI modules.</li>
@@ -594,7 +594,7 @@
 
         <h3>Core &amp; Stability</h3>
         <ul>
-            <li><strong>[Fix]</strong> Resolved <code>attempt to call local 'l10n' (a table value)</code> in <code>GameVersionError.lua</code> and implemented a <code>tocVersion</code> guard to prevent the "unsupported client" error on Classic-era private servers (e.g., Turtle WoW).</li>
+            <li><strong>[Fix]</strong> Resolved <code>attempt to call local 'l10n' (a table value)</code> in <code>GameVersionError.lua</code> and implemented a <code>tocVersion</code> guard to prevent the "unsupported client" error on Classic-era private servers.</li>
             <li><strong>[Fix]</strong> Updated <code>GameVersionError.lua</code> strings to correctly identify Questie-X as supporting Classic and private servers.</li>
             <li><strong>[Taint Analysis]</strong> Completed a full audit of <code>Questie-X-WotLKDB</code>. No direct taint vectors or secure function overrides were found.</li>
             <li><strong>[Version Sync]</strong> Synchronized versions to v1.3.4 across all components.</li>
@@ -935,7 +935,7 @@
 
         <h3>Core & Compatibility</h3>
         <ul>
-            <li><strong>[Lua 5.0]</strong> Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).</li>
+            <li><strong>[Lua 5.0]</strong> Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> to ensure universal compatibility with legacy WoW clients.</li>
             <li><strong>[AceTimer]</strong> Patched embedded <code>AceTimer-3.0</code> instances in ElvUI and OG-RaidHelper to resolve <code>math.mod</code> errors on Lua 5.0 clients.</li>
             <li><strong>[Colors]</strong> Updated <code>CreateColor</code> polyfill with <code>SetRGB</code>, <code>SetRGBA</code>, <code>SetColor</code>, and <code>GetColor</code> methods.</li>
             <li><strong>[Comm]</strong> Improved cross-client data sharing stability.</li>

@@ -279,7 +279,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     needsCompilation = (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID)
 
     -- Custom servers or presence of DB plugins: always defer to Stage3 to wait for plugin data injection
-    if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled() then
+    if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled() then
         compilationDeferred = true
         l10n:Initialize()
         coYield()
@@ -390,7 +390,7 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
 
     -- Always re-compile on custom servers to pick up QuestieLearner changes from SavedVariables,
     -- or if compilation was explicitly deferred/needed.
-    local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled()
+    local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled()
     if isCustomServer or needsCompilation or (not Questie.db.global.dbIsCompiled) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Starting compilation (Server=" .. tostring(isCustomServer) .. ", Needed=" .. tostring(needsCompilation) .. ")")
         if not QuestieDB.questData then

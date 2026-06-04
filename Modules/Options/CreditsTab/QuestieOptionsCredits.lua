@@ -95,7 +95,7 @@ function QuestieOptions.tabs.credits:Initialize()
                     thanks = {
                         type = "description",
                         order = 1,
-                        name = function() return 'The Turtle WoW, Project Ascension, and Project Ebonhold communities for their ongoing support and feedback.'; end,
+                        name = function() return 'The Project Ascension, Project Ebonhold, and custom server communities for their ongoing support and feedback.'; end,
                         fontSize = "medium",
                     },
                 },

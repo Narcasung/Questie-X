@@ -241,7 +241,7 @@ end
 -- old Lua 5.0 host with no secure-call protection), addon code can still call it
 -- but it will simply be a no-op that prints a warning rather than injecting taint.
 if not hooksecurefunc then
-    -- Lua 5.0 hosts (Turtle WoW pre-2.0 or custom servers) have no secure-call model,
+    -- Lua 5.0 hosts and older custom servers have no secure-call model,
     -- so raw-hooking is equivalent to what Blizzard would do internally anyway.
     -- Use a local to avoid polluting _G unnecessarily.
     local function _rawHook(arg1, arg2, arg3)
@@ -278,7 +278,7 @@ end
 if C_Timer then
     QuestieCompat.C_Timer = C_Timer
 else
-    -- C_Timer polyfill for Lua 5.0/5.1 clients that don't have it (e.g. Turtle WoW pre-2.0).
+    -- C_Timer polyfill for Lua 5.0/5.1 clients that don't have it.
     -- Only stored in QuestieCompat namespace, NOT in bare _G.
     local TickerFrame = CreateFrame("Frame")
     local tickers = {}
@@ -626,4 +626,3 @@ end
 QuestieCompat.LibUIDropDownMenu = QuestieCompat.LibUIDropDownMenu or {}
 QuestieCompat.LibUIDropDownMenu.UIDropDownMenu_Menu_NewSize = function()
 end
-

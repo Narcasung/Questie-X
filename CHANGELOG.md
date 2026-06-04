@@ -109,7 +109,7 @@
 
 ### Maintenance
 
-- **Removed Turtle WoW references** — Deleted Turtle WoW row from the server compatibility table and removed Turtle WoW load tip from installation instructions in README.md. Turtle WoW is shutting down and no longer has a supported plugin.
+- **Removed unsupported legacy server references** — Deleted an unsupported legacy server row from the server compatibility table and removed its load tip from installation instructions in README.md.
 
 ### Documentation
 
@@ -282,7 +282,7 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Feature — Enhanced Logging]** Improved Stage 3 initialization logging to provide detailed reporting on custom data injection. Developers can now verify the exact number of NPCs, Objects, and Items injected by plugins directly from the `DEVELOP` log.
 - **[Fix — Ascension Zone Mapping]** Fixed a regression in `QuestieCompat` where `uiMapData` for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.
 - **[Fix — QuestieLearner]** Centralized zone/area ID lookup in `l10n` module to prevent `GetAreaIdByLocalName` nil errors (Fixes Project Ebonhold runtime crash).
-- **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.
+- **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, etc.) where plugins inject data after initial load.
   - Modified `Modules/QuestieInit.lua` Stage1 to defer compilation to Stage3 for custom servers, ensuring plugins finish injecting data before compilation runs.
   - Added `l10n:Initialize()` and `QuestieCorrections:MinimalInit()` calls when deferring to Stage3, as Stage2 (`QuestieJourney:Initialize()`) requires `hiddenQuests` to be populated.
   - Added "Bronzebeard" and "Warcraft Reborn" to Ascension realm detection patterns in `Modules/QuestieServer.lua`.
@@ -593,7 +593,7 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 
 ### Core & Stability (v1.3.5)
 
-- **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).
+- **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients.
 - **[AceTimer]** Patched embedded `AceTimer-3.0` instances in ElvUI and OG-RaidHelper to resolve `math.mod` errors on Lua 5.0 clients.
 - **[Colors]** Updated `CreateColor` polyfill with `SetRGB`, `SetRGBA`, `SetColor`, and `GetColor` methods.
 - **[Comm]** Improved cross-client data sharing stability.

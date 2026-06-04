@@ -210,6 +210,16 @@ local function CopyWithoutField(data, skippedKey)
     return copy
 end
 
+local function DeepCopy(value)
+    if type(value) ~= "table" then return value end
+
+    local copy = {}
+    for key, child in pairs(value) do
+        copy[key] = DeepCopy(child)
+    end
+    return copy
+end
+
 -- Returns the grid-bucket key for a coordinate so nearby points share the same slot
 local function CoordBucket(x, y)
     return floor(x / COORD_GRID) * COORD_GRID, floor(y / COORD_GRID) * COORD_GRID
@@ -566,6 +576,89 @@ local function _InvalidateSpawnListsForNPC(npcId)
 end
 
 ------------------------------------------------------------------------
+-- Live learner update batching
+--
+-- Kill/loot bursts can call LearnNPC multiple times for the same NPC:
+-- combat-log kill, quest-log objective progress, and loot correlation may all
+-- arrive within a few frames. Saved learner evidence is updated immediately,
+-- but live QuestieDB override/cache invalidation is batched so the large DB
+-- layer is not churned on every single kill.
+local LIVE_NPC_UPDATE_DELAY = 0.5
+
+local function _ApplyNpcLiveUpdate(npcId)
+    local existing = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.npcs
+        and Questie.dbLearner.global.npcs[npcId]
+    if not existing then return false end
+
+    local threshold = (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.minConfidencePins) or MIN_CONFIDENCE_PINS
+    if existing.mc < threshold then return false end
+    if not (QuestieDB and QuestieDB.npcDataOverrides and existing[7] and next(existing[7])) then return false end
+
+    local ovr = QuestieDB.npcDataOverrides[npcId]
+    if not ovr then
+        if IsAscensionProtected("NPC", npcId, 7) then
+            QuestieDB.npcDataOverrides[npcId] = DeepCopy(CopyWithoutField(existing, 7))
+        else
+            QuestieDB.npcDataOverrides[npcId] = DeepCopy(existing)
+        end
+    else
+        -- Merge: fill missing fields; also overwrite empty-string names.
+        for k, v in pairs(existing) do
+            if k ~= 7 and not IsAscensionProtected("NPC", npcId, k) and (ovr[k] == nil or (k == 1 and ovr[k] == "")) then
+                ovr[k] = DeepCopy(v)
+            end
+        end
+        -- Always merge spawn coords.
+        if existing[7] and not IsAscensionProtected("NPC", npcId, 7) then
+            ovr[7] = ovr[7] or {}
+            for zid, coords in pairs(existing[7]) do
+                ovr[7][zid] = ovr[7][zid] or {}
+                for _, coord in ipairs(coords) do
+                    InsertIfNewBucket(ovr[7][zid], coord[1], coord[2], GetCoordGridForZone(zid))
+                end
+            end
+        end
+    end
+
+    -- Clear the compiled DB cache once per flush so GetNPC rebuilds with the
+    -- latest coalesced override data instead of once per kill.
+    if QuestieDB.private and QuestieDB.private.npcCache then
+        QuestieDB.private.npcCache[npcId] = nil
+    end
+
+    return true
+end
+
+local function _FlushNpcLiveUpdates()
+    local pending = _Learner.pendingNpcLiveUpdates
+    _Learner.pendingNpcLiveUpdates = {}
+    _Learner.pendingNpcLiveUpdateTimer = nil
+
+    for npcId in pairs(pending) do
+        if _ApplyNpcLiveUpdate(npcId) then
+            _InvalidateSpawnListsForNPC(npcId)
+        end
+    end
+end
+
+local function _QueueNpcLiveUpdate(npcId)
+    _Learner.pendingNpcLiveUpdates = _Learner.pendingNpcLiveUpdates or {}
+    _Learner.pendingNpcLiveUpdates[npcId] = true
+
+    if _Learner.pendingNpcLiveUpdateTimer then return end
+
+    local timer = QuestieCompat and QuestieCompat.C_Timer
+    if timer and timer.After then
+        _Learner.pendingNpcLiveUpdateTimer = true
+        timer.After(LIVE_NPC_UPDATE_DELAY, _FlushNpcLiveUpdates)
+    else
+        _FlushNpcLiveUpdates()
+    end
+end
+
+------------------------------------------------------------------------
 -- CrossLinkAfterNPC: called when a new NPC is first learned.
 -- Scans all learned quests for any reference to this npcId and stitches
 -- back-links in both directions.
@@ -887,48 +980,14 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     existing.ls = time() -- Update last seen
     existing.mc = (existing.mc or 0) + 1
 
-    local threshold = (Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.minConfidencePins) or MIN_CONFIDENCE_PINS
-
-    -- Live injection: update npcDataOverrides only if confidence threshold is met
-    -- and only if the NPC has actual spawn data from kills (not just player-position fallback)
-    if existing.mc >= threshold and QuestieDB and QuestieDB.npcDataOverrides and existing[7] and next(existing[7]) then
-        local ovr = QuestieDB.npcDataOverrides[npcId]
-        if not ovr then
-            if IsAscensionProtected("NPC", npcId, 7) then
-                QuestieDB.npcDataOverrides[npcId] = CopyWithoutField(existing, 7)
-            else
-                QuestieDB.npcDataOverrides[npcId] = existing
-            end
-        else
-            -- Merge: fill missing fields; also overwrite empty-string names
-            for k, v in pairs(existing) do
-                if not IsAscensionProtected("NPC", npcId, k) and (ovr[k] == nil or (k == 1 and ovr[k] == "")) then ovr[k] = v end
-            end
-            -- Always merge spawn coords
-            if existing[7] and not IsAscensionProtected("NPC", npcId, 7) then
-                ovr[7] = ovr[7] or {}
-                for zid, coords in pairs(existing[7]) do
-                    ovr[7][zid] = ovr[7][zid] or {}
-                    for _, coord in ipairs(coords) do
-                        InsertIfNewBucket(ovr[7][zid], coord[1], coord[2], GetCoordGridForZone(zid))
-                    end
-                end
-            end
-        end
-        -- Clear the compiled DB cache so GetNPC rebuilds with the new override data.
-        if QuestieDB.private and QuestieDB.private.npcCache then
-            QuestieDB.private.npcCache[npcId] = nil
-        end
-    end
+    -- Live injection is intentionally batched: repeated kill/log/loot events for
+    -- the same NPC update saved evidence immediately, then flush QuestieDB once.
+    _QueueNpcLiveUpdate(npcId)
 
     if isNew then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New NPC learned:", npcId, name or "?")
         CrossLinkAfterNPC(npcId)
     end
-    -- Existing NPC got new spawn data: invalidate cached spawnLists
-    -- for any active quest objective that references this NPC so the
-    -- map system rebuilds them with fresh data on next update.
-    _InvalidateSpawnListsForNPC(npcId)
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
 end
 
@@ -1196,9 +1255,7 @@ local function _MergeSpawnEvidence(npcId)
             "duplicates", duplicates,
             "zone", tostring(topEvidence.zoneId))
 
-        if QuestieDB.private and QuestieDB.private.npcCache then
-            QuestieDB.private.npcCache[npcId] = nil
-        end
+        _QueueNpcLiveUpdate(npcId)
 
         return promoted > 0 or duplicates > 0
     end
@@ -1287,10 +1344,8 @@ local function _MergeSpawnEvidence(npcId)
         "zone " .. topEvidence.zoneId .. " at " .. floor(topPct + 0.5) .. "% confidence",
         spawned and "SPAM" or "IGNORED_DUPLICATE")
 
-    -- Clear npcCache so GetNPC returns fresh data
-    if QuestieDB.private and QuestieDB.private.npcCache then
-        QuestieDB.private.npcCache[npcId] = nil
-    end
+    -- Clear/rebuild cache through the same coalesced path used by kill learning.
+    _QueueNpcLiveUpdate(npcId)
 
     return true
 end
@@ -3568,9 +3623,44 @@ end
 
 function _Learner:BroadcastIfCommsAvailable(typ, id, data)
     local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
-    if QuestieLearnerComms and QuestieLearnerComms.BroadcastLearnedData then
-        local op = (data.mc and data.mc > 1) and "UPDATE" or "NEW"
-        QuestieLearnerComms:BroadcastLearnedData(op, typ, id, data)
+    if not (QuestieLearnerComms and QuestieLearnerComms.BroadcastLearnedData) then
+        return
+    end
+
+    _Learner.pendingBroadcasts = _Learner.pendingBroadcasts or {}
+    local key = typ .. ":" .. tostring(id)
+    local op = (data.mc and data.mc > 1) and "UPDATE" or "NEW"
+    local existingPending = _Learner.pendingBroadcasts[key]
+    _Learner.pendingBroadcasts[key] = {
+        typ = typ,
+        id = id,
+        data = data,
+        -- Preserve the first-discovery signal while still sending the latest
+        -- coalesced payload for the entity.
+        op = (existingPending and existingPending.op == "NEW") and "NEW" or op,
+    }
+
+    if _Learner.pendingBroadcastTimer then return end
+
+    local timer = QuestieCompat and QuestieCompat.C_Timer
+    local function FlushBroadcasts()
+        local pending = _Learner.pendingBroadcasts
+        _Learner.pendingBroadcasts = {}
+        _Learner.pendingBroadcastTimer = nil
+
+        local comms = QuestieLoader:ImportModule("QuestieLearnerComms")
+        if not (comms and comms.BroadcastLearnedData) then return end
+
+        for _, entry in pairs(pending) do
+            comms:BroadcastLearnedData(entry.op, entry.typ, entry.id, entry.data)
+        end
+    end
+
+    if timer and timer.After then
+        _Learner.pendingBroadcastTimer = true
+        timer.After(2, FlushBroadcasts)
+    else
+        FlushBroadcasts()
     end
 end
 
