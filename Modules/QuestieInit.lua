@@ -128,14 +128,18 @@ local function loadFullDatabase()
     print("\124cFF4DDBFF [1/9] " .. l10n("Loading database") .. "...")
 
     QuestieInit:LoadBaseDB()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After LoadBaseDB  - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag]                     obj:"  .. _dbStats(QuestieDB.objectData) .. " item:" .. _dbStats(QuestieDB.itemData))
+    if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After LoadBaseDB  - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag]                     obj:"  .. _dbStats(QuestieDB.objectData) .. " item:" .. _dbStats(QuestieDB.itemData))
+    end
 
     print("\124cFF4DDBFF [2/9] " .. l10n("Applying database corrections") .. "...")
 
     coYield()
     QuestieCorrections:Initialize()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After Corrections - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+    if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After Corrections - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+    end
 
     print("\124cFF4DDBFF [3/9] " .. l10n("Initializing townfolks") .. "...")
     coYield()
@@ -289,7 +293,9 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n("Questie DB has updated!") ..
         "|r|cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        end
         QuestieDBCompiler:Compile()
         Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After  Compile - quest:type=" .. type(QuestieDB.questData) .. " npc:type=" .. type(QuestieDB.npcData))
         dbCompiled = true

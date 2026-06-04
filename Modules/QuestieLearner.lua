@@ -123,7 +123,10 @@ _Learner.pendingNpcs    = {}
 _Learner.pendingQuests  = {}
 _Learner.pendingItems   = {}
 _Learner.pendingObjects = {}
+_Learner.pendingNetworkMerges = {}
 _Learner.pendingItemLinks = {} -- queue for async GetItemInfo retries
+_Learner.npcNameIndex = nil
+_Learner.npcNameIndexDirty = true
 
 -- Direct reference to learnedData, set on Initialize
 QuestieLearner.data = nil
@@ -658,6 +661,51 @@ local function _QueueNpcLiveUpdate(npcId)
     end
 end
 
+local function _MarkNpcNameIndexDirty()
+    _Learner.npcNameIndexDirty = true
+end
+
+local function _RebuildNpcNameIndex()
+    local overrideIndex = {}
+    local baseIndex = {}
+
+    if QuestieDB and QuestieDB.npcDataOverrides then
+        for npcId, data in pairs(QuestieDB.npcDataOverrides) do
+            local name = data and data[1]
+            if type(name) == "string" and name ~= "" then
+                overrideIndex[string.lower(name)] = npcId
+            end
+        end
+    end
+
+    if QuestieDB and QuestieDB.npcData then
+        for npcId, data in pairs(QuestieDB.npcData) do
+            local name = data and data[1]
+            if type(name) == "string" and name ~= "" then
+                local lowerName = string.lower(name)
+                if overrideIndex[lowerName] == nil and baseIndex[lowerName] == nil then
+                    baseIndex[lowerName] = npcId
+                end
+            end
+        end
+    end
+
+    _Learner.npcNameIndex = {
+        override = overrideIndex,
+        base = baseIndex,
+    }
+    _Learner.npcNameIndexDirty = false
+end
+
+local function _EnsureNpcNameIndex()
+    if _Learner.npcNameIndex and not _Learner.npcNameIndexDirty then
+        return _Learner.npcNameIndex
+    end
+
+    _RebuildNpcNameIndex()
+    return _Learner.npcNameIndex
+end
+
 ------------------------------------------------------------------------
 -- CrossLinkAfterNPC: called when a new NPC is first learned.
 -- Scans all learned quests for any reference to this npcId and stitches
@@ -963,7 +1011,10 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         Questie.dbLearner.global.npcs[npcId] = existing
     end
 
-    if name and name ~= "" and (not existing[1] or existing[1] == "") then existing[1] = name end
+    if name and name ~= "" and (not existing[1] or existing[1] == "") then
+        existing[1] = name
+        _MarkNpcNameIndexDirty()
+    end
     if level then
         if not existing[4] or level < existing[4] then existing[4] = level end
         if not existing[5] or level > existing[5] then existing[5] = level end
@@ -1997,6 +2048,7 @@ function QuestieLearner:InjectLearnedData()
 
     -- 1. NPCs
     local npcIdsToFix = {}
+    local npcNameIndexNeedsRebuild = false
     for npcId, data in pairs(learned.npcs) do
         local nid = tonumber(npcId)
         if type(npcId) == "string" and nid then
@@ -2009,12 +2061,14 @@ function QuestieLearner:InjectLearnedData()
             -- and can pollute curated plugin spawn tables.
             QuestieDB.npcDataOverrides[nid or npcId] = CopyWithoutField(data, 7)
             npcCount = npcCount + 1
+            if data[1] then npcNameIndexNeedsRebuild = true end
         else
             local existing = QuestieDB.npcDataOverrides[nid or npcId]
             -- Adopt other fields if missing
             for k, v in pairs(data) do
                 if k ~= "mc" and k ~= 7 and existing[k] == nil and not IsAscensionProtected("NPC", nid or npcId, k) then
                     existing[k] = v
+                    if k == 1 then npcNameIndexNeedsRebuild = true end
                 end
             end
         end
@@ -2024,14 +2078,19 @@ function QuestieLearner:InjectLearnedData()
         learned.npcs[old] = nil
     end
 
-    -- Diagnostic: log how many NPCs were injected with spawn overrides
-    local spawnOverrideCount = 0
-    for nid, ovr in pairs(QuestieDB.npcDataOverrides) do
-        if ovr[7] and next(ovr[7]) then
-            spawnOverrideCount = spawnOverrideCount + 1
+    if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+        -- Diagnostic: log how many NPCs were injected with spawn overrides
+        local spawnOverrideCount = 0
+        for nid, ovr in pairs(QuestieDB.npcDataOverrides) do
+            if ovr[7] and next(ovr[7]) then
+                spawnOverrideCount = spawnOverrideCount + 1
+            end
         end
+        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieLearner] InjectLearnedData: injected", npcCount, "NPCs (", spawnOverrideCount, "with spawn overrides)")
     end
-    Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieLearner] InjectLearnedData: injected", npcCount, "NPCs (", spawnOverrideCount, "with spawn overrides)")
+    if npcNameIndexNeedsRebuild then
+        _MarkNpcNameIndexDirty()
+    end
 
     -- Purge garbage quest entries: quests with no name [1] and only mc/ls metadata.
     -- These are Ascension internal tracking artifacts (hash-like IDs) with no real quest data.
@@ -2523,30 +2582,16 @@ function QuestieLearner:OnQuestComplete()
     end
 end
 
--- Helper to find an NPC ID by name (case-insensitive substring match)
+-- Helper to find an NPC ID by name (case-insensitive exact match)
 -- Used for proactive objective mapping when a quest is first accepted.
 function QuestieLearner:GetNPCIdByName(npcName)
     if not npcName or npcName == "" then return nil end
     local lowerName = string.lower(npcName)
-    
-    -- Check overrides first (most likely for custom servers)
-    if QuestieDB.npcDataOverrides then
-        for id, data in pairs(QuestieDB.npcDataOverrides) do
-            if data and data[1] and string.lower(data[1]) == lowerName then
-                return id
-            end
-        end
-    end
 
-    -- Check base NPC database
-    -- Note: QueryNPCSingle is a dummy until initialization, but we can fallback to raw access
-    local npcData = QuestieDB.npcData or {}
-    for id, data in pairs(npcData) do
-        if data and data[1] and string.lower(data[1]) == lowerName then
-            return id
-        end
-    end
-    return nil
+    local index = _EnsureNpcNameIndex()
+    local overrideId = index.override[lowerName]
+    if overrideId then return overrideId end
+    return index.base[lowerName]
 end
 
 -- Fires when a quest is accepted.
@@ -3664,42 +3709,89 @@ function _Learner:BroadcastIfCommsAvailable(typ, id, data)
     end
 end
 
+local NETWORK_MERGE_DELAY = 0.5
+
+local function _QueueIncomingNetworkMerge(typ, id, data, op)
+    _Learner.pendingNetworkMerges = _Learner.pendingNetworkMerges or {}
+    local key = typ .. ":" .. tostring(id)
+    _Learner.pendingNetworkMerges[key] = {
+        typ = typ,
+        id = id,
+        data = data,
+        op = op,
+    }
+
+    if _Learner.pendingNetworkMergeTimer then return end
+
+    local timer = QuestieCompat and QuestieCompat.C_Timer
+    local function FlushNetworkMerges()
+        local pending = _Learner.pendingNetworkMerges
+        _Learner.pendingNetworkMerges = {}
+        _Learner.pendingNetworkMergeTimer = nil
+
+        local anyChanged = false
+        for _, entry in pairs(pending) do
+            local changed = QuestieLearner:_ApplyIncomingNetworkMerge(entry.typ, entry.id, entry.data, entry.op)
+            anyChanged = anyChanged or changed
+        end
+
+        if anyChanged then
+            QuestieLearner:InjectLearnedData()
+            QuestieLearner.data = Questie.dbLearner.global
+        end
+    end
+
+    if timer and timer.After then
+        _Learner.pendingNetworkMergeTimer = true
+        timer.After(NETWORK_MERGE_DELAY, FlushNetworkMerges)
+    else
+        FlushNetworkMerges()
+    end
+end
+
 -- Receives validated, decoded data from QuestieLearnerComms or QuestieLearnerExport:MergeImport
 function QuestieLearner:HandleNetworkData(typ, id, d, op)
     if not self:IsEnabled() then return end
     if not EnsureLearnedData() then return end
     if not typ or not id or not d then return end
 
+    _QueueIncomingNetworkMerge(typ, id, d, op)
+end
+
+function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
+    if not typ or not id or not d then return false end
+
     local store
     if typ == "NPC" then
-        if not Questie.dbLearner.global.settings.learnNpcs then return end
+        if not Questie.dbLearner.global.settings.learnNpcs then return false end
         store = Questie.dbLearner.global.npcs
     elseif typ == "QUEST" then
-        if not Questie.dbLearner.global.settings.learnQuests then return end
+        if not Questie.dbLearner.global.settings.learnQuests then return false end
         store = Questie.dbLearner.global.quests
     elseif typ == "ITEM" then
-        if not Questie.dbLearner.global.settings.learnItems then return end
+        if not Questie.dbLearner.global.settings.learnItems then return false end
         store = Questie.dbLearner.global.items
     elseif typ == "OBJECT" then
-        if not Questie.dbLearner.global.settings.learnObjects then return end
+        if not Questie.dbLearner.global.settings.learnObjects then return false end
         store = Questie.dbLearner.global.objects
     else
-        return
+        return false
     end
 
     -- Validate external data before merging to prevent crash on malformed input
     if not _ValidateLearnedSpawnData(d) then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Rejected malformed network data", typ, id)
-        return
+        return false
     end
 
     local existing = store[id]
     if not existing then
         store[id] = d
         store[id].mc = 1
-        self:InjectLearnedData()
-        QuestieLearner.data = Questie.dbLearner.global
-        return
+        if typ == "NPC" and type(d[1]) == "string" and d[1] ~= "" then
+            _MarkNpcNameIndexDirty()
+        end
+        return true
     end
 
     local changed = false
@@ -3708,6 +3800,9 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
         if k ~= "mc" and existing[k] == nil then
             existing[k] = v
             changed = true
+            if typ == "NPC" and k == 1 and type(v) == "string" and v ~= "" then
+                _MarkNpcNameIndexDirty()
+            end
         end
     end
 
@@ -3744,9 +3839,10 @@ function QuestieLearner:HandleNetworkData(typ, id, d, op)
     if changed or (op == "NEW" or op == "UPDATE") then
         existing.ls = time() -- Refresh timestamp on network confirmation
         existing.mc = (existing.mc or 0) + 1
-        QuestieLearner.data = Questie.dbLearner.global
-        self:InjectLearnedData()
+        return true
     end
+
+    return false
 end
 
 return QuestieLearner
