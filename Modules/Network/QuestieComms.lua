@@ -262,6 +262,30 @@ local function GetSerializedPacketSize(packet)
     return string.len(QuestieSerializer:Serialize(packet))
 end
 
+local function QueuePush(queue, queueState, value)
+    queueState.tail = queueState.tail + 1
+    queue[queueState.tail] = value
+end
+
+local function QueuePop(queue, queueState)
+    if queueState.head > queueState.tail then
+        queueState.head = 1
+        queueState.tail = 0
+        return nil
+    end
+
+    local value = queue[queueState.head]
+    queue[queueState.head] = nil
+    queueState.head = queueState.head + 1
+
+    if queueState.head > queueState.tail then
+        queueState.head = 1
+        queueState.tail = 0
+    end
+
+    return value
+end
+
 local function GetQuestDataPacketV2Size(questId)
     local questObject = QuestieDB.GetQuest(questId)
     local rawObjectives = QuestLogCache.GetQuestObjectives(questId) -- DO NOT MODIFY THE RETURNED TABLE
@@ -526,10 +550,11 @@ end
 _QuestieComms._isBroadcasting = false
 _QuestieComms._needsNewBroadcast = false
 _QuestieComms._nextBroadcastData = {}
+_QuestieComms._nextBroadcastDataState = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
     if _QuestieComms._isBroadcasting then
-        tinsert(_QuestieComms._nextBroadcastData, {eventName, sendMode, targetPlayer})
+        QueuePush(_QuestieComms._nextBroadcastData, _QuestieComms._nextBroadcastDataState, {eventName, sendMode, targetPlayer})
         return
     end
     local partyType = QuestiePlayer:GetGroupType()
@@ -582,6 +607,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
 
         local rawQuestList = {}
         local blocks = {}
+        local blockState = { head = 1, tail = 0 }
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
         local blockSerializedSize = 2
@@ -590,7 +616,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
             local questPacketSize = GetSerializedPacketSize(quest)
             if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
-                tinsert(blocks, rawQuestList)
+                QueuePush(blocks, blockState, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
                 blockSerializedSize = 2
@@ -603,12 +629,12 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
         end
 
         if entryCount ~= 0 then
-            tinsert(blocks, rawQuestList) -- add the last block
+            QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcasting = true
             -- hopefully reduce server load by staggering responses
             C_Timer.After(random() * 3, function()
                 C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
+                    local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
                         local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLIST);
@@ -632,7 +658,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
                         questPacket:write();
                     else
                         _QuestieComms._isBroadcasting = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastData, 1)
+                        local nextBroadcast = QueuePop(_QuestieComms._nextBroadcastData, _QuestieComms._nextBroadcastDataState)
                         if nextBroadcast then
                             _QuestieComms:BroadcastQuestLog(unpack(nextBroadcast))
                         end
@@ -645,10 +671,11 @@ end
 
 _QuestieComms._isBroadcastingV2 = false
 _QuestieComms._nextBroadcastDataV2 = {}
+_QuestieComms._nextBroadcastDataV2State = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
     if _QuestieComms._isBroadcastingV2 then
-        tinsert(_QuestieComms._nextBroadcastDataV2, {eventName, sendMode, targetPlayer})
+        QueuePush(_QuestieComms._nextBroadcastDataV2, _QuestieComms._nextBroadcastDataV2State, {eventName, sendMode, targetPlayer})
         return
     end
     local partyType = QuestiePlayer:GetGroupType()
@@ -701,6 +728,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
 
         local rawQuestList = {}
         local blocks = {}
+        local blockState = { head = 1, tail = 0 }
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
         local blockSerializedSize = 2
@@ -711,7 +739,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
             local questPacketSize = GetQuestDataPacketV2Size(entry.questId)
             if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
                 rawQuestList[1] = entryCount
-                tinsert(blocks, rawQuestList)
+                QueuePush(blocks, blockState, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
                 blockSerializedSize = 2
@@ -726,12 +754,12 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
 
         if entryCount ~= 0 or blockCount ~= 2 then
             rawQuestList[1] = entryCount
-            tinsert(blocks, rawQuestList) -- add the last block
+            QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcastingV2 = true
             -- hopefully reduce server load by staggering responses
             C_Timer.After(random() * 3, function()
                 C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
+                    local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
                         local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLISTV2);
@@ -755,7 +783,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
                         questPacket:write();
                     else
                         _QuestieComms._isBroadcastingV2 = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastDataV2, 1)
+                        local nextBroadcast = QueuePop(_QuestieComms._nextBroadcastDataV2, _QuestieComms._nextBroadcastDataV2State)
                         if nextBroadcast then
                             _QuestieComms:BroadcastQuestLogV2(unpack(nextBroadcast))
                         end
