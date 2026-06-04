@@ -17,6 +17,7 @@ local LE_PARTY_CATEGORY_INSTANCE = QuestieCompat.LE_PARTY_CATEGORY_INSTANCE
 local itemCache = {} -- cache data since this happens on item looted it could happen a lot with auto loot
 
 local alreadySentBandaid = {} -- TODO: rewrite the entire thing its a lost cause
+local alreadySentBandaidCount = 0 -- bound the dedup cache so it can't grow unbounded across a session
 
 local _GetAnnounceMarker
 
@@ -120,7 +121,17 @@ function _QuestieAnnounce:AnnounceToChannel(message)
         return
     end
 
-    alreadySentBandaid[message] = true
+    if not alreadySentBandaid[message] then
+        alreadySentBandaid[message] = true
+        alreadySentBandaidCount = alreadySentBandaidCount + 1
+        -- Reset the dedup cache after enough distinct messages so it cannot grow
+        -- unbounded over a long session. Reassigning ({}) instead of wipe() keeps
+        -- this Lua 5.0 (Turtle) safe.
+        if alreadySentBandaidCount >= 1000 then
+            alreadySentBandaid = {}
+            alreadySentBandaidCount = 0
+        end
+    end
 
     if IsInRaid() or IsInGroup() then
         SendChatMessage(message, _QuestieAnnounce.GetChatMessageChannel())

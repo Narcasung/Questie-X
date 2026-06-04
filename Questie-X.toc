@@ -179,7 +179,6 @@ Modules\Tracker\TrackerLinePool.lua
 Modules\Tutorial\ChooseObjectiveType.lua
 Modules\Tutorial\Tutorial.lua
 #Modules\QuestieDBMIntegration.lua
-Modules\QuestieSlash.lua
 # Options
 Modules\Options\QuestieOptions.lua
 Modules\Options\QuestieOptionsDefaults.lua

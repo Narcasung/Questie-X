@@ -106,11 +106,9 @@ function QuestieFramePool:GetFrame()
         returnFrame:SetScript("OnShow", returnFrame.BaseOnShow)
     end
 
-    if returnFrame.BaseOnUpdate then
-        returnFrame.glowLogicTimer = C_Timer.NewTicker(1, returnFrame.BaseOnUpdate);
-    else
-        returnFrame:SetScript("OnUpdate", nil)
-    end
+    -- BaseOnUpdate was never defined, so the glowLogicTimer branch was always dead
+    -- and this always cleared OnUpdate. Preserve that effect, drop the dead branch.
+    returnFrame:SetScript("OnUpdate", nil)
 
     if returnFrame.BaseOnHide then
         returnFrame:SetScript("OnHide", returnFrame.BaseOnHide)

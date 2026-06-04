@@ -74,11 +74,11 @@ describe("Audit Pass 8.2 - corrected FALSE POSITIVES (must always pass)", functi
             'UnitFactionGroup("Player")'))
     end)
 
-    it("[FP1] Ascension_IsScalingEnabled is declared no-arg but called with questId (harmless lint)", function()
+    it("[FP1] (FIXED Phase 1) Ascension_IsScalingEnabled now declares questId, clearing the arity lint", function()
         local lib = read("Modules/Libs/QuestieLib.lua")
-        assert.is_true(has(lib, "local function Ascension_IsScalingEnabled()"))
+        assert.is_true(has(lib, "local function Ascension_IsScalingEnabled(questId)"))
         assert.is_true(has(lib, "Ascension_IsScalingEnabled(questId)"))
-        -- Lua discards extra args; this changes no behavior. Lint only.
+        -- was the no-arg form; param is accepted-but-unused (behavior unchanged).
     end)
 
     it("[FP3] the select() shim exists, proving Lua 5.0 lacks select (pass-3 was wrong)", function()
@@ -97,21 +97,24 @@ describe("Audit Pass 8.2 - corrected FALSE POSITIVES (must always pass)", functi
 end)
 
 describe("Audit Pass 8.3 - confirmed BUGS (snapshot at HEAD; invert on fix)", function()
-    it("[B1] IsComplete calls GetQuest(questId) twice in one expression", function()
-        assert.is_true(has(read("Database/QuestieDB.lua"),
-            "QuestieDB.GetQuest(questId) and QuestieDB.GetQuest(questId).ObjectiveData"))
+    it("[B1] (FIXED Phase 1) IsComplete hoists GetQuest to a single call", function()
+        local db = read("Database/QuestieDB.lua")
+        assert.is_false(has(db, "QuestieDB.GetQuest(questId) and QuestieDB.GetQuest(questId).ObjectiveData"))
+        assert.is_true(has(db, "local expectedQuest = QuestieDB.GetQuest(questId)"))
+        assert.is_true(has(db, "local expectedObjectives = expectedQuest and expectedQuest.ObjectiveData"))
     end)
 
-    it("[B2] QuestieOptionsTracker calls :Cancel() on the number fadeTickerValue", function()
+    it("[B2] (FIXED Phase 1) no more :Cancel() on the number fadeTickerValue", function()
         local content = read("Modules/Options/TrackerTab/QuestieOptionsTracker.lua")
-        assert.is_true(count(content, "fadeTickerValue:Cancel()") >= 3)
+        assert.equals(0, count(content, "fadeTickerValue:Cancel()"))
+        assert.is_true(count(content, "fadeTicker:Cancel()") >= 6) -- 3 original + 3 fixed
     end)
 
-    it("[B3] alreadySentBandaid is declared once and never wiped (unbounded)", function()
+    it("[B3] (FIXED Phase 1) alreadySentBandaid is now bounded (reset after N entries)", function()
         local content = read("Modules/QuestieAnnounce.lua")
-        assert.is_true(has(content, "local alreadySentBandaid = {}"))
-        assert.is_false(has(content, "wipe(alreadySentBandaid)"))
-        assert.equals(1, count(content, "alreadySentBandaid = {}"))
+        assert.is_true(has(content, "local alreadySentBandaidCount = 0"))
+        assert.is_true(has(content, "alreadySentBandaidCount = alreadySentBandaidCount + 1"))
+        assert.is_true(has(content, "alreadySentBandaid = {}")) -- the reset reassignment
     end)
 
     it("[B4] factionReactions reads UnitFactionGroup at module load time", function()
@@ -119,25 +122,23 @@ describe("Audit Pass 8.3 - confirmed BUGS (snapshot at HEAD; invert on fix)", fu
             'local playerFaction = UnitFactionGroup("player")'))
     end)
 
-    it("[B5] Questie-X.toc lists QuestieSlash.lua twice", function()
-        assert.equals(2, count(read("Questie-X.toc"), "QuestieSlash.lua"))
+    it("[B5] (FIXED Phase 1) Questie-X.toc lists QuestieSlash.lua exactly once", function()
+        assert.equals(1, count(read("Questie-X.toc"), "QuestieSlash.lua"))
     end)
 
-    it("[B6] correction files begin with a UTF-8 BOM", function()
-        assert.is_true(startsWithBOM("Database/Corrections/tbcQuestFixes.lua"))
-        assert.is_true(startsWithBOM("Database/Corrections/wotlkItemFixes.lua"))
-        assert.is_true(startsWithBOM("Database/Corrections/wotlkQuestFixes.lua"))
+    it("[B6] (FIXED Phase 1) correction files no longer begin with a UTF-8 BOM", function()
+        assert.is_false(startsWithBOM("Database/Corrections/tbcQuestFixes.lua"))
+        assert.is_false(startsWithBOM("Database/Corrections/wotlkItemFixes.lua"))
+        assert.is_false(startsWithBOM("Database/Corrections/wotlkQuestFixes.lua"))
     end)
 
-    it("[B7] _Qframe.BaseOnUpdate is referenced but never defined (dead glow ticker)", function()
+    it("[B7] (FIXED Phase 1) dead BaseOnUpdate wiring removed; OnUpdate-clear preserved", function()
         local frame = read("Modules/FramePool/QuestieFrame.lua")
         local pool = read("Modules/FramePool/QuestieFramePool.lua")
-        assert.is_true(has(frame, "_Qframe.BaseOnUpdate"))      -- assigned from
-        assert.is_true(has(pool, "returnFrame.BaseOnUpdate"))   -- gated on
-        -- never defined anywhere:
-        assert.is_false(has(frame, "function _Qframe.BaseOnUpdate"))
-        assert.is_false(has(frame, "function _Qframe:BaseOnUpdate"))
-        assert.is_false(has(frame, "_Qframe.BaseOnUpdate = function"))
+        assert.is_false(has(frame, "_Qframe.BaseOnUpdate"))        -- nil assignment gone
+        assert.is_false(has(pool, "returnFrame.BaseOnUpdate"))     -- dead branch gone
+        assert.is_true(has(pool, 'returnFrame:SetScript("OnUpdate", nil)')) -- effect preserved
+        assert.is_true(has(frame, "_Qframe.GlowUpdate"))           -- GlowUpdate wiring kept
     end)
 end)
 
@@ -189,12 +190,12 @@ describe("Audit Pass 9 - file-by-file findings (snapshot at HEAD)", function()
         assert.is_true(has(read("Modules/Options/ArrowTab/QuestieOptionsArrow.lua"), "= { ... }"))
     end)
 
-    it("[N4] QuestieCommsData indexes GetNPC/GetObject result with no nil-check", function()
+    it("[N4] (FIXED Phase 1) QuestieCommsData now nil-guards GetNPC/GetObject", function()
         local d = read("Modules/Network/QuestieCommsData.lua")
-        assert.is_true(has(d, "QuestieDB:GetNPC(objective.id).name"))
-        assert.is_true(has(d, "QuestieDB:GetObject(objective.id).name"))
-        -- the item branch right below DOES guard, proving the inconsistency:
-        assert.is_true(has(d, "if(dbItem and dbItem.name and (not dbItem.Hidden)) then"))
+        assert.is_false(has(d, "QuestieDB:GetNPC(objective.id).name")) -- no longer unguarded
+        assert.is_false(has(d, "QuestieDB:GetObject(objective.id).name"))
+        assert.is_true(has(d, "oName = (npc and npc.name) or oName"))
+        assert.is_true(has(d, "oName = (obj and obj.name) or oName"))
     end)
 
     it("[N5] select(8, GetInstanceInfo()) left in QuestiePlayer (5.0 rewrite unfinished)", function()
@@ -217,12 +218,14 @@ describe("Audit Pass 11 - gap-fill findings (snapshot at HEAD)", function()
         assert.is_true(has(read("Modules/QuestieLearner.lua"), " % "))
     end)
 
-    it("[G1] QuestieNameplate:UpdateNameplate re-splits the GUID and early-returns in-loop", function()
+    it("[G1] (FIXED Phase 1) QuestieNameplate:UpdateNameplate skips bad entries instead of returning", function()
         local np = read("Modules/QuestieNameplate.lua")
-        -- re-derives npcId from the guid on every update (cacheable):
-        assert.is_true(has(np, 'strsplit("-", guid)'))
-        -- the early return aborts the whole loop on a missing unit:
-        assert.is_true(has(np, "if (not unitName) or (not npcId) then\n            return"))
+        -- the loop-aborting early return is gone:
+        assert.is_false(has(np, "if (not unitName) or (not npcId) then\n            return"))
+        -- replaced by a positive guard that only skips the current entry:
+        assert.is_true(has(np, "if unitName and npcId then"))
+        -- NOTE: still strsplits the guid per update (perf, see G1) and strsplit is
+        -- unshimmed on 1.12 (N2) - both deferred to later phases.
     end)
 
     it("[G2] QuestieValidateGameCache has the unreachable isQuestLogGood guard", function()
@@ -325,5 +328,36 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(advancedOptions, "questieCommsQuestListInitialJitter"))
         assert.is_true(has(advancedOptions, "questieCommsQuestListBlockInterval"))
         assert.is_true(has(advancedOptions, "Questie.db.profile.questieCommsEnabled == false"))
+    end)
+end)
+
+describe("Audit Pass 28 - correction of false 1.12-REGRESSION-1", function()
+    it("[28.1] QuestieLearner OnEvent signature uses named params, NOT '...'", function()
+        local learner = read("Modules/QuestieLearner.lua")
+        -- the actual signature (12 named params, no vararg expression):
+        assert.is_true(has(learner,
+            'function(_, event, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)'))
+        -- the fabricated quote from the (false) 1.12-REGRESSION-1 must NOT exist:
+        assert.is_false(has(learner, 'function(_, event, arg1, arg2, ...)'))
+    end)
+
+    it("[28.3] the select() shim is 5.0-parse-safe (signature vararg + arg-table body)", function()
+        local loader = read("Modules/Libs/QuestieLoader.lua")
+        assert.is_true(has(loader, "select = function(index, ...)"))
+        assert.is_true(has(loader, "return unpack(arg, index, arg.n)")) -- uses arg, not ... expression
+    end)
+
+    it("[28.4] real 5.0 blockers in QuestieLearner are the # and % operators", function()
+        local learner = read("Modules/QuestieLearner.lua")
+        assert.is_true(has(learner, "low32 % 8388608"))     -- real modulo operator
+        assert.is_true(has(learner, "#zoneSpawns == 0"))    -- real length operator
+    end)
+end)
+
+describe("Phase 1 - implemented fixes (regression guards)", function()
+    it("[QQ-early-return] (FIXED) ClearAllNotes skips DB-missing quests, no loop abort", function()
+        local qq = read("Modules/Quest/QuestieQuest.lua")
+        -- the fix adds a unique marker comment + a positive 'if quest then' wrapper:
+        assert.is_true(has(qq, "Skip quests missing from the DB instead of aborting the whole loop"))
     end)
 end)

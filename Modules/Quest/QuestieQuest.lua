@@ -218,21 +218,21 @@ function QuestieQuest:ClearAllNotes()
     while questId do
         local quest = QuestieDB.GetQuest(questId)
 
-        if not quest then
-            return
-        end
-
-        local index, s = next(quest.Objectives)
-        while index do
-            s.AlreadySpawned = {}
-            index, s = next(quest.Objectives, index)
-        end
-
-        if next(quest.SpecialObjectives) then
-            local sIndex, s = next(quest.SpecialObjectives)
-            while sIndex do
+        -- Skip quests missing from the DB instead of aborting the whole loop,
+        -- otherwise the remaining quests' notes would never be cleared.
+        if quest then
+            local index, s = next(quest.Objectives)
+            while index do
                 s.AlreadySpawned = {}
-                sIndex, s = next(quest.SpecialObjectives, sIndex)
+                index, s = next(quest.Objectives, index)
+            end
+
+            if next(quest.SpecialObjectives) then
+                local sIndex, s = next(quest.SpecialObjectives)
+                while sIndex do
+                    s.AlreadySpawned = {}
+                    sIndex, s = next(quest.SpecialObjectives, sIndex)
+                end
             end
         end
         questId, _ = next(QuestiePlayer.currentQuestlog, questId)

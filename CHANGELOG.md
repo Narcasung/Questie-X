@@ -1,5 +1,52 @@
 # Changelog
 
+## [Unreleased] — Performance Pass, Comms/Learner Optimization & Audit Phase 1
+
+> Branch `questie-phase1perf`. Combines the committed QuestieComms / QuestieLearner /
+> Arrow performance work with the audit-driven **Phase 1** correctness & hygiene fixes.
+> Full developer-level detail (root causes, file/line references, verification) is in
+> `docs/changelog.html`.
+
+### Performance — QuestieComms
+
+- **[Perf — Broadcast packet sizing is now O(n)]** The full quest-list broadcast no longer re-serializes the entire accumulating quest block on every quest added (an O(n²) cost). Packet size is now tracked incrementally per quest via a `GetSerializedPacketSize(quest)` helper.
+- **[Perf — Head/tail comms queues]** Replaced `tremove(queue, 1)` front-removal (O(n) shift) in the broadcast and next-broadcast queues with O(1) head-index dequeues (`QueuePop`).
+- **[Perf — Comms throttles + disable gate]** Added configurable throttles (packet size, initial jitter, block interval) and a master enable/disable gate (`IsQuestieCommsEnabled`) so comms traffic can be tuned or turned off entirely.
+- **[Refactor — Centralized performance options]** Comms/arrow/learner performance settings were centralized, with the comms-enable helper scoped correctly (fixed an `attempt to call global 'IsQuestieCommsEnabled'` runtime error).
+
+### Performance — QuestieLearner
+
+- **[Perf — Batched pin refreshes & merges]** Learner pin redraws and `InjectLearnedData` network merges are now batched/coalesced instead of firing per-event, cutting redraw and re-injection churn in groups.
+- **[Perf — Head-index learner comms queues]** The learner comms outgoing/incoming queues use head-index dequeues instead of `tremove(_, 1)`.
+- **[Perf — Bystander-death filter]** `UNIT_DIED` / combat-log deaths for units the player wasn't involved with no longer trigger learner refreshes.
+- **[Perf — Guarded debug scans + learner controls]** Debug-only full scans are guarded behind the debug flag, and learner behavior is now tunable via performance options.
+- **[Fix — Capture learner event payload]** The learner `OnEvent` handler now captures the event payload via explicit named parameters (`arg1..arg10`) so combat-log/quest events are read reliably on 3.3.5a. (Note: this is a named-parameter signature, **not** a Lua 5.0 parse change — see the audit Pass-28 correction.)
+- **[Refactor — Drop redundant private assignment]** Removed a redundant `QuestieLearner.private = _Learner` self-assignment.
+
+### Performance — Arrow
+
+- **[Perf — Cache target coordinate lookups]** The arrow caches its per-target world-coordinate conversions instead of recomputing them every recalc.
+- **[Perf — Arrow performance controls]** Added arrow recalc/throttle options.
+
+### Maintenance
+
+- **[Maintenance — Removed unsupported legacy (Turtle) server support]** Dropped the Turtle/1.12-specific support paths and references; that target is no longer maintained.
+
+### Audit Phase 1 — Correctness & Hygiene (zero-risk, all targets)
+
+Implemented from the performance/compat audit. All changes are minimal and behavior-preserving; every changed Lua file was re-verified with `luac5.1 -p`, and the audit regression suite (`Tests/AuditFindings_spec.lua`) was updated to fixed-state guards.
+
+- **[Fix — IsComplete double GetQuest]** `QuestieDB.IsComplete` no longer calls `QuestieDB.GetQuest(questId)` twice in one expression; the result is hoisted into a local.
+- **[Fix — Comms tooltip nil-index]** `QuestieCommsData:GetTooltip` now nil-guards `GetNPC`/`GetObject` results before indexing `.name`, matching the existing item branch (prevents a crash on unknown ids from network packets).
+- **[Fix — Nameplate update loop abort]** `QuestieNameplate:UpdateNameplate` skips entries with missing unit data instead of `return`-aborting the whole loop, so one unavailable unit no longer stops updates for the rest.
+- **[Fix — ClearAllNotes loop abort]** `QuestieQuest:ClearAllNotes` skips DB-missing quests instead of aborting the loop, so remaining quests' notes are still cleared.
+- **[Fix — Options ticker :Cancel() typo]** Three `fadeTickerValue:Cancel()` calls (calling `:Cancel()` on a number) in the Tracker options corrected to `fadeTicker:Cancel()`.
+- **[Fix — Bounded announce dedup cache]** `QuestieAnnounce`'s `alreadySentBandaid` dedup table is now reset after a bounded number of entries, fixing acknowledged unbounded growth (5.0-safe reassignment).
+- **[Fix — Removed dead glow-ticker wiring]** Removed the dead `BaseOnUpdate` frame wiring in the frame pool (it was always nil, so the per-frame glow ticker never ran); preserved the actual `SetScript("OnUpdate", nil)` effect and the live `GlowUpdate` wiring.
+- **[Fix — TOC dedup]** Removed the duplicate `Modules\QuestieSlash.lua` entry from `Questie-X.toc`.
+- **[Fix — BOM stripped]** Stripped the leading UTF-8 BOM from `tbcQuestFixes.lua`, `wotlkItemFixes.lua`, and `wotlkQuestFixes.lua`.
+- **[Lint — Ascension scaling arity]** `Ascension_IsScalingEnabled(questId)` now accepts the (unused) parameter to clear the selene arity warning; behavior unchanged.
+
 ## [1.6.3]
 
 ### Bug Fixes

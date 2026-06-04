@@ -85,23 +85,23 @@ function QuestieNameplate:UpdateNameplate()
         local unitName, _ = UnitName(token)
         local _, _, _, _, _, npcId, _ = strsplit("-", guid)
 
-        if (not unitName) or (not npcId) then
-            return
-        end
+        -- Skip this entry (not the whole loop) if data is missing, otherwise one
+        -- unavailable unit would abort updates for every remaining nameplate.
+        if unitName and npcId then
+            local icon = _QuestieNameplate.GetValidIcon(QuestieTooltips.lookupByKey["m_" .. npcId])
 
-        local icon = _QuestieNameplate.GetValidIcon(QuestieTooltips.lookupByKey["m_" .. npcId])
-
-        if icon then
-            local frame = _QuestieNameplate.GetFrame(guid)
-            -- check if the texture needs to be changed
-            if frame.lastIcon ~= icon then
-                frame.lastIcon = icon
-                frame.Icon:SetTexture(icon)
+            if icon then
+                local frame = _QuestieNameplate.GetFrame(guid)
+                -- check if the texture needs to be changed
+                if frame.lastIcon ~= icon then
+                    frame.lastIcon = icon
+                    frame.Icon:SetTexture(icon)
+                end
+            else
+                -- tooltip removed but we still have the frame active, remove it
+                activeGUIDs[guid] = nil
+                _QuestieNameplate.RemoveFrame(guid)
             end
-        else
-            -- tooltip removed but we still have the frame active, remove it
-            activeGUIDs[guid] = nil
-            _QuestieNameplate.RemoveFrame(guid)
         end
     end
 end

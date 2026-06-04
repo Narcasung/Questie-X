@@ -483,7 +483,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                                             TrackerLinePool.SetAllExpandQuestAlpha(fadeTickerValue)
                                         end
                                     else
-                                        fadeTickerValue:Cancel()
+                                        fadeTicker:Cancel()
                                         TrackerLinePool.SetAllExpandQuestAlpha(0)
                                     end
                                 end)
@@ -519,7 +519,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                                             TrackerLinePool.SetAllItemButtonAlpha(fadeTickerValue)
                                         end
                                     else
-                                        fadeTickerValue:Cancel()
+                                        fadeTicker:Cancel()
                                         TrackerLinePool.SetAllItemButtonAlpha(0)
                                     end
                                 end)
@@ -794,7 +794,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                                                     end
                                                 end
                                             else
-                                                fadeTickerValue:Cancel()
+                                                fadeTicker:Cancel()
                                             end
                                         end)
                                     end

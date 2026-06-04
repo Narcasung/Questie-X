@@ -30,7 +30,7 @@ local tonumber = tonumber
 -- =================================
 -- Ascension Level Scaling (Core)
 -- =================================
-local function Ascension_IsScalingEnabled()
+local function Ascension_IsScalingEnabled(questId) -- questId accepted (unused) to match call sites and clear the arity lint
     return Questie.db and Questie.db.profile and Questie.db.profile.enableAscensionScaling
 end
 
