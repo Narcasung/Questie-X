@@ -326,15 +326,68 @@ function QuestieOptions.tabs.advanced:Initialize()
                 end,
             },
 
-            questieCommsPerformanceSpacer = QuestieOptionsUtils:Spacer(2.69),
-            questieCommsPerformanceHeader = {
+            arrowPerformanceSpacer = QuestieOptionsUtils:Spacer(2.69),
+            arrowPerformanceHeader = {
                 type = "header",
                 order = 2.7,
+                name = function() return l10n('QuestieArrow Performance'); end,
+            },
+            arrowUpdateThrottle = {
+                type = "range",
+                order = 2.71,
+                width = 1.5,
+                name = function() return l10n('Arrow Movement Update Interval'); end,
+                desc = function() return l10n('Seconds between arrow rotation and distance updates. Higher values reduce CPU usage but make the arrow feel less smooth.'); end,
+                min = 0.03,
+                max = 0.5,
+                step = 0.01,
+                get = function() return Questie.db.profile.arrowUpdateThrottle or optionsDefaults.profile.arrowUpdateThrottle end,
+                set = function(_, value)
+                    Questie.db.profile.arrowUpdateThrottle = value
+                end,
+            },
+            arrowRecalcInterval = {
+                type = "range",
+                order = 2.72,
+                width = 1.5,
+                name = function() return l10n('Target Scan Interval'); end,
+                desc = function() return l10n('Seconds between full nearest-objective scans. Higher values reduce HBD and ZoneDB work in large quest logs.'); end,
+                min = 0.5,
+                max = 10,
+                step = 0.5,
+                get = function() return Questie.db.profile.arrowRecalcInterval or optionsDefaults.profile.arrowRecalcInterval end,
+                set = function(_, value)
+                    Questie.db.profile.arrowRecalcInterval = value
+                    local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
+                end,
+            },
+            arrowTrackerRefreshThrottle = {
+                type = "range",
+                order = 2.73,
+                width = 1.5,
+                name = function() return l10n('Tracker Refresh Throttle'); end,
+                desc = function() return l10n('Minimum seconds between arrow refreshes triggered by tracker updates. Higher values reduce refresh bursts during quest progress changes.'); end,
+                min = 0.25,
+                max = 5,
+                step = 0.25,
+                get = function() return Questie.db.profile.arrowTrackerRefreshThrottle or optionsDefaults.profile.arrowTrackerRefreshThrottle end,
+                set = function(_, value)
+                    Questie.db.profile.arrowTrackerRefreshThrottle = value
+                end,
+            },
+
+            questieCommsPerformanceSpacer = QuestieOptionsUtils:Spacer(2.79),
+            questieCommsPerformanceHeader = {
+                type = "header",
+                order = 2.8,
                 name = function() return l10n('QuestieComms Performance'); end,
             },
             questieCommsEnabled = {
                 type = "toggle",
-                order = 2.705,
+                order = 2.805,
                 name = function() return l10n('Enable QuestieComms'); end,
                 desc = function() return l10n('Enable Questie group quest-progress communication. Disabling this stops outgoing QuestieComms and ignores incoming QuestieComms immediately.'); end,
                 width = 1.5,
@@ -345,7 +398,7 @@ function QuestieOptions.tabs.advanced:Initialize()
             },
             questieCommsQuestListPacketSize = {
                 type = "range",
-                order = 2.71,
+                order = 2.81,
                 name = function() return l10n('Quest List Packet Size'); end,
                 desc = function() return l10n('Maximum serialized payload size per full quest-list block. Lower values create smaller packets but may send more blocks.'); end,
                 min = 100,
@@ -360,7 +413,7 @@ function QuestieOptions.tabs.advanced:Initialize()
             },
             questieCommsQuestListInitialJitter = {
                 type = "range",
-                order = 2.72,
+                order = 2.82,
                 name = function() return l10n('Quest List Initial Jitter'); end,
                 desc = function() return l10n('Maximum random delay before responding with a full quest list. Higher values spread group responses out to reduce bursts.'); end,
                 min = 0,
@@ -375,7 +428,7 @@ function QuestieOptions.tabs.advanced:Initialize()
             },
             questieCommsQuestListBlockInterval = {
                 type = "range",
-                order = 2.73,
+                order = 2.83,
                 name = function() return l10n('Quest List Block Interval'); end,
                 desc = function() return l10n('Seconds between full quest-list blocks. Higher values reduce comms bursts on slower systems and crowded groups.'); end,
                 min = 0.5,

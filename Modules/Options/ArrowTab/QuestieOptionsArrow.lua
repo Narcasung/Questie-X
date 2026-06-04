@@ -354,57 +354,7 @@ function QuestieOptions.tabs.arrow:Initialize()
                     end
                 end,
             },
-            arrowPerformanceHeader = {
-                type = "header",
-                order = 9.4,
-                name = function() return l10n("Arrow Performance") end,
-            },
-            arrowUpdateThrottle = {
-                type = "range",
-                order = 9.5,
-                width = 1.5,
-                name = function() return l10n("Arrow Movement Update Interval") end,
-                desc = function() return l10n("Seconds between arrow rotation and distance updates. Higher values reduce CPU usage but make the arrow feel less smooth.") end,
-                min = 0.03,
-                max = 0.5,
-                step = 0.01,
-                get = function() return Questie.db.profile.arrowUpdateThrottle or optionsDefaults.profile.arrowUpdateThrottle end,
-                set = function(_, value)
-                    Questie.db.profile.arrowUpdateThrottle = value
-                end,
-            },
-            arrowRecalcInterval = {
-                type = "range",
-                order = 9.6,
-                width = 1.5,
-                name = function() return l10n("Target Scan Interval") end,
-                desc = function() return l10n("Seconds between full nearest-objective scans. Higher values reduce HBD and ZoneDB work in large quest logs.") end,
-                min = 0.5,
-                max = 10,
-                step = 0.5,
-                get = function() return Questie.db.profile.arrowRecalcInterval or optionsDefaults.profile.arrowRecalcInterval end,
-                set = function(_, value)
-                    Questie.db.profile.arrowRecalcInterval = value
-                    if QuestieArrow and QuestieArrow.Refresh then
-                        QuestieArrow:Refresh()
-                    end
-                end,
-            },
-            arrowTrackerRefreshThrottle = {
-                type = "range",
-                order = 9.7,
-                width = 1.5,
-                name = function() return l10n("Tracker Refresh Throttle") end,
-                desc = function() return l10n("Minimum seconds between arrow refreshes triggered by tracker updates. Higher values reduce refresh bursts during quest progress changes.") end,
-                min = 0.25,
-                max = 5,
-                step = 0.25,
-                get = function() return Questie.db.profile.arrowTrackerRefreshThrottle or optionsDefaults.profile.arrowTrackerRefreshThrottle end,
-                set = function(_, value)
-                    Questie.db.profile.arrowTrackerRefreshThrottle = value
-                end,
-            },
-            arrow_spacer_4 = QuestieOptionsUtils:Spacer(9.8),
+            arrow_spacer_4 = QuestieOptionsUtils:Spacer(9.5),
             resetArrowPosition = {
                 type = "execute",
                 order = 10,
