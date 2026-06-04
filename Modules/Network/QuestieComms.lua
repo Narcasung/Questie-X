@@ -256,7 +256,39 @@ for class, index in pairs(_classToIndex) do
     _indexToClass[index] = class
 end
 
-local QUEST_LIST_PACKET_SIZE_LIMIT = 200
+local DEFAULT_QUEST_LIST_PACKET_SIZE_LIMIT = 200
+local DEFAULT_QUEST_LIST_INITIAL_JITTER = 3
+local DEFAULT_QUEST_LIST_BLOCK_INTERVAL = 3
+
+local function GetProfileNumber(key, defaultValue, minValue, maxValue)
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return defaultValue
+    end
+
+    local value = Questie.db.profile[key]
+    if type(value) ~= "number" then
+        return defaultValue
+    end
+    if value < minValue then
+        return minValue
+    end
+    if value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
+local function GetQuestListPacketSizeLimit()
+    return GetProfileNumber("questieCommsQuestListPacketSize", DEFAULT_QUEST_LIST_PACKET_SIZE_LIMIT, 100, 500)
+end
+
+local function GetQuestListInitialJitter()
+    return GetProfileNumber("questieCommsQuestListInitialJitter", DEFAULT_QUEST_LIST_INITIAL_JITTER, 0, 10)
+end
+
+local function GetQuestListBlockInterval()
+    return GetProfileNumber("questieCommsQuestListBlockInterval", DEFAULT_QUEST_LIST_BLOCK_INTERVAL, 0.5, 10)
+end
 
 local function GetSerializedPacketSize(packet)
     return string.len(QuestieSerializer:Serialize(packet))
@@ -605,6 +637,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
             end
         end)
 
+        local questListPacketSizeLimit = GetQuestListPacketSizeLimit()
         local rawQuestList = {}
         local blocks = {}
         local blockState = { head = 1, tail = 0 }
@@ -615,7 +648,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
             local quest = QuestieComms:CreateQuestDataPacket(entry.questId);
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
             local questPacketSize = GetSerializedPacketSize(quest)
-            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > questListPacketSizeLimit then
                 QueuePush(blocks, blockState, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
@@ -632,8 +665,8 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
             QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcasting = true
             -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
+            C_Timer.After(random() * GetQuestListInitialJitter(), function()
+                C_Timer.NewTicker(GetQuestListBlockInterval(), function()
                     local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
@@ -726,6 +759,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
             end
         end)
 
+        local questListPacketSizeLimit = GetQuestListPacketSizeLimit()
         local rawQuestList = {}
         local blocks = {}
         local blockState = { head = 1, tail = 0 }
@@ -737,7 +771,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
         for _, entry in pairs(sorted) do
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
             local questPacketSize = GetQuestDataPacketV2Size(entry.questId)
-            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > questListPacketSizeLimit then
                 rawQuestList[1] = entryCount
                 QueuePush(blocks, blockState, rawQuestList)
                 rawQuestList = {}
@@ -757,8 +791,8 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
             QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcastingV2 = true
             -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
+            C_Timer.After(random() * GetQuestListInitialJitter(), function()
+                C_Timer.NewTicker(GetQuestListBlockInterval(), function()
                     local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
