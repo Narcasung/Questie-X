@@ -3489,7 +3489,7 @@ function QuestieLearner:RegisterEvents()
     frame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
     frame:RegisterEvent("QUEST_REMOVED")
 
-    frame:SetScript("OnEvent", function(_, event)
+    frame:SetScript("OnEvent", function(_, event, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10)
         if event == "UPDATE_MOUSEOVER_UNIT" then
             self:OnMouseoverUnit()
         elseif event == "PLAYER_TARGET_CHANGED" then
