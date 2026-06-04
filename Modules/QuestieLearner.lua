@@ -471,6 +471,10 @@ local function _FlushActiveQuestPins()
     _pendingQuestPinRefreshTimer = nil
 
     if not next(questIdSet) then return end
+    if GetLearnerSetting("pinRefreshMode", "batched") == "manual" then
+        _pendingQuestFrameUnloads = {}
+        return
+    end
     if not QuestieQuest or not QuestieQuest.UpdateQuest then return end
     if not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
 

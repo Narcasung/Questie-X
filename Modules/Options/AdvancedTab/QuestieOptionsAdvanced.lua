@@ -73,6 +73,10 @@ local function ApplyLearnerPerformancePreset(mode)
         settings.learnerCommsIntensity = "normal"
         settings.minConfidencePins = 1
     end
+
+    if mode == "realtime" or mode == "balanced" or mode == "low" then
+        Questie.db.profile.learnerBroadcast = true
+    end
 end
 
 function QuestieOptions.tabs.advanced:Initialize()
