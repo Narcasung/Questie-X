@@ -256,6 +256,43 @@ for class, index in pairs(_classToIndex) do
     _indexToClass[index] = class
 end
 
+local QUEST_LIST_PACKET_SIZE_LIMIT = 200
+
+local function GetSerializedPacketSize(packet)
+    return string.len(QuestieSerializer:Serialize(packet))
+end
+
+local function GetQuestDataPacketV2Size(questId)
+    local questObject = QuestieDB.GetQuest(questId)
+    local rawObjectives = QuestLogCache.GetQuestObjectives(questId) -- DO NOT MODIFY THE RETURNED TABLE
+    if (not rawObjectives) or (not questObject) or (not questObject.Objectives) or (not next(questObject.Objectives)) then
+        return 0
+    end
+
+    local questPacket = {}
+    local offset = 1
+    local count = 0
+
+    questPacket[offset] = questId
+    local countOffset = offset + 1
+    offset = offset + 2
+
+    for objectiveIndex, objective in pairs(rawObjectives) do -- DO NOT MODIFY THE RETURNED TABLE
+        local objectiveData = questObject.Objectives[objectiveIndex]
+        if objectiveData then
+            questPacket[offset] = objectiveData.Id
+            questPacket[offset + 1] = string.byte(string.sub(objective.type, 1, 1))
+            questPacket[offset + 2] = objective.numFulfilled
+            questPacket[offset + 3] = objective.numRequired
+            offset = offset + 4
+            count = count + 1
+        end
+    end
+
+    questPacket[countOffset] = count
+    return GetSerializedPacketSize(questPacket)
+end
+
 
 function QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(questId, quest, offset)
     local questObject = QuestieDB.GetQuest(questId);
@@ -547,20 +584,22 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
         local blocks = {}
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
+        local blockSerializedSize = 2
         for _, entry in pairs(sorted) do
             local quest = QuestieComms:CreateQuestDataPacket(entry.questId);
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
-            entryCount = entryCount + 1
-            rawQuestList[quest.id] = quest;
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
-                rawQuestList[quest.id] = nil
+            local questPacketSize = GetSerializedPacketSize(quest)
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
                 tinsert(blocks, rawQuestList)
-                rawQuestList = {
-                    [quest.id] = quest
-                }
-                entryCount = 1
+                rawQuestList = {}
+                entryCount = 0
+                blockSerializedSize = 2
                 blockCount = blockCount + 1
             end
+
+            entryCount = entryCount + 1
+            rawQuestList[quest.id] = quest;
+            blockSerializedSize = blockSerializedSize + questPacketSize
         end
 
         if entryCount ~= 0 then
@@ -664,22 +703,25 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
         local blocks = {}
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
+        local blockSerializedSize = 2
         local offset = 2
 
         for _, entry in pairs(sorted) do
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
-            entryCount = entryCount + 1
-
-            offset = QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(entry.questId, rawQuestList, offset)
-
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
+            local questPacketSize = GetQuestDataPacketV2Size(entry.questId)
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > QUEST_LIST_PACKET_SIZE_LIMIT then
                 rawQuestList[1] = entryCount
                 tinsert(blocks, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
+                blockSerializedSize = 2
                 blockCount = blockCount + 1
                 offset = 2
             end
+
+            entryCount = entryCount + 1
+            offset = QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(entry.questId, rawQuestList, offset)
+            blockSerializedSize = blockSerializedSize + questPacketSize
         end
 
         if entryCount ~= 0 or blockCount ~= 2 then
