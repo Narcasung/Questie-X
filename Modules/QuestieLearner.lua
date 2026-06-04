@@ -425,20 +425,42 @@ local function _GetDB() return Questie.dbLearner.global end
 -- Triggers QuestieQuest:UpdateQuest for every active quest in the player's log
 -- that is referenced in the provided set (table with questId keys).
 -- Called after cross-linking so map pins refresh immediately.
-local function _RefreshActiveQuestPins(questIdSet)
+local _pendingQuestPinRefreshes = {}
+local _pendingQuestPinRefreshTimer = nil
+
+local function _FlushActiveQuestPins()
+    local questIdSet = _pendingQuestPinRefreshes
+    _pendingQuestPinRefreshes = {}
+    _pendingQuestPinRefreshTimer = nil
+
+    if not next(questIdSet) then return end
     if not QuestieQuest or not QuestieQuest.UpdateQuest then return end
     if not QuestiePlayer or not QuestiePlayer.currentQuestlog then return end
-    -- Skip scheduling when the set is empty (avoids no-op timer callbacks)
-    if not next(questIdSet) then return end
-    local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+
     for questId in pairs(questIdSet) do
         if QuestiePlayer.currentQuestlog[questId] then
-            if timer then
-                timer.After(0.1, function() QuestieQuest:UpdateQuest(questId) end)
-            else
-                QuestieQuest:UpdateQuest(questId)
-            end
+            QuestieQuest:UpdateQuest(questId)
         end
+    end
+end
+
+local function _RefreshActiveQuestPins(questIdSet)
+    -- Skip scheduling when the set is empty (avoids no-op timer callbacks)
+    if not next(questIdSet) then return end
+    for questId in pairs(questIdSet) do
+        _pendingQuestPinRefreshes[questId] = true
+    end
+
+    if _pendingQuestPinRefreshTimer then
+        return
+    end
+
+    local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+    if timer and timer.After then
+        _pendingQuestPinRefreshTimer = true
+        timer.After(0.15, _FlushActiveQuestPins)
+    else
+        _FlushActiveQuestPins()
     end
 end
 
@@ -1572,11 +1594,7 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
     end
 
     -- 3. Re-process the quest so PopulateObjective registers tooltips & map pins
-    if QuestieQuest and QuestieQuest.UpdateQuest then
-        QuestieCompat.C_Timer.After(0.5, function()
-            QuestieQuest:UpdateQuest(questId)
-        end)
-    end
+    _RefreshActiveQuestPins({ [questId] = true })
 
     -- 3. Register with tooltip system immediately. Preserve the objective icon so
     -- nameplates can render the correct learned slay/loot/talk marker.
