@@ -47,6 +47,7 @@ local suggestUpdate = true;
 
 -- forward declaration
 local _DoYell
+local IsQuestieCommsEnabled
 
 --Not used, contains a list of hashes for quest, used to compare change.
 --_QuestieComms.questHashes = {};
@@ -292,7 +293,7 @@ local function GetQuestListBlockInterval()
     return GetProfileNumber("questieCommsQuestListBlockInterval", DEFAULT_QUEST_LIST_BLOCK_INTERVAL, 0.5, 10)
 end
 
-local function IsQuestieCommsEnabled()
+IsQuestieCommsEnabled = function()
     if not Questie or not Questie.db or not Questie.db.profile then
         return true
     end
