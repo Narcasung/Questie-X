@@ -189,6 +189,7 @@ end
 -- Local Functions --
 
 function _QuestieComms:BroadcastQuestUpdate(questId) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieComms:BroadcastQuestUpdate] Questid", questId)
     if(questId) then
         local partyType = QuestiePlayer:GetGroupType()
@@ -220,6 +221,7 @@ end
 
 -- Removes the quest from everyones external quest-log
 function _QuestieComms:BroadcastQuestRemove(questId) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     local partyType = QuestiePlayer:GetGroupType()
     Questie:Debug(Questie.DEBUG_COMMS, "[QuestieComms:BroadcastQuestRemove] QuestId:", questId, "partyType:", tostring(partyType))
     if partyType then
@@ -288,6 +290,13 @@ end
 
 local function GetQuestListBlockInterval()
     return GetProfileNumber("questieCommsQuestListBlockInterval", DEFAULT_QUEST_LIST_BLOCK_INTERVAL, 0.5, 10)
+end
+
+local function IsQuestieCommsEnabled()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return true
+    end
+    return Questie.db.profile.questieCommsEnabled ~= false
 end
 
 local function GetSerializedPacketSize(packet)
@@ -565,6 +574,7 @@ QuestieComms._yellQueue = {}
 QuestieComms._isYelling = false
 
 function QuestieComms:YellProgress(questId)
+    if not IsQuestieCommsEnabled() then return end
     if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 4 then
         return
     end
@@ -585,6 +595,7 @@ _QuestieComms._nextBroadcastData = {}
 _QuestieComms._nextBroadcastDataState = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     if _QuestieComms._isBroadcasting then
         QueuePush(_QuestieComms._nextBroadcastData, _QuestieComms._nextBroadcastDataState, {eventName, sendMode, targetPlayer})
         return
@@ -707,6 +718,7 @@ _QuestieComms._nextBroadcastDataV2 = {}
 _QuestieComms._nextBroadcastDataV2State = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     if _QuestieComms._isBroadcastingV2 then
         QueuePush(_QuestieComms._nextBroadcastDataV2, _QuestieComms._nextBroadcastDataV2State, {eventName, sendMode, targetPlayer})
         return
@@ -830,6 +842,7 @@ end
 
 -- The "Hi" of questie, request others to send their questlog.
 function _QuestieComms:RequestQuestLog(eventName) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     local partyType = QuestiePlayer:GetGroupType()
     Questie:Debug(Questie.DEBUG_COMMS, "[QuestieComms] Message", eventName, "partyType:", tostring(partyType))
     if partyType then
@@ -1046,6 +1059,7 @@ _QuestieComms.packets = {
 
 -- Renamed Write function
 function _QuestieComms:Broadcast(packet)
+    if not IsQuestieCommsEnabled() then return end
     -- If the priority is not set, it must not be very important
     if packet.writeMode ~= _QuestieComms.QC_WRITE_WHISPER and (QuestiePlayer.numberOfGroupMembers > 15 or UnitInBattleground("Player")) then
         -- dont broadcast to large raids
@@ -1085,6 +1099,7 @@ function _QuestieComms:Broadcast(packet)
 end
 
 function _QuestieComms:OnCommReceived(message, distribution, sender)
+    if not IsQuestieCommsEnabled() then return end
     pcall(_QuestieComms.OnCommReceived_unsafe, _QuestieComms, message, distribution, sender)
 end
 

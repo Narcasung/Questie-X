@@ -67,6 +67,7 @@ function QuestieOptionsDefaults:Load()
             arrowUpdateThrottle = 0.05,
             arrowRecalcInterval = 1.0,
             arrowTrackerRefreshThrottle = 0.5,
+            questieCommsEnabled = true,
             questieCommsQuestListPacketSize = 200,
             questieCommsQuestListInitialJitter = 3,
             questieCommsQuestListBlockInterval = 3,
