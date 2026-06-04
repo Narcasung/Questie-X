@@ -37,9 +37,9 @@ local ARROW_SHEET_ROWS = 12
 local ARROW_TOTAL_CELLS = ARROW_SHEET_COLS * ARROW_SHEET_ROWS
 local ARROW_DEFAULT_STYLE = "arrow1"
 
-local UPDATE_THROTTLE_SECONDS = 0.05
-local RECALC_NEAREST_SECONDS = 1.0
-local TRACKER_REFRESH_THROTTLE_SECONDS = 0.5
+local DEFAULT_UPDATE_THROTTLE_SECONDS = 0.05
+local DEFAULT_RECALC_NEAREST_SECONDS = 1.0
+local DEFAULT_TRACKER_REFRESH_THROTTLE_SECONDS = 0.5
 
 ---@type Frame?
 local arrowFrame = nil
@@ -72,6 +72,36 @@ local function _IsArrowEnabled()
         return true
     end
     return Questie.db.profile.arrowEnabled ~= false
+end
+
+local function _GetProfileNumber(key, defaultValue, minValue, maxValue)
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return defaultValue
+    end
+
+    local value = Questie.db.profile[key]
+    if type(value) ~= "number" then
+        return defaultValue
+    end
+    if value < minValue then
+        return minValue
+    end
+    if value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
+local function _GetArrowUpdateThrottle()
+    return _GetProfileNumber("arrowUpdateThrottle", DEFAULT_UPDATE_THROTTLE_SECONDS, 0.03, 0.5)
+end
+
+local function _GetArrowRecalcInterval()
+    return _GetProfileNumber("arrowRecalcInterval", DEFAULT_RECALC_NEAREST_SECONDS, 0.5, 10.0)
+end
+
+local function _GetArrowTrackerRefreshThrottle()
+    return _GetProfileNumber("arrowTrackerRefreshThrottle", DEFAULT_TRACKER_REFRESH_THROTTLE_SECONDS, 0.25, 5.0)
 end
 
 local function _GetArrowScale()
@@ -798,7 +828,7 @@ EnsureArrowFrame = function()
             objectiveFrame:Show()
         end
 
-        if (self._lastUpdate or 0) + UPDATE_THROTTLE_SECONDS > now then
+        if (self._lastUpdate or 0) + _GetArrowUpdateThrottle() > now then
             return
         end
         self._lastUpdate = now
@@ -924,7 +954,7 @@ local function EnsureDriverFrame()
 
     driverFrame:SetScript("OnUpdate", function(self)
         local now = GetTime()
-        if (self._lastRecalc or 0) + RECALC_NEAREST_SECONDS < now then
+        if (self._lastRecalc or 0) + _GetArrowRecalcInterval() < now then
             self._lastRecalc = now
             if not _IsArrowEnabled() then
                 if arrowFrame then
@@ -1505,7 +1535,7 @@ function QuestieArrow:Initialize()
             end
 
             local now = GetTime()
-            if (lastTrackerRefresh + TRACKER_REFRESH_THROTTLE_SECONDS) > now then
+            if (lastTrackerRefresh + _GetArrowTrackerRefreshThrottle()) > now then
                 return
             end
 
