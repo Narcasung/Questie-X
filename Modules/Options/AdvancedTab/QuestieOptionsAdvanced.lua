@@ -24,6 +24,57 @@ QuestieOptions.tabs.advanced = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 local _GetLanguages
 
+local function GetLearnerSettings()
+    Questie.dbLearner = Questie.dbLearner or {}
+    Questie.dbLearner.global = Questie.dbLearner.global or {}
+    Questie.dbLearner.global.settings = Questie.dbLearner.global.settings or {}
+    local settings = Questie.dbLearner.global.settings
+    if settings.performanceMode == nil then
+        settings.performanceMode = "balanced"
+    end
+    if settings.pinRefreshDelay == nil then
+        settings.pinRefreshDelay = 0.5
+    end
+    if settings.pinRefreshMode == nil then
+        settings.pinRefreshMode = "batched"
+    end
+    if settings.liveNpcUpdateDelay == nil then
+        settings.liveNpcUpdateDelay = 0.5
+    end
+    if settings.learnerCommsIntensity == nil then
+        settings.learnerCommsIntensity = "normal"
+    end
+    if settings.minConfidencePins == nil then
+        settings.minConfidencePins = 1
+    end
+    return settings
+end
+
+local function ApplyLearnerPerformancePreset(mode)
+    local settings = GetLearnerSettings()
+    settings.performanceMode = mode
+
+    if mode == "realtime" then
+        settings.pinRefreshDelay = 0.1
+        settings.pinRefreshMode = "immediate"
+        settings.liveNpcUpdateDelay = 0.25
+        settings.learnerCommsIntensity = "fast"
+        settings.minConfidencePins = 1
+    elseif mode == "low" then
+        settings.pinRefreshDelay = 2.0
+        settings.pinRefreshMode = "batched"
+        settings.liveNpcUpdateDelay = 2.0
+        settings.learnerCommsIntensity = "low"
+        settings.minConfidencePins = 3
+    elseif mode == "balanced" then
+        settings.pinRefreshDelay = 0.5
+        settings.pinRefreshMode = "batched"
+        settings.liveNpcUpdateDelay = 0.5
+        settings.learnerCommsIntensity = "normal"
+        settings.minConfidencePins = 1
+    end
+end
+
 function QuestieOptions.tabs.advanced:Initialize()
     -- This needs to be called inside of the Init process for l10n to be fully loaded
     StaticPopupDialogs["QUESTIE_LANG_CHANGED_RELOAD"] = {
@@ -155,6 +206,120 @@ function QuestieOptions.tabs.advanced:Initialize()
                         end,
                     },
                 },
+            },
+
+            learnerPerformanceSpacer = QuestieOptionsUtils:Spacer(1.9),
+            learnerPerformanceHeader = {
+                type = "header",
+                order = 2,
+                name = function() return l10n('QuestieLearner Performance'); end,
+            },
+            learnerPerformanceMode = {
+                type = "select",
+                order = 2.1,
+                values = {
+                    realtime = l10n("Realtime"),
+                    balanced = l10n("Balanced"),
+                    low = l10n("Low Impact"),
+                    manual = l10n("Manual"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Performance Mode'); end,
+                desc = function() return l10n('Controls how aggressively QuestieLearner updates learned pins, live data, and learner comms. Low Impact is recommended for heavy activity zones or low-end computers.'); end,
+                get = function() return GetLearnerSettings().performanceMode or "balanced" end,
+                set = function(_, value)
+                    ApplyLearnerPerformancePreset(value)
+                end,
+            },
+            learnerPinRefreshMode = {
+                type = "select",
+                order = 2.2,
+                values = {
+                    immediate = l10n("Immediate"),
+                    batched = l10n("Batched"),
+                    manual = l10n("Manual / Reload"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Pin Refresh Behavior'); end,
+                desc = function() return l10n('Controls when learned pins refresh after QuestieLearner records new data. Manual / Reload records data but avoids live pin redraws until reload or another Questie refresh.'); end,
+                get = function() return GetLearnerSettings().pinRefreshMode or "batched" end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshMode = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerPinRefreshDelay = {
+                type = "range",
+                order = 2.3,
+                name = function() return l10n('Pin Refresh Delay'); end,
+                desc = function() return l10n('Seconds to wait before refreshing learned quest pins after learner activity. Higher values reduce stutter during kill or loot bursts.'); end,
+                min = 0.1,
+                max = 5,
+                step = 0.1,
+                width = 1.5,
+                get = function() return GetLearnerSettings().pinRefreshDelay or 0.5 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshDelay = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerLiveNpcUpdateDelay = {
+                type = "range",
+                order = 2.4,
+                name = function() return l10n('Live NPC Update Delay'); end,
+                desc = function() return l10n('Seconds to batch learned NPC live database updates. Higher values reduce work during combat and crowded zones.'); end,
+                min = 0.25,
+                max = 5,
+                step = 0.25,
+                width = 1.5,
+                get = function() return GetLearnerSettings().liveNpcUpdateDelay or 0.5 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.liveNpcUpdateDelay = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerMinConfidencePins = {
+                type = "range",
+                order = 2.5,
+                name = function() return l10n('Minimum Kills Before Learned Pins'); end,
+                desc = function() return l10n('How many matching NPC sightings are needed before QuestieLearner shows learned pins. Higher values reduce one-off pin churn.'); end,
+                min = 1,
+                max = 10,
+                step = 1,
+                width = 1.5,
+                get = function() return GetLearnerSettings().minConfidencePins or 1 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.minConfidencePins = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerCommsIntensity = {
+                type = "select",
+                order = 2.6,
+                values = {
+                    off = l10n("Off"),
+                    low = l10n("Low"),
+                    normal = l10n("Normal"),
+                    fast = l10n("Fast"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Learner Comms Intensity'); end,
+                desc = function() return l10n('Controls how much learner data Questie processes and sends through learner comms. Lower values reduce CPU and chat-channel work.'); end,
+                get = function() return GetLearnerSettings().learnerCommsIntensity or "normal" end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.learnerCommsIntensity = value
+                    settings.performanceMode = "manual"
+                    if value == "off" then
+                        Questie.db.profile.learnerBroadcast = false
+                    elseif Questie.db.profile.learnerBroadcast == false then
+                        Questie.db.profile.learnerBroadcast = true
+                    end
+                end,
             },
 
             Spacer_A = QuestieOptionsUtils:Spacer(2.9),

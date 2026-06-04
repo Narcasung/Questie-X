@@ -141,6 +141,26 @@ local function IsDuplicateMessage(serializedData)
     return false
 end
 
+local function GetLearnerSettings()
+    if Questie and Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings then
+        return Questie.dbLearner.global.settings
+    end
+    return {}
+end
+
+local function GetCommsTuning()
+    local intensity = GetLearnerSettings().learnerCommsIntensity or "normal"
+    if intensity == "off" then
+        return false, 0, 999999, 0, 0
+    elseif intensity == "low" then
+        return true, 4, 6.0, 2, 1
+    elseif intensity == "fast" then
+        return true, 15, 1.5, 10, 4
+    end
+
+    return true, 9, 3.5, 6, 2
+end
+
 function QuestieLearnerComms:Initialize()
     DebugLog("DEVELOP", "Initializing QuestieLearnerComms")
 
@@ -195,6 +215,8 @@ function _QuestieLearnerComms:ProcessReinforcement()
 end
 
 function QuestieLearnerComms:BroadcastLearnedData(op, entityType, entityId, data)
+    local commsEnabled = GetCommsTuning()
+    if not commsEnabled then return end
     if not data or type(data) ~= "table" then return end
     
     -- 1. Create Payload (sanitize data to remove functions before serialization)
@@ -226,11 +248,20 @@ function QuestieLearnerComms:BroadcastLearnedData(op, entityType, entityId, data
 end
 
 function _QuestieLearnerComms:QueueMessage(encodedMessage)
+    local commsEnabled = GetCommsTuning()
+    if not commsEnabled then return end
     rateLimitQueueTail = rateLimitQueueTail + 1
     rateLimitQueue[rateLimitQueueTail] = encodedMessage
 end
 
 function _QuestieLearnerComms:ProcessQueues()
+    local commsEnabled, tunedBucketCapacity, tunedMinChatInterval, normalIncomingCount, combatIncomingCount = GetCommsTuning()
+    bucketCapacity = tunedBucketCapacity
+    tokenRefillRate = bucketCapacity / bucketWindow
+    minChatInterval = tunedMinChatInterval
+    currentTokens = math_min(bucketCapacity, currentTokens)
+    if not commsEnabled then return end
+
     -- 1. Refill Tokens
     local now = GetTime()
     local elapsed = now - lastTokenUpdate
@@ -260,7 +291,7 @@ function _QuestieLearnerComms:ProcessQueues()
     end
 
     -- 3. Process Incoming Queue (Combat Aware)
-    local processCount = InCombatLockdown() and 2 or 6
+    local processCount = InCombatLockdown() and combatIncomingCount or normalIncomingCount
     for i = 1, processCount do
         if incomingMessageQueueHead > incomingMessageQueueTail then break end
         local rawMsg = incomingMessageQueue[incomingMessageQueueHead]
@@ -278,6 +309,8 @@ end
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("CHAT_MSG_CHANNEL")
 frame:SetScript("OnEvent", function(self, event, msg, sender, _, _, _, _, _, channelId, channelName)
+    local commsEnabled = GetCommsTuning()
+    if not commsEnabled then return end
     if channelName == hiddenChannelName and sender ~= UnitName("player") then
         incomingMessageQueueTail = incomingMessageQueueTail + 1
         incomingMessageQueue[incomingMessageQueueTail] = {text = msg, sender = sender}
@@ -285,6 +318,8 @@ frame:SetScript("OnEvent", function(self, event, msg, sender, _, _, _, _, _, cha
 end)
 
 function QuestieLearnerComms:OnCommReceived(prefix, message, distribution, sender)
+    local commsEnabled = GetCommsTuning()
+    if not commsEnabled then return end
     if prefix == addonPrefix and sender ~= UnitName("player") then
         incomingMessageQueueTail = incomingMessageQueueTail + 1
         incomingMessageQueue[incomingMessageQueueTail] = {text = message, sender = sender}

@@ -77,6 +77,7 @@ function QuestieOptionsDefaults:Load()
             enableTooltipsQuestLevel = true,
             showQuestXpAtMaxLevel = true,
             enableTooltipsNextInChain = true,
+            learnerBroadcast = true,
             enableMapIcons = true,
             enableMiniMapIcons = true,
             questieShutUp = false,

@@ -321,6 +321,11 @@ local function EnsureLearnedData()
             prioritizeMyData = true,
             staleThreshold   = 90,    -- days
             pruneVerified    = false, -- protect verified data by default
+            performanceMode  = "balanced",
+            pinRefreshDelay  = 0.5,
+            pinRefreshMode   = "batched",
+            liveNpcUpdateDelay = 0.5,
+            learnerCommsIntensity = "normal",
         }
     else
         -- Backfill sub-tables that may be missing from older SavedVariables
@@ -337,6 +342,27 @@ local function EnsureLearnedData()
         if s.learnObjects == nil then s.learnObjects = true end
         if s.minConfidencePins == nil then s.minConfidencePins = 1 end
         if s.prioritizeMyData == nil then s.prioritizeMyData = true end
+        if s.staleThreshold == nil then
+            s.staleThreshold = 90
+        end
+        if s.pruneVerified == nil then
+            s.pruneVerified = false
+        end
+        if s.performanceMode == nil then
+            s.performanceMode = "balanced"
+        end
+        if s.pinRefreshDelay == nil then
+            s.pinRefreshDelay = 0.5
+        end
+        if s.pinRefreshMode == nil then
+            s.pinRefreshMode = "batched"
+        end
+        if s.liveNpcUpdateDelay == nil then
+            s.liveNpcUpdateDelay = 0.5
+        end
+        if s.learnerCommsIntensity == nil then
+            s.learnerCommsIntensity = "normal"
+        end
     end
     return true
 end
@@ -353,6 +379,16 @@ end
 function QuestieLearner:GetSettings()
     if not EnsureLearnedData() then return {} end
     return Questie.dbLearner.global.settings
+end
+
+local function GetLearnerSetting(key, defaultValue)
+    if Questie and Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings then
+        local value = Questie.dbLearner.global.settings[key]
+        if value ~= nil then
+            return value
+        end
+    end
+    return defaultValue
 end
 
 ------------------------------------------------------------------------
@@ -427,6 +463,7 @@ local function _GetDB() return Questie.dbLearner.global end
 -- Called after cross-linking so map pins refresh immediately.
 local _pendingQuestPinRefreshes = {}
 local _pendingQuestPinRefreshTimer = nil
+local _pendingQuestFrameUnloads = {}
 
 local function _FlushActiveQuestPins()
     local questIdSet = _pendingQuestPinRefreshes
@@ -439,14 +476,24 @@ local function _FlushActiveQuestPins()
 
     for questId in pairs(questIdSet) do
         if QuestiePlayer.currentQuestlog[questId] then
+            if QuestieMap and QuestieMap.UnloadQuestFrames and _pendingQuestFrameUnloads[questId] then
+                QuestieMap:UnloadQuestFrames(questId)
+            end
             QuestieQuest:UpdateQuest(questId)
         end
     end
+    _pendingQuestFrameUnloads = {}
 end
 
 local function _RefreshActiveQuestPins(questIdSet)
     -- Skip scheduling when the set is empty (avoids no-op timer callbacks)
     if not next(questIdSet) then return end
+    if GetLearnerSetting("pinRefreshMode", "batched") == "manual" then
+        for questId in pairs(questIdSet) do
+            _pendingQuestFrameUnloads[questId] = nil
+        end
+        return
+    end
     for questId in pairs(questIdSet) do
         _pendingQuestPinRefreshes[questId] = true
     end
@@ -458,7 +505,7 @@ local function _RefreshActiveQuestPins(questIdSet)
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
     if timer and timer.After then
         _pendingQuestPinRefreshTimer = true
-        timer.After(0.15, _FlushActiveQuestPins)
+        timer.After(GetLearnerSetting("pinRefreshDelay", 0.5), _FlushActiveQuestPins)
     else
         _FlushActiveQuestPins()
     end
@@ -577,8 +624,10 @@ local function _InvalidateSpawnListsForNPC(npcId)
                     and (now - _invalidateDebounce[debounceKey]) < debounceWindow
                 if not suppressUnload then
                     _invalidateDebounce[debounceKey] = now
-                    if QuestieMap and QuestieMap.UnloadQuestFrames then
+                    if GetLearnerSetting("pinRefreshMode", "batched") == "immediate" and QuestieMap and QuestieMap.UnloadQuestFrames then
                         QuestieMap:UnloadQuestFrames(questId)
+                    else
+                        _pendingQuestFrameUnloads[questId] = true
                     end
                 end
                 questsToRefresh[questId] = true  -- always refresh when data changed
@@ -607,7 +656,6 @@ end
 -- arrive within a few frames. Saved learner evidence is updated immediately,
 -- but live QuestieDB override/cache invalidation is batched so the large DB
 -- layer is not churned on every single kill.
-local LIVE_NPC_UPDATE_DELAY = 0.5
 
 local function _ApplyNpcLiveUpdate(npcId)
     local existing = Questie.dbLearner
@@ -676,7 +724,7 @@ local function _QueueNpcLiveUpdate(npcId)
     local timer = QuestieCompat and QuestieCompat.C_Timer
     if timer and timer.After then
         _Learner.pendingNpcLiveUpdateTimer = true
-        timer.After(LIVE_NPC_UPDATE_DELAY, _FlushNpcLiveUpdates)
+        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.5), _FlushNpcLiveUpdates)
     else
         _FlushNpcLiveUpdates()
     end
@@ -3684,6 +3732,13 @@ local function _ValidateLearnedSpawnData(data)
 end
 
 function _Learner:BroadcastIfCommsAvailable(typ, id, data)
+    if Questie and Questie.db and Questie.db.profile and Questie.db.profile.learnerBroadcast == false then
+        return
+    end
+    if GetLearnerSetting("learnerCommsIntensity", "normal") == "off" then
+        return
+    end
+
     local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")
     if not (QuestieLearnerComms and QuestieLearnerComms.BroadcastLearnedData) then
         return
@@ -3720,13 +3775,18 @@ function _Learner:BroadcastIfCommsAvailable(typ, id, data)
 
     if timer and timer.After then
         _Learner.pendingBroadcastTimer = true
-        timer.After(2, FlushBroadcasts)
+        local delay = 2
+        local intensity = GetLearnerSetting("learnerCommsIntensity", "normal")
+        if intensity == "low" then
+            delay = 4
+        elseif intensity == "fast" then
+            delay = 1
+        end
+        timer.After(delay, FlushBroadcasts)
     else
         FlushBroadcasts()
     end
 end
-
-local NETWORK_MERGE_DELAY = 0.5
 
 local function _QueueIncomingNetworkMerge(typ, id, data, op)
     _Learner.pendingNetworkMerges = _Learner.pendingNetworkMerges or {}
@@ -3760,7 +3820,7 @@ local function _QueueIncomingNetworkMerge(typ, id, data, op)
 
     if timer and timer.After then
         _Learner.pendingNetworkMergeTimer = true
-        timer.After(NETWORK_MERGE_DELAY, FlushNetworkMerges)
+        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.5), FlushNetworkMerges)
     else
         FlushNetworkMerges()
     end
