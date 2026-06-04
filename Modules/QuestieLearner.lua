@@ -3088,6 +3088,13 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
     end
 
+    -- UNIT_DIED fires for nearby mobs killed by other players. Keep it only as
+    -- short-lived evidence for quest-progress correlation; otherwise bystander
+    -- kills can churn learner spawn data and redraw active quest pins.
+    if eventType ~= "PARTY_KILL" then
+        return
+    end
+
     -- Unconditionally map the spawn position for Ascension DB building
     self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
 
