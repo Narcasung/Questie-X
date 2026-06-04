@@ -15,7 +15,6 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 local _Learner = QuestieLearner.private or {}
-QuestieLearner.private = _Learner
 
 local floor = math.floor
 local abs   = math.abs
