@@ -19,7 +19,6 @@ local math_min = math.min
 local math_floor = math.floor
 local math_random = math.random
 local table_insert = table.insert
-local table_remove = table.remove
 local table_getn = table.getn
 
 -- Dev Logging Flags — defined first so all functions below can call DebugLog
@@ -62,11 +61,15 @@ local lastTokenUpdate = GetTime()
 local minChatInterval = 3.5
 local lastChatMessageTime = 0
 local rateLimitQueue = {}
+local rateLimitQueueHead = 1
+local rateLimitQueueTail = 0
 
 -- Deduplication & Quarantine
 local messageCache = {}
 local messageCacheCount = 0  -- O(1) counter; avoids pairs() scan on every message
 local incomingMessageQueue = {}
+local incomingMessageQueueHead = 1
+local incomingMessageQueueTail = 0
 -- Cached hidden channel ID (avoids GetChannelName every ProcessQueues tick)
 local _hiddenChannelId = 0
 
@@ -223,7 +226,8 @@ function QuestieLearnerComms:BroadcastLearnedData(op, entityType, entityId, data
 end
 
 function _QuestieLearnerComms:QueueMessage(encodedMessage)
-    table.insert(rateLimitQueue, encodedMessage)
+    rateLimitQueueTail = rateLimitQueueTail + 1
+    rateLimitQueue[rateLimitQueueTail] = encodedMessage
 end
 
 function _QuestieLearnerComms:ProcessQueues()
@@ -234,8 +238,14 @@ function _QuestieLearnerComms:ProcessQueues()
     lastTokenUpdate = now
 
     -- 2. Drain Outgoing Queue
-    if table_getn(rateLimitQueue) > 0 and currentTokens >= 1 and (now - lastChatMessageTime) >= minChatInterval then
-        local msg = table_remove(rateLimitQueue, 1)
+    if rateLimitQueueHead <= rateLimitQueueTail and currentTokens >= 1 and (now - lastChatMessageTime) >= minChatInterval then
+        local msg = rateLimitQueue[rateLimitQueueHead]
+        rateLimitQueue[rateLimitQueueHead] = nil
+        rateLimitQueueHead = rateLimitQueueHead + 1
+        if rateLimitQueueHead > rateLimitQueueTail then
+            rateLimitQueueHead = 1
+            rateLimitQueueTail = 0
+        end
         currentTokens = currentTokens - 1
         lastChatMessageTime = now
         
@@ -252,8 +262,14 @@ function _QuestieLearnerComms:ProcessQueues()
     -- 3. Process Incoming Queue (Combat Aware)
     local processCount = InCombatLockdown() and 2 or 6
     for i = 1, processCount do
-        if table_getn(incomingMessageQueue) == 0 then break end
-        local rawMsg = table_remove(incomingMessageQueue, 1)
+        if incomingMessageQueueHead > incomingMessageQueueTail then break end
+        local rawMsg = incomingMessageQueue[incomingMessageQueueHead]
+        incomingMessageQueue[incomingMessageQueueHead] = nil
+        incomingMessageQueueHead = incomingMessageQueueHead + 1
+        if incomingMessageQueueHead > incomingMessageQueueTail then
+            incomingMessageQueueHead = 1
+            incomingMessageQueueTail = 0
+        end
         _QuestieLearnerComms:ProcessRawMessage(rawMsg.text, rawMsg.sender)
     end
 end
@@ -263,13 +279,15 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("CHAT_MSG_CHANNEL")
 frame:SetScript("OnEvent", function(self, event, msg, sender, _, _, _, _, _, channelId, channelName)
     if channelName == hiddenChannelName and sender ~= UnitName("player") then
-        table.insert(incomingMessageQueue, {text = msg, sender = sender})
+        incomingMessageQueueTail = incomingMessageQueueTail + 1
+        incomingMessageQueue[incomingMessageQueueTail] = {text = msg, sender = sender}
     end
 end)
 
 function QuestieLearnerComms:OnCommReceived(prefix, message, distribution, sender)
     if prefix == addonPrefix and sender ~= UnitName("player") then
-        table.insert(incomingMessageQueue, {text = message, sender = sender})
+        incomingMessageQueueTail = incomingMessageQueueTail + 1
+        incomingMessageQueue[incomingMessageQueueTail] = {text = message, sender = sender}
     end
 end
 
