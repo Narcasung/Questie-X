@@ -326,6 +326,69 @@ function QuestieOptions.tabs.advanced:Initialize()
                 end,
             },
 
+            questieCommsPerformanceSpacer = QuestieOptionsUtils:Spacer(2.69),
+            questieCommsPerformanceHeader = {
+                type = "header",
+                order = 2.7,
+                name = function() return l10n('QuestieComms Performance'); end,
+            },
+            questieCommsEnabled = {
+                type = "toggle",
+                order = 2.705,
+                name = function() return l10n('Enable QuestieComms'); end,
+                desc = function() return l10n('Enable Questie group quest-progress communication. Disabling this stops outgoing QuestieComms and ignores incoming QuestieComms immediately.'); end,
+                width = 1.5,
+                get = function() return Questie.db.profile.questieCommsEnabled ~= false end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsEnabled = value
+                end,
+            },
+            questieCommsQuestListPacketSize = {
+                type = "range",
+                order = 2.71,
+                name = function() return l10n('Quest List Packet Size'); end,
+                desc = function() return l10n('Maximum serialized payload size per full quest-list block. Lower values create smaller packets but may send more blocks.'); end,
+                min = 100,
+                max = 500,
+                step = 25,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListPacketSize or optionsDefaults.profile.questieCommsQuestListPacketSize end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListPacketSize = value
+                end,
+            },
+            questieCommsQuestListInitialJitter = {
+                type = "range",
+                order = 2.72,
+                name = function() return l10n('Quest List Initial Jitter'); end,
+                desc = function() return l10n('Maximum random delay before responding with a full quest list. Higher values spread group responses out to reduce bursts.'); end,
+                min = 0,
+                max = 10,
+                step = 0.5,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListInitialJitter or optionsDefaults.profile.questieCommsQuestListInitialJitter end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListInitialJitter = value
+                end,
+            },
+            questieCommsQuestListBlockInterval = {
+                type = "range",
+                order = 2.73,
+                name = function() return l10n('Quest List Block Interval'); end,
+                desc = function() return l10n('Seconds between full quest-list blocks. Higher values reduce comms bursts on slower systems and crowded groups.'); end,
+                min = 0.5,
+                max = 10,
+                step = 0.5,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListBlockInterval or optionsDefaults.profile.questieCommsQuestListBlockInterval end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListBlockInterval = value
+                end,
+            },
+
             Spacer_A = QuestieOptionsUtils:Spacer(2.9),
             locale_header = {
                 type = "header",
