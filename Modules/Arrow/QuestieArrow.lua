@@ -57,6 +57,7 @@ local hasManualTarget = false
 local _arrow_playerX, _arrow_playerY, _arrow_playerInstance
 local _arrow_usingAutoLogic, _arrow_playerZoneId, _arrow_playerUiMapId
 local _arrow_quest  -- current quest being processed by the hoisted helpers
+local _arrow_zoneUiMapCache = {}
 
 local lastPopulateByQuestId = {}
 
@@ -149,6 +150,37 @@ local function _FormatDistance(dist)
     end
 
     return string.format("%.1f%s", value, suffix)
+end
+
+local function _SortTargetByDistance(a, b)
+    return a.distance < b.distance
+end
+
+local function _GetUiMapIdForZone(zone)
+    if not zone then return nil end
+    local cached = _arrow_zoneUiMapCache[zone]
+    if cached ~= nil then
+        return cached
+    end
+
+    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+    _arrow_zoneUiMapCache[zone] = uiMapId or false
+    return uiMapId
+end
+
+local function _AddArrowTarget(x, y, uiMapId, title, questLevel, iconPath, worldX, worldY, worldInstance, distance)
+    table.insert(sortedTargets, {
+        x = x,
+        y = y,
+        uiMapId = uiMapId,
+        title = title,
+        questLevel = questLevel,
+        iconPath = iconPath,
+        worldX = worldX,
+        worldY = worldY,
+        worldInstance = worldInstance,
+        distance = distance,
+    })
 end
 
 local function _GetArrowStyleKey()
@@ -779,8 +811,12 @@ EnsureArrowFrame = function()
             return
         end
 
-        local targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0,
-            target.uiMapId)
+        local targetX, targetY, targetInstance = target.worldX, target.worldY, target.worldInstance
+        if not targetX or not targetY or not targetInstance then
+            targetX, targetY, targetInstance = HBD:GetWorldCoordinatesFromZone(target.x / 100.0, target.y / 100.0,
+                target.uiMapId)
+            target.worldX, target.worldY, target.worldInstance = targetX, targetY, targetInstance
+        end
         if not targetX or not targetY or not targetInstance then
             if objectiveFrame then
                 objectiveFrame.distance:SetText("Distance: --")
@@ -859,7 +895,11 @@ EnsureArrowFrame = function()
             self.arrow:SetAlpha(alpha)
 
             if objectiveFrame then
-                objectiveFrame.distance:SetText("Distance: " .. _FormatDistance(dist))
+                local distanceText = "Distance: " .. _FormatDistance(dist)
+                if objectiveFrame._lastDistanceText ~= distanceText then
+                    objectiveFrame.distance:SetText(distanceText)
+                    objectiveFrame._lastDistanceText = distanceText
+                end
             end
         end
 
@@ -944,16 +984,16 @@ local function _CollectFinisherSpawns(finisher, quest)
                                     local y = value[3]
                                     -- Zone filtering disabled (zone ID vs area ID mismatch)
                                     if true then
-                                        local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                                        local uiMapId = _GetUiMapIdForZone(zone)
                                         if uiMapId and x and y then
                                             local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
                                             if tX and tY and tInst then
                                                 local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                                                 if dist then
-                                                    if tInst ~= pInst then dist = 500000 + dist * 100 end
-                                                    table.insert(sortedTargets, {
-                                                        x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                                    })
+                                                    if tInst ~= pInst then
+                                                        dist = 500000 + dist * 100
+                                                    end
+                                                    _AddArrowTarget(x, y, uiMapId, quest.name, quest.level, iconPath, tX, tY, tInst, dist)
                                                 end
                                             end
                                         end
@@ -965,16 +1005,16 @@ local function _CollectFinisherSpawns(finisher, quest)
                             if true then
                                 local x = coords[1]
                                 local y = coords[2]
-                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(finisherZone)
+                                local uiMapId = _GetUiMapIdForZone(finisherZone)
                                 if uiMapId then
                                     local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
                                     if tX and tY and tInst then
                                         local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                                         if dist then
-                                            if tInst ~= pInst then dist = 500000 + dist * 100 end
-                                            table.insert(sortedTargets, {
-                                                x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                            })
+                                            if tInst ~= pInst then
+                                                dist = 500000 + dist * 100
+                                            end
+                                            _AddArrowTarget(x, y, uiMapId, quest.name, quest.level, iconPath, tX, tY, tInst, dist)
                                         end
                                     end
                                 end
@@ -992,16 +1032,16 @@ local function _CollectFinisherSpawns(finisher, quest)
                 if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
                     local x = waypoints[1][1][1]
                     local y = waypoints[1][1][2]
-                    local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                    local uiMapId = _GetUiMapIdForZone(zone)
                     if uiMapId and x and y then
                         local tX, tY, tInst = HBD:GetWorldCoordinatesFromZone(x / 100.0, y / 100.0, uiMapId)
                         if tX and tY and tInst then
                             local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                             if dist then
-                                if tInst ~= pInst then dist = 500000 + dist * 100 end
-                                table.insert(sortedTargets, {
-                                    x = x, y = y, uiMapId = uiMapId, title = quest.name, questLevel = quest.level, iconPath = iconPath, distance = dist,
-                                })
+                                if tInst ~= pInst then
+                                    dist = 500000 + dist * 100
+                                end
+                                _AddArrowTarget(x, y, uiMapId, quest.name, quest.level, iconPath, tX, tY, tInst, dist)
                             end
                         end
                     end
@@ -1041,8 +1081,8 @@ local function _CollectObjective(objective, quest)
                     print(string.format("        zone=%s filtered=%s (pZone=%s pMap=%s)", tostring(zone), tostring(zoneFiltered), tostring(pZone), tostring(pMap)))
                 end
                 if not zoneFiltered then
+                    local uiMapId = _GetUiMapIdForZone(zone)
                     for _, spawn in pairs(spawns) do
-                        local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                         if debugCollect then
                             print(string.format("          spawn=(%.1f,%.1f) uiMapId=%s", spawn[1], spawn[2], tostring(uiMapId)))
                         end
@@ -1051,16 +1091,24 @@ local function _CollectObjective(objective, quest)
                             if tX and tY and tInst then
                                 local dist = HBD:GetWorldDistance(tInst, pX, pY, tX, tY)
                                 if dist then
-                                    if tInst ~= pInst then dist = 500000 + dist * 100 end
+                                    if tInst ~= pInst then
+                                        dist = 500000 + dist * 100
+                                    end
                                     if debugCollect then
                                         print(string.format("            ADDED dist=%.0f", dist))
                                     end
-                                    table.insert(sortedTargets, {
-                                        x = spawn[1], y = spawn[2], uiMapId = uiMapId,
-                                        title = quest.name, questLevel = quest.level,
-                                        iconPath = ResolveIconTexture(objective.Icon) or ResolveIconTexture(spawnData and spawnData.Icon),
-                                        distance = dist,
-                                    })
+                                    _AddArrowTarget(
+                                        spawn[1],
+                                        spawn[2],
+                                        uiMapId,
+                                        quest.name,
+                                        quest.level,
+                                        ResolveIconTexture(objective.Icon) or ResolveIconTexture(spawnData and spawnData.Icon),
+                                        tX,
+                                        tY,
+                                        tInst,
+                                        dist
+                                    )
                                 end
                             end
                         end
@@ -1096,6 +1144,7 @@ function QuestieArrow:UpdateNearestTargets()
     local usingAutoLogic = Questie.db.profile.autoTrackQuests or not hasTracked
     local playerZoneId = QuestiePlayer:GetCurrentZoneId()
     local playerUiMapId = QuestiePlayer:GetCurrentUiMapId()
+    _arrow_zoneUiMapCache = {}
 
     -- Publish context for hoisted helper functions (avoids closure allocation every call)
     _arrow_playerX, _arrow_playerY, _arrow_playerInstance = playerX, playerY, playerInstance
@@ -1209,7 +1258,7 @@ function QuestieArrow:UpdateNearestTargets()
     end
 
     -- Sort by distance
-    table.sort(sortedTargets, function(a, b) return a.distance < b.distance end)
+    table.sort(sortedTargets, _SortTargetByDistance)
 end
 
 function QuestieArrow:Refresh()
