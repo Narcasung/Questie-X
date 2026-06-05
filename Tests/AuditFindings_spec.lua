@@ -246,10 +246,15 @@ describe("Audit Pass 11 - gap-fill findings (snapshot at HEAD)", function()
         assert.is_true(has(np, "if (not unitName) or (not npcId) then\n            return"))
     end)
 
-    it("[G2] QuestieValidateGameCache has the unreachable isQuestLogGood guard", function()
+    it("[G2] QuestieValidateGameCache uses a named helper and a live isQuestLogGood guard", function()
         local v = read("Modules/QuestieValidateGameCache.lua")
-        assert.is_true(has(v, "local isQuestLogGood = true"))
-        assert.is_false(has(v, "isQuestLogGood = false")) -- never set false => guard is dead
+        local onQuestLogUpdate = section(v, "local function OnQuestLogUpdate()", "local function OnPlayerEnteringWorld")
+
+        assert.is_true(has(v, "local function ValidateQuestLogEntry(questIndex, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestObjectives)"))
+        assert.is_true(has(onQuestLogUpdate, "local isQuestLogGood = true"))
+        assert.is_true(has(onQuestLogUpdate, "if not status then"))
+        assert.is_true(has(onQuestLogUpdate, "isQuestLogGood = false"))
+        assert.is_false(has(onQuestLogUpdate, "pcall(function()"))
     end)
 
     it("[G3] QuestieCompat shims neither bit nor strsplit (N1/N2 gaps stand)", function()
@@ -415,6 +420,15 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(read("Modules/Quest/QuestieQuestPrivates.lua"), "local function BuildNpcNameLookup()"))
         assert.is_true(has(privates, "local searchId = BuildNpcNameLookup()[string.lower(targetName)]"))
         assert.is_false(has(privates, "for searchId, npcRecord in pairs(npcData) do"))
+    end)
+
+    it("[G2] validate-cache checks use a named helper instead of per-iteration closures", function()
+        local validate = read("Modules/QuestieValidateGameCache.lua")
+        local onQuestLogUpdate = section(validate, "local function OnQuestLogUpdate()", "local function OnPlayerEnteringWorld")
+
+        assert.is_true(has(validate, "local function ValidateQuestLogEntry(questIndex, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestObjectives)"))
+        assert.is_true(has(onQuestLogUpdate, "local status, isGoodQuest = pcall(ValidateQuestLogEntry, i, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestObjectives)"))
+        assert.is_false(has(onQuestLogUpdate, "pcall(function()"))
     end)
 
     it("[PP7] arrow performance throttles are profile-backed and exposed in Arrow options", function()

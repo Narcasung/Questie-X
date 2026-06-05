@@ -35,6 +35,36 @@ local function DestroyEventFrame()
     end
 end
 
+local function ValidateQuestLogEntry(questIndex, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestObjectives)
+    local title, _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(questIndex)
+    if title and (not isHeader) and questId and questId > 0 then
+        local numObjectives = GetNumQuestLeaderBoards(questIndex) or 0
+
+        if numObjectives > 0 then
+            local objectiveList = GetQuestObjectives(questId, questIndex)
+            if objectiveList and objectiveList[1] then
+                for _, objective in pairs(objectiveList) do
+                    -- Fix: Only fail if text is nil or empty.
+                    -- Leading spaces (ASCII 32) are common on some servers/quests and shouldn't block initialization.
+                    -- Ghost quests (removed from DB but still in log) may have no text - skip those silently.
+                    if (not objective.text) or (objective.text == "") then
+                        return false
+                    end
+                end
+                return true
+            end
+
+            -- Quest has objectives according to game but GetQuestObjectives returns nothing
+            -- This is likely a ghost quest, skip it
+            return true
+        end
+
+        return true
+    end
+
+    return true
+end
+
 local function OnQuestLogUpdate()
     -- Fetch APIs at runtime with extreme defensive checks
     local qCompat = QuestieCompat or _G.QuestieCompat
@@ -67,38 +97,12 @@ local function OnQuestLogUpdate()
 
 
     for i = 1, numQuests do
-        local status, err = pcall(function()
-            local title, _, _, _, isHeader, _, _, _, questId = GetQuestLogTitle(i)
-            if title and (not isHeader) and questId and questId > 0 then
-                local numObjectives = GetNumQuestLeaderBoards(i) or 0
-                
-                if numObjectives > 0 then
-                    local objectiveList = GetQuestObjectives(questId, i)
-                    if objectiveList and objectiveList[1] then
-                        local hasInvalidObjective = false
-                        for _, objective in pairs(objectiveList) do
-                            -- Fix: Only fail if text is nil or empty. 
-                            -- Leading spaces (ASCII 32) are common on some servers/quests and shouldn't block initialization.
-                            -- Ghost quests (removed from DB but still in log) may have no text - skip those silently.
-                            if (not objective.text) or (objective.text == "") then
-                                hasInvalidObjective = true
-                                break
-                            end
-                        end
-                        if not hasInvalidObjective then
-                            goodQuestsCount = goodQuestsCount + 1
-                        end
-                        -- Don't fail validation for ghost quests with empty text, just skip them
-                    else
-                        -- Quest has objectives according to game but GetQuestObjectives returns nothing
-                        -- This is likely a ghost quest, skip it
-                    end
-                else
-                    goodQuestsCount = goodQuestsCount + 1
-                end
-
-            end
-        end)
+        local status, isGoodQuest = pcall(ValidateQuestLogEntry, i, GetQuestLogTitle, GetNumQuestLeaderBoards, GetQuestObjectives)
+        if not status then
+            isQuestLogGood = false
+        elseif isGoodQuest then
+            goodQuestsCount = goodQuestsCount + 1
+        end
     end
 
 
@@ -181,4 +185,3 @@ function QuestieValidateGameCache.RegisterCallback(func, ...)
         table.insert(callbacks, { func, tpack(...) })
     end
 end
-
