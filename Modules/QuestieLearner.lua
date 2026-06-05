@@ -322,9 +322,10 @@ local function EnsureLearnedData()
             staleThreshold   = 90,    -- days
             pruneVerified    = false, -- protect verified data by default
             performanceMode  = "balanced",
-            pinRefreshDelay  = 0.5,
+            pinRefreshDelay  = 0.75,
             pinRefreshMode   = "batched",
-            liveNpcUpdateDelay = 0.5,
+            pinRefreshMaxWait = 5.0,
+            liveNpcUpdateDelay = 0.75,
             learnerCommsIntensity = "normal",
         }
     else
@@ -352,13 +353,16 @@ local function EnsureLearnedData()
             s.performanceMode = "balanced"
         end
         if s.pinRefreshDelay == nil then
-            s.pinRefreshDelay = 0.5
+            s.pinRefreshDelay = 0.75
         end
         if s.pinRefreshMode == nil then
             s.pinRefreshMode = "batched"
         end
+        if s.pinRefreshMaxWait == nil then
+            s.pinRefreshMaxWait = 5.0
+        end
         if s.liveNpcUpdateDelay == nil then
-            s.liveNpcUpdateDelay = 0.5
+            s.liveNpcUpdateDelay = 0.75
         end
         if s.learnerCommsIntensity == nil then
             s.learnerCommsIntensity = "normal"
@@ -463,12 +467,42 @@ local function _GetDB() return Questie.dbLearner.global end
 -- Called after cross-linking so map pins refresh immediately.
 local _pendingQuestPinRefreshes = {}
 local _pendingQuestPinRefreshTimer = nil
+local _pendingQuestPinFirstDirty = nil      -- GetTime() of first pending change since last flush
+local _pendingQuestPinLastActivity = nil    -- GetTime() of most recent queued change
 local _pendingQuestFrameUnloads = {}
 
+-- Trailing-debounce gate. When new learner activity keeps arriving, the flush is
+-- pushed out by pinRefreshDelay (the "quiet window") so a fast kill streak — or a
+-- crowd of nearby players — does not redraw pins every window. pinRefreshMaxWait
+-- caps the worst-case latency: once that many seconds have elapsed since the first
+-- pending change, the flush fires even if kills are still coming (0 = pure debounce,
+-- never force). Only "batched" mode debounces; "immediate" flushes on first fire.
 local function _FlushActiveQuestPins()
+    if GetTime and GetLearnerSetting("pinRefreshMode", "batched") == "batched" then
+        local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+        local now = GetTime()
+        local delay = GetLearnerSetting("pinRefreshDelay", 0.75)
+        local maxWait = GetLearnerSetting("pinRefreshMaxWait", 5.0)
+        local quiet = now - (_pendingQuestPinLastActivity or now)
+        local waited = now - (_pendingQuestPinFirstDirty or now)
+        if timer and timer.After and quiet < delay and (maxWait <= 0 or waited < maxWait) then
+            local remaining = delay - quiet
+            if maxWait > 0 then
+                local capRemaining = maxWait - waited
+                if capRemaining < remaining then remaining = capRemaining end
+            end
+            if remaining < 0 then remaining = 0 end
+            -- _pendingQuestPinRefreshTimer stays true so concurrent queues don't double-arm.
+            timer.After(remaining, _FlushActiveQuestPins)
+            return
+        end
+    end
+
     local questIdSet = _pendingQuestPinRefreshes
     _pendingQuestPinRefreshes = {}
     _pendingQuestPinRefreshTimer = nil
+    _pendingQuestPinFirstDirty = nil
+    _pendingQuestPinLastActivity = nil
 
     if not next(questIdSet) then return end
     if GetLearnerSetting("pinRefreshMode", "batched") == "manual" then
@@ -502,6 +536,13 @@ local function _RefreshActiveQuestPins(questIdSet)
         _pendingQuestPinRefreshes[questId] = true
     end
 
+    -- Record activity so the debounce gate in _FlushActiveQuestPins can re-arm.
+    local now = (GetTime and GetTime()) or 0
+    _pendingQuestPinLastActivity = now
+    if not _pendingQuestPinFirstDirty then
+        _pendingQuestPinFirstDirty = now
+    end
+
     if _pendingQuestPinRefreshTimer then
         return
     end
@@ -509,7 +550,7 @@ local function _RefreshActiveQuestPins(questIdSet)
     local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
     if timer and timer.After then
         _pendingQuestPinRefreshTimer = true
-        timer.After(GetLearnerSetting("pinRefreshDelay", 0.5), _FlushActiveQuestPins)
+        timer.After(GetLearnerSetting("pinRefreshDelay", 0.75), _FlushActiveQuestPins)
     else
         _FlushActiveQuestPins()
     end
@@ -707,10 +748,32 @@ local function _ApplyNpcLiveUpdate(npcId)
     return true
 end
 
+-- Trailing-debounce gate, mirroring _FlushActiveQuestPins. liveNpcUpdateDelay is
+-- the quiet window; pinRefreshMaxWait is the shared worst-case cap (0 = never force).
 local function _FlushNpcLiveUpdates()
+    local timer = QuestieCompat and QuestieCompat.C_Timer
+    local now = (GetTime and GetTime()) or 0
+    local delay = GetLearnerSetting("liveNpcUpdateDelay", 0.75)
+    local maxWait = GetLearnerSetting("pinRefreshMaxWait", 5.0)
+    local quiet = now - (_Learner.pendingNpcLiveUpdateLastActivity or now)
+    local waited = now - (_Learner.pendingNpcLiveUpdateFirstDirty or now)
+    if GetTime and timer and timer.After and quiet < delay and (maxWait <= 0 or waited < maxWait) then
+        local remaining = delay - quiet
+        if maxWait > 0 then
+            local capRemaining = maxWait - waited
+            if capRemaining < remaining then remaining = capRemaining end
+        end
+        if remaining < 0 then remaining = 0 end
+        -- pendingNpcLiveUpdateTimer stays true so concurrent queues don't double-arm.
+        timer.After(remaining, _FlushNpcLiveUpdates)
+        return
+    end
+
     local pending = _Learner.pendingNpcLiveUpdates
     _Learner.pendingNpcLiveUpdates = {}
     _Learner.pendingNpcLiveUpdateTimer = nil
+    _Learner.pendingNpcLiveUpdateFirstDirty = nil
+    _Learner.pendingNpcLiveUpdateLastActivity = nil
 
     for npcId in pairs(pending) do
         if _ApplyNpcLiveUpdate(npcId) then
@@ -723,12 +786,19 @@ local function _QueueNpcLiveUpdate(npcId)
     _Learner.pendingNpcLiveUpdates = _Learner.pendingNpcLiveUpdates or {}
     _Learner.pendingNpcLiveUpdates[npcId] = true
 
+    -- Record activity so the debounce gate in _FlushNpcLiveUpdates can re-arm.
+    local now = (GetTime and GetTime()) or 0
+    _Learner.pendingNpcLiveUpdateLastActivity = now
+    if not _Learner.pendingNpcLiveUpdateFirstDirty then
+        _Learner.pendingNpcLiveUpdateFirstDirty = now
+    end
+
     if _Learner.pendingNpcLiveUpdateTimer then return end
 
     local timer = QuestieCompat and QuestieCompat.C_Timer
     if timer and timer.After then
         _Learner.pendingNpcLiveUpdateTimer = true
-        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.5), _FlushNpcLiveUpdates)
+        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.75), _FlushNpcLiveUpdates)
     else
         _FlushNpcLiveUpdates()
     end
@@ -3017,6 +3087,34 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         return
     end
 
+    -- Player/group engagement tracking. Quest-progress correlation (OnQuestLogUpdate)
+    -- must never attribute a *nearby* player's kill to our own objectives. We record
+    -- which mobs we — or our pet/party/raid — actually damaged, so a kill is only
+    -- "credited" to us if it was a PARTY_KILL or we recently engaged that GUID.
+    -- This runs before the kill-event filter so damage events are captured too.
+    if dstGUID and srcGUID then
+        local mine = false
+        local playerGUID = UnitGUID and UnitGUID("player")
+        if playerGUID and srcGUID == playerGUID then
+            mine = true
+        elseif UnitGUID and srcGUID == UnitGUID("pet") then
+            mine = true
+        elseif srcFlags and bit and bit.band then
+            -- Affiliation bits (mine/party/raid) flag damage from our group.
+            local ours = 0
+            if COMBATLOG_OBJECT_AFFILIATION_MINE  then ours = ours + COMBATLOG_OBJECT_AFFILIATION_MINE  end
+            if COMBATLOG_OBJECT_AFFILIATION_PARTY then ours = ours + COMBATLOG_OBJECT_AFFILIATION_PARTY end
+            if COMBATLOG_OBJECT_AFFILIATION_RAID  then ours = ours + COMBATLOG_OBJECT_AFFILIATION_RAID  end
+            if ours ~= 0 and bit.band(srcFlags, ours) ~= 0 then
+                mine = true
+            end
+        end
+        if mine then
+            _Learner.playerEngaged = _Learner.playerEngaged or {}
+            _Learner.playerEngaged[dstGUID] = time()
+        end
+    end
+
     if eventType == "SPELL_CAST_SUCCESS" then
         if srcGUID == UnitGUID("player") then
             self:LearnSpellCast(spellId, spellName, dstGUID, dstName)
@@ -3041,6 +3139,14 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     for g, ts in pairs(_Learner.killDebounce) do
         if (now - ts) > 10 then
             _Learner.killDebounce[g] = nil
+        end
+    end
+    -- Prune stale engagement entries (mobs we damaged but never finished).
+    if _Learner.playerEngaged then
+        for g, ts in pairs(_Learner.playerEngaged) do
+            if (now - ts) > 60 then
+                _Learner.playerEngaged[g] = nil
+            end
         end
     end
 
@@ -3078,14 +3184,21 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     end
     local zoneId  = GetZoneId()
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
+    -- A kill counts toward our quest progress only if we landed the killing blow
+    -- (PARTY_KILL) or recently damaged this exact spawn. Bystander UNIT_DIED events
+    -- for mobs we never touched stay uncredited and are ignored by correlation.
+    local engagedTs = _Learner.playerEngaged and _Learner.playerEngaged[dstGUID]
+    local credited = (eventType == "PARTY_KILL")
+        or (engagedTs ~= nil and (now - engagedTs) <= 60)
     _Learner.recentKills[dstGUID] = {
-        npcId  = npcId,
-        name   = name or "",
-        x      = px,
-        y      = py,
-        zoneId = zoneId,
-        zone   = zoneText,
-        ts     = time(),
+        npcId   = npcId,
+        name    = name or "",
+        x       = px,
+        y       = py,
+        zoneId  = zoneId,
+        zone    = zoneText,
+        ts      = time(),
+        credited = credited,
     }
 
     if dstName and dstName ~= "" then
@@ -3462,7 +3575,9 @@ function QuestieLearner:OnQuestLogUpdate()
                         local now = time()
                         local bestGuid, bestKill = nil, nil
                         for guid, kill in pairs(_Learner.recentKills) do
-                            if (now - kill.ts) <= 10 then
+                            -- Only correlate kills credited to us; bystander kills
+                            -- (nearby players) must never be learned as our objective.
+                            if kill.credited and (now - kill.ts) <= 10 then
                                 if not bestKill or kill.ts > bestKill.ts then
                                     bestGuid, bestKill = guid, kill
                                 end
@@ -3831,7 +3946,7 @@ local function _QueueIncomingNetworkMerge(typ, id, data, op)
 
     if timer and timer.After then
         _Learner.pendingNetworkMergeTimer = true
-        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.5), FlushNetworkMerges)
+        timer.After(GetLearnerSetting("liveNpcUpdateDelay", 0.75), FlushNetworkMerges)
     else
         FlushNetworkMerges()
     end

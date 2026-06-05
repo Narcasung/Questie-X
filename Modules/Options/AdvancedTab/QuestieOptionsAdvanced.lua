@@ -33,13 +33,16 @@ local function GetLearnerSettings()
         settings.performanceMode = "balanced"
     end
     if settings.pinRefreshDelay == nil then
-        settings.pinRefreshDelay = 0.5
+        settings.pinRefreshDelay = 0.75
     end
     if settings.pinRefreshMode == nil then
         settings.pinRefreshMode = "batched"
     end
+    if settings.pinRefreshMaxWait == nil then
+        settings.pinRefreshMaxWait = 5.0
+    end
     if settings.liveNpcUpdateDelay == nil then
-        settings.liveNpcUpdateDelay = 0.5
+        settings.liveNpcUpdateDelay = 0.75
     end
     if settings.learnerCommsIntensity == nil then
         settings.learnerCommsIntensity = "normal"
@@ -57,19 +60,22 @@ local function ApplyLearnerPerformancePreset(mode)
     if mode == "realtime" then
         settings.pinRefreshDelay = 0.1
         settings.pinRefreshMode = "immediate"
+        settings.pinRefreshMaxWait = 2.0
         settings.liveNpcUpdateDelay = 0.25
         settings.learnerCommsIntensity = "fast"
         settings.minConfidencePins = 1
     elseif mode == "low" then
         settings.pinRefreshDelay = 2.0
         settings.pinRefreshMode = "batched"
+        settings.pinRefreshMaxWait = 10.0
         settings.liveNpcUpdateDelay = 2.0
         settings.learnerCommsIntensity = "low"
         settings.minConfidencePins = 3
     elseif mode == "balanced" then
-        settings.pinRefreshDelay = 0.5
+        settings.pinRefreshDelay = 0.75
         settings.pinRefreshMode = "batched"
-        settings.liveNpcUpdateDelay = 0.5
+        settings.pinRefreshMaxWait = 5.0
+        settings.liveNpcUpdateDelay = 0.75
         settings.learnerCommsIntensity = "normal"
         settings.minConfidencePins = 1
     end
@@ -266,6 +272,22 @@ function QuestieOptions.tabs.advanced:Initialize()
                 set = function(_, value)
                     local settings = GetLearnerSettings()
                     settings.pinRefreshDelay = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerPinRefreshMaxWait = {
+                type = "range",
+                order = 2.35,
+                name = function() return l10n('Pin Refresh Max Wait'); end,
+                desc = function() return l10n('Maximum seconds learned pins will wait during continuous activity (e.g. nearby players killing mobs) before a forced refresh. The refresh delay resets on each kill, so pins only redraw once things go quiet or this cap is hit. Set to 0 to never force a refresh while activity continues.'); end,
+                min = 0,
+                max = 30,
+                step = 0.5,
+                width = 1.5,
+                get = function() return GetLearnerSettings().pinRefreshMaxWait or 5.0 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshMaxWait = value
                     settings.performanceMode = "manual"
                 end,
             },
