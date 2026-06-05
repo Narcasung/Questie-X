@@ -35,6 +35,34 @@ local function ResetTranslationCache()
     l10n.translationCache = {}
 end
 
+local format, unpack, tostring, select = string.format, unpack, tostring, select
+
+local function FormatLocalizedString(template, argCount, ...)
+    if argCount == 1 then
+        return format(template, tostring(select(1, ...)))
+    elseif argCount == 2 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)))
+    elseif argCount == 3 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)))
+    elseif argCount == 4 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)))
+    elseif argCount == 5 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)), tostring(select(5, ...)))
+    elseif argCount == 6 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)), tostring(select(5, ...)), tostring(select(6, ...)))
+    elseif argCount == 7 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)), tostring(select(5, ...)), tostring(select(6, ...)), tostring(select(7, ...)))
+    elseif argCount == 8 then
+        return format(template, tostring(select(1, ...)), tostring(select(2, ...)), tostring(select(3, ...)), tostring(select(4, ...)), tostring(select(5, ...)), tostring(select(6, ...)), tostring(select(7, ...)), tostring(select(8, ...)))
+    end
+
+    local args = {}
+    for i = 1, argCount do
+        args[i] = tostring(select(i, ...))
+    end
+    return format(template, unpack(args))
+end
+
 function l10n:InitializeLocaleOverride()
     local overridingLocale = QUESTIE_LOCALES_OVERRIDE.locale
     supportedLocals[overridingLocale] = true
@@ -158,7 +186,7 @@ function l10n:PostBoot()
             if not entry then
                 l10n.objectNameLookup[name] = { id }
             else
-                entry[#entry+1] = id
+                table.insert(entry, id)
             end
         end
 
@@ -170,7 +198,6 @@ function l10n:PostBoot()
     end
 end
 
-local format, unpack, tostring = string.format, unpack, tostring
 function _l10n:translate(key, ...)
     if key == nil then
         return ""
@@ -233,39 +260,29 @@ function _l10n:translate(key, ...)
         return translationValue
     end
 
-    local args = {...}
-
-    for i, v in ipairs(args) do
-        args[i] = tostring(v);
-    end
-
     local translationEntry = l10n.translations[key]
     if not translationEntry then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing completely!") end
-        return format(key, unpack(args))
+        return FormatLocalizedString(key, argCount, ...)
     end
 
     local translationValue = translationEntry[locale]
     if (not translationValue) then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing the entry for language" , locale, "!") end
-        return format(key, unpack(args))
+        return FormatLocalizedString(key, argCount, ...)
     end
 
     if translationValue == true then
         -- Fallback to enUS which is the key
-        return format(key, unpack(args))
+        return FormatLocalizedString(key, argCount, ...)
     end
 
     if type(translationValue) ~= "string" then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translation for '" .. tostring(key) .. "' is not a string!") end
-        return format(key, unpack(args))
+        return FormatLocalizedString(key, argCount, ...)
     end
 
-    if #args == 0 then
-        return translationValue
-    end
-
-    return format(translationValue, unpack(args))
+    return FormatLocalizedString(translationValue, argCount, ...)
 end
 
 setmetatable(l10n, { __call = function(_, ...) return _l10n:translate(...) end})

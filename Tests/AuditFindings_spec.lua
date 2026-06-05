@@ -43,7 +43,7 @@ end
 describe("Audit Pass 8.1 - Lua 5.0 incompatibility surface", function()
     it("[8.1] raw # length operator is used in TOC-loaded files (5.0 parse error)", function()
         -- The dominant 5.0 blocker the pass-6/7 scan missed entirely.
-        assert.is_true(has(read("Localization/l10n.lua"), "#args"))
+        assert.is_false(has(read("Localization/l10n.lua"), "#args"))
         assert.is_true(has(read("Modules/Map/QuestieMap.lua"), "#mapDrawQueue"))
     end)
 
@@ -253,15 +253,17 @@ describe("Audit Pass 11 - gap-fill findings (snapshot at HEAD)", function()
 end)
 
 describe("Audit Pass 10 - additional performance findings (snapshot)", function()
-    it("[P2] l10n now has a no-arg fast path before vararg table allocation", function()
+    it("[P2] l10n now uses a bounded formatter instead of a vararg table", function()
         local l10n = read("Localization/l10n.lua")
         assert.is_true(has(l10n, "l10n.translationCache = {}"))
         assert.is_true(has(l10n, "local function ResetTranslationCache()"))
         assert.is_true(has(l10n, 'local argCount = select("#", ...)'))
         assert.is_true(has(l10n, "if argCount == 0 then"))
+        assert.is_true(has(l10n, "local function FormatLocalizedString(template, argCount, ...)"))
         assert.is_true(has(l10n, "l10n.translationCache[locale]"))
         assert.is_true(has(l10n, "localeCache[key] = translationValue"))
-        assert.is_true(has(l10n, "local args = {...}"))
+        assert.is_true(has(l10n, "table.insert(entry, id)"))
+        assert.is_false(has(l10n, "local args = {...}"))
     end)
 
     it("[N1/N2/N5] core Lua 5.0 compatibility shims and unpack fixes are live", function()
