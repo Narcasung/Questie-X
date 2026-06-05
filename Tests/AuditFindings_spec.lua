@@ -408,6 +408,15 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(questieInit, "now = GetTime()"))
     end)
 
+    it("[PP6] quest fallback NPC lookups use a cached lowercase name index", function()
+        local privates = section(read("Modules/Quest/QuestieQuestPrivates.lua"), "killcredit = function(npcId, objective, objectiveData)", "monster = function(npcId, objective)")
+
+        assert.is_true(has(read("Modules/Quest/QuestieQuestPrivates.lua"), "local npcNameLookup"))
+        assert.is_true(has(read("Modules/Quest/QuestieQuestPrivates.lua"), "local function BuildNpcNameLookup()"))
+        assert.is_true(has(privates, "local searchId = BuildNpcNameLookup()[string.lower(targetName)]"))
+        assert.is_false(has(privates, "for searchId, npcRecord in pairs(npcData) do"))
+    end)
+
     it("[PP7] arrow performance throttles are profile-backed and exposed in Arrow options", function()
         local arrow = read("Modules/Arrow/QuestieArrow.lua")
         local arrowOptions = read("Modules/Options/ArrowTab/QuestieOptionsArrow.lua")

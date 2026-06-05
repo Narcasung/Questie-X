@@ -50,6 +50,28 @@ local function _CountUniqueSpawnPositions(spawns)
     return count
 end
 
+local npcNameLookup
+
+local function BuildNpcNameLookup()
+    if npcNameLookup then
+        return npcNameLookup
+    end
+
+    npcNameLookup = {}
+    local npcData = QuestieDB.npcData or {}
+    for npcId, npcRecord in pairs(npcData) do
+        local npcName = npcRecord and npcRecord[1]
+        if npcName then
+            local lowerName = string.lower(npcName)
+            if not npcNameLookup[lowerName] then
+                npcNameLookup[lowerName] = npcId
+            end
+        end
+    end
+
+    return npcNameLookup
+end
+
 
 ---@class SpawnListBase
 ---@field Name string
@@ -115,17 +137,13 @@ killcredit = function(npcId, objective, objectiveData)
         end
 
         if targetName and targetName ~= "" then
-            -- Search for NPC by name using the npcData table
-            local npcData = QuestieDB.npcData or {}
-            for searchId, npcRecord in pairs(npcData) do
-                if npcRecord and npcRecord[1] and string.lower(npcRecord[1]) == string.lower(targetName) then
-                    local monsterResult = monster(searchId, objective)
-                    if monsterResult and monsterResult[searchId] then
-                        ret[searchId] = monsterResult[searchId]
-                        foundValid = true
-                        Questie:Debug(Questie.DEBUG_DEVELOP, "[killcredit] Found NPC by name fallback:", searchId, targetName)
-                        break
-                    end
+            local searchId = BuildNpcNameLookup()[string.lower(targetName)]
+            if searchId then
+                local monsterResult = monster(searchId, objective)
+                if monsterResult and monsterResult[searchId] then
+                    ret[searchId] = monsterResult[searchId]
+                    foundValid = true
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[killcredit] Found NPC by name fallback:", searchId, targetName)
                 end
             end
         end
