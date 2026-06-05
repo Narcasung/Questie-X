@@ -95,13 +95,13 @@ end
 
 local function IsSenderTrusted(sender)
     if bannedSenders[sender] then return false end
+    local now = GetTime()
     if mutedUntil[sender] then
-        if GetTime() < mutedUntil[sender] then return false end
+        if now < mutedUntil[sender] then return false end
         mutedUntil[sender] = nil -- mute expired
     end
     if not senderTrust[sender] then senderTrust[sender] = { strikes = 0, lastMsg = 0, count = 0 } end
 
-    local now = GetTime()
     if now - senderTrust[sender].lastMsg < 1.0 then
         senderTrust[sender].count = senderTrust[sender].count + 1
         if senderTrust[sender].count > 10 then

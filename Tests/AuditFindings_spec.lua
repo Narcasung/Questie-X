@@ -390,6 +390,24 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
             "objectiveFrame._lastDistanceText ~= distanceText"))
     end)
 
+    it("[PP5] hot timer checks hoist GetTime into local now variables", function()
+        local mapTooltip = section(read("Modules/Tooltips/MapIconTooltip.lua"), "function MapIconTooltip:Show()", "local Tooltip = QuestieCompat.Is335 and QuestieCompat.SetupTooltip(self) or GameTooltip;")
+        local learnerComms = section(read("Modules/Network/QuestieLearnerComms.lua"), "local function IsSenderTrusted(sender)", "local function IsDuplicateMessage")
+        local questieInit = section(read("Modules/QuestieInit.lua"), "QuestieInit.Stages[3] = function() -- run as a coroutine", "Questie:Debug(Questie.DEBUG_INFO, \"[QuestieInit:Stage3] Questie init done.\")")
+
+        assert.is_true(has(mapTooltip, "local now = GetTime()"))
+        assert.is_true(has(mapTooltip, "if now - lastTooltipShowTimestamp < 0.05"))
+        assert.is_true(has(mapTooltip, "lastTooltipShowTimestamp = now"))
+
+        assert.is_true(has(learnerComms, "local now = GetTime()"))
+        assert.is_false(has(learnerComms, "GetTime() < mutedUntil[sender]"))
+        assert.are.equal(1, count(learnerComms, "local now = GetTime()"))
+
+        assert.is_true(has(questieInit, "local now = waitStart"))
+        assert.is_true(has(questieInit, "while (now - waitStart < 1.0) do"))
+        assert.is_true(has(questieInit, "now = GetTime()"))
+    end)
+
     it("[PP7] arrow performance throttles are profile-backed and exposed in Arrow options", function()
         local arrow = read("Modules/Arrow/QuestieArrow.lua")
         local arrowOptions = read("Modules/Options/ArrowTab/QuestieOptionsArrow.lua")

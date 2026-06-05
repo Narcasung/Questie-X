@@ -380,18 +380,21 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     -- Wait for registered plugins to finish loading (ensure data injection is complete)
     local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
     local waitStart = GetTime()
+    local now = waitStart
     Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Waiting for plugins to register/finish. Initial pending: " .. QuestiePluginAPI.pendingPluginsCount)
 
     -- Give other addons/scripts a moment to fire and register if they were waiting for PLAYER_LOGIN
-    while (GetTime() - waitStart < 1.0) do
+    while (now - waitStart < 1.0) do
         coYield()
+        now = GetTime()
     end
 
     local timeout = 10
-    local elapsed = GetTime() - waitStart
+    local elapsed = now - waitStart
     while QuestiePluginAPI:HasPendingPlugins() and (elapsed < timeout) do
         coYield()
-        elapsed = GetTime() - waitStart
+        now = GetTime()
+        elapsed = now - waitStart
     end
 
     -- Always re-compile on custom servers to pick up QuestieLearner changes from SavedVariables,

@@ -71,16 +71,17 @@ local lastTooltipShowTimestamp = GetTime()
 
 function MapIconTooltip:Show()
     local profile = Questie.db.profile
+    local now = GetTime()
     local _, _, _, alpha = self.texture:GetVertexColor();
     if alpha == 0 then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[MapIconTooltip:Show] Alpha of texture is 0, nothing to show")
         return
     end
-    if GetTime() - lastTooltipShowTimestamp < 0.05 and GameTooltip:IsShown() then
+    if now - lastTooltipShowTimestamp < 0.05 and GameTooltip:IsShown() then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[MapIconTooltip:Show] Call has been too fast, not showing again")
         return
     end
-    lastTooltipShowTimestamp = GetTime()
+    lastTooltipShowTimestamp = now
 
     local Tooltip = QuestieCompat.Is335 and QuestieCompat.SetupTooltip(self) or GameTooltip;
     Tooltip._owner = self;
