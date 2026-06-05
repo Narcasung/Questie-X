@@ -74,11 +74,11 @@ describe("Audit Pass 8.2 - corrected FALSE POSITIVES (must always pass)", functi
             'UnitFactionGroup("Player")'))
     end)
 
-    it("[FP1] Ascension_IsScalingEnabled is declared no-arg but called with questId (harmless lint)", function()
+    it("[FP1] Ascension_IsScalingEnabled stays a no-arg helper and is called without questId", function()
         local lib = read("Modules/Libs/QuestieLib.lua")
         assert.is_true(has(lib, "local function Ascension_IsScalingEnabled()"))
-        assert.is_true(has(lib, "Ascension_IsScalingEnabled(questId)"))
-        -- Lua discards extra args; this changes no behavior. Lint only.
+        assert.is_false(has(lib, "Ascension_IsScalingEnabled(questId)"))
+        assert.is_true(has(lib, "Ascension_IsScalingEnabled()"))
     end)
 
     it("[FP3] the select() shim exists, proving Lua 5.0 lacks select (pass-3 was wrong)", function()
@@ -222,12 +222,6 @@ describe("Audit Pass 9 - file-by-file findings (snapshot at HEAD)", function()
         assert.is_false(has(tracker, "select(8, GetQuestLogTitle(index))"))
     end)
 
-    it("[9.1->11.1] CORRECTED: % modulo IS used (the 'avoided' claim was wrong)", function()
-        -- Pass 8-10 wrongly said % modulo = 0. Real modulo operators exist in
-        -- Turtle-TOC files and are 5.0 parse errors that math.mod cannot rescue.
-        assert.is_true(has(read("Modules/QuestieStream.lua"), "mod(val, 256)"))
-        assert.is_true(has(read("Modules/QuestiePlayer.lua"), "% playerRaceFlagX2"))
-    end)
 end)
 
 describe("Audit Pass 11 - gap-fill findings (snapshot at HEAD)", function()
@@ -264,6 +258,43 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(l10n, 'local argCount = select("#", ...)'))
         assert.is_true(has(l10n, "if argCount == 0 then"))
         assert.is_true(has(l10n, "local args = {...}"))
+    end)
+
+    it("[N1/N2/N5] core Lua 5.0 compatibility shims and unpack fixes are live", function()
+        local loader = read("Modules/Libs/QuestieLoader.lua")
+        local player = read("Modules/QuestiePlayer.lua")
+        local handler = read("Modules/Quest/QuestEventHandler.lua")
+        local tracker = read("Modules/Tracker/QuestieTracker.lua")
+
+        assert.is_true(has(loader, "bit = bitlib"))
+        assert.is_true(has(loader, "strsplit = function(separator, text, max)"))
+        assert.is_true(has(player, "local _, _, _, _, _, _, _, instanceMapID = GetInstanceInfo()"))
+        assert.is_false(has(player, "select(8, GetInstanceInfo())"))
+        assert.is_true(has(handler, "local _, _, _, _, _, _, _, questLogQuestId = GetQuestLogTitle(questLogIndex)"))
+        assert.is_false(has(handler, "select(8, GetQuestLogTitle(questLogIndex))"))
+        assert.is_true(has(tracker, "local _, _, _, _, _, _, _, questId = GetQuestLogTitle(questIndex)"))
+        assert.is_true(has(tracker, "local _, _, _, _, _, _, _, questId = GetQuestLogTitle(index)"))
+        assert.is_false(has(tracker, "select(8, GetQuestLogTitle(questIndex))"))
+        assert.is_false(has(tracker, "select(8, GetQuestLogTitle(index))"))
+    end)
+
+    it("[N5] quest flag and event math now use math.mod for Lua 5.0", function()
+        local questDB = read("Database/QuestieDB.lua")
+        local questiePlayer = read("Modules/QuestiePlayer.lua")
+        local messageHandler = read("Modules/Libs/MessageHandler.lua")
+        local questieLib = read("Modules/Libs/QuestieLib.lua")
+        local questEvent = read("Database/Corrections/QuestieEvent.lua")
+
+        assert.is_true(has(questDB, "math.mod(flags, QUEST_FLAGS_DAILY_X2)"))
+        assert.is_true(has(questDB, "math.mod(flags, QUEST_FLAGS_WEEKLY_X2)"))
+        assert.is_true(has(questiePlayer, "math.mod(requiredRaces, playerRaceFlagX2)"))
+        assert.is_true(has(questiePlayer, "math.mod(requiredClasses, playerClassFlagX2)"))
+        assert.is_true(has(messageHandler, "math.mod(callbackIndex, asyncCount) == 0"))
+        assert.is_true(has(questieLib, "randomSeed = math.mod((randomSeed * 214013 + 2531011), 2 ^ 32)"))
+        assert.is_true(has(questieLib, "local rand = math.mod(math.floor(randomSeed / 2 ^ 16), 2 ^ 15) / 0x7fff"))
+        assert.is_true(has(questEvent, "math.mod(currentDate.month, 2)"))
+        assert.is_true(has(questEvent, "math.mod(timeSinceStart, (eventDuration * 2))"))
+        assert.is_true(has(questEvent, "math.mod(weeksSinceStart, 4)"))
     end)
 
     it("[PP1] a batch Query(id, keys) API exists that IsDoable does not use", function()

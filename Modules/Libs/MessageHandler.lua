@@ -68,7 +68,7 @@ function MessageHandlerFactory.New()
                 end
 
                 --If we are a async function we yield after each asyncCount
-                if asyncCount and callbackIndex % asyncCount == 0 then
+                if asyncCount and math.mod(callbackIndex, asyncCount) == 0 then
                     yield()
                 end
             end

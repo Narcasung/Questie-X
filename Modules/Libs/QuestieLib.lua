@@ -36,7 +36,7 @@ end
 
 
 local function Ascension_GetEffectiveQuestLevel(questId, baseQuestLevel, playerLevel)
-    if not Ascension_IsScalingEnabled(questId) then
+    if not Ascension_IsScalingEnabled() then
         return baseQuestLevel
     end
 
@@ -53,7 +53,7 @@ end
 
 function QuestieLib:IsQuestTrivialScaled(questId, questLevel)
     -- If scaling is not enabled, fall back to the original behavior
-    if not Ascension_IsScalingEnabled(questId) then
+    if not Ascension_IsScalingEnabled() then
         return QuestieDB.IsTrivial(questLevel)
     end
 
@@ -544,8 +544,8 @@ function QuestieLib:MathRandom(low_or_high_arg, high_arg)
         end
     end
 
-    randomSeed = (randomSeed * 214013 + 2531011) % 2 ^ 32
-    local rand = (math.floor(randomSeed / 2 ^ 16) % 2 ^ 15) / 0x7fff
+    randomSeed = math.mod((randomSeed * 214013 + 2531011), 2 ^ 32)
+    local rand = math.mod(math.floor(randomSeed / 2 ^ 16), 2 ^ 15) / 0x7fff
     if not high then
         return rand
     end

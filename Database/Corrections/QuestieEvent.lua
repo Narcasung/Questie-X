@@ -178,7 +178,7 @@ _GetDarkmoonFaireLocationEra = function(currentDate)
     local monthOffset = (currentDate.year - baseInfo.year) * 12 + (currentDate.month - baseInfo.month)
     local firstWeekday = C_Calendar.GetMonthInfo(monthOffset).firstWeekday
 
-    local eventLocation = (currentDate.month % 2) == 0 and DMF_LOCATIONS.MULGORE or DMF_LOCATIONS.ELWYNN_FOREST
+    local eventLocation = (math.mod(currentDate.month, 2) == 0) and DMF_LOCATIONS.MULGORE or DMF_LOCATIONS.ELWYNN_FOREST
 
     local dayOfMonth = currentDate.monthDay
     if firstWeekday == 1 then
@@ -230,7 +230,7 @@ _GetDarkmoonFaireLocationSoD = function(currentDate)
     local eventDuration = initialEndDate - initialStartDate
     local timeSinceStart = currentDate - initialStartDate
 
-    local positionInCurrentCycle = timeSinceStart % (eventDuration * 2) -- * 2 because the event repeats every two weeks
+    local positionInCurrentCycle = math.mod(timeSinceStart, (eventDuration * 2)) -- * 2 because the event repeats every two weeks
 
     local isEventActive = positionInCurrentCycle < eventDuration
 
@@ -240,7 +240,7 @@ _GetDarkmoonFaireLocationSoD = function(currentDate)
 
     local weeksSinceStart = math.floor(timeSinceStart / eventDuration)
 
-    if weeksSinceStart % 4 == 0 then
+    if math.mod(weeksSinceStart, 4) == 0 then
         return DMF_LOCATIONS.MULGORE
     else
         return DMF_LOCATIONS.ELWYNN_FOREST
