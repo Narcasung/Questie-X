@@ -218,6 +218,37 @@
     </div>
 
     <div class="container">
+        <section id="active-performance-refactor">
+            <h2>Active Performance Refactor</h2>
+            <p>Questie-X is currently being refactored to reduce heavy-zone FPS drops. Until a stable release is published, testers should use the repository version rather than the release asset.</p>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>QuestieLearner Throttling</h4>
+                    <p>Learner-triggered pin refreshes are now debounced with a maximum wait cap. Nearby-player <code>UNIT_DIED</code> events no longer force full learner pin redraws, while authoritative <code>PARTY_KILL</code> events are protected so local/group kills still learn correctly.</p>
+                </div>
+                <div class="card">
+                    <h4>Advanced Performance Controls</h4>
+                    <p>The Advanced tab now centralizes live QuestieLearner and QuestieComms tuning, including learner intensity, pin refresh delay, max refresh wait, live NPC update delay, comms disable, queue processing, broadcast pacing, and bulk sync pacing.</p>
+                </div>
+            </div>
+
+            <div class="grid">
+                <div class="card">
+                    <h4>Arrow Throttles</h4>
+                    <p>Arrow performance controls reduce repeated nearest-target and coordinate work for low-end systems while preserving the existing arrow behavior.</p>
+                </div>
+                <div class="card">
+                    <h4>Branch Integration Status</h4>
+                    <p>The latest learner/comms/arrow controls live on <code>questie-learner-comms-improvements</code>. Broader measured hot-path fixes live on <code>phase3-measured-perf</code>. A final integration branch is still required before stable release testing.</p>
+                </div>
+            </div>
+
+            <div class="important">
+                <strong>Testing focus:</strong> Validate heavy kill zones with the minimap open, nearby players killing mobs, looting stutter, QuestieComms disabled/low/normal/fast, and Arrow throttles adjusted live from the options menu.
+            </div>
+        </section>
+
         <section id="release-highlights">
             <h2>Current Release Highlights</h2>
             <p>The v1.6.3 release includes the arrow redesign, the minimap pin drift fix, and the Sunstrider map and tooltip corrections. These notes summarize the shipped behavior in the live release.</p>

@@ -1,5 +1,28 @@
 # Changelog
 
+## [Unreleased] - Performance Refactor Branches
+
+### Performance
+
+- **[QuestieLearner - Kill/Pin Refresh Throttling]** Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.
+- **[QuestieLearner - Bystander Kill Suppression]** Changed visible nearby `UNIT_DIED` handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.
+- **[QuestieLearner - PARTY_KILL Event-Order Fix]** Fixed an edge case where a `UNIT_DIED` debounce entry could suppress a later authoritative `PARTY_KILL` for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.
+- **[QuestieLearner - Live Performance Options]** Added Advanced-tab controls for learner intensity, pin refresh delay, maximum pin refresh wait, minimum kills before learned pins, and live NPC update delay so users can tune the system for low-end PCs or heavy-activity zones.
+- **[QuestieComms - User-Controlled Intensity]** Added Advanced-tab QuestieComms controls, including a full disable switch and live throttles for queue processing, quest-state broadcasts, and bulk sync pacing.
+- **[QuestieComms - Disable Gate Fix]** Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.
+- **[Arrow - Low-End Performance Controls]** Added live Arrow update throttles to reduce repeated nearest-target and coordinate work while preserving existing arrow behavior.
+- **[Measured Hot Paths - Phase 3]** Landed measured optimizations on the phase 3 branch for literal localization caching, available quest redraw batching, `QuestieDB.IsDoable` batch reads, hot profile aliases, `GetTime()` hoists, NPC fallback lookup caching, and validate-cache allocation cleanup.
+
+### Bug Fixes
+
+- **[Error Suppression - Debug Modes]** Moved missing quest and other non-fatal database/error spam out of normal chat output and into Questie debug-critical/developer output. Fatal startup failures remain loud.
+- **[Tooltip Data Precedence]** Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.
+
+### Branch / Release Notes
+
+- The most complete performance candidate is not yet a single branch: `questie-learner-comms-improvements` has the latest learner/comms/arrow controls, while `phase3-measured-perf` has the broader measured hot-path changes.
+- Before release, merge into a dedicated integration branch, remove or revalidate the stale `QuestieMap.ProcessQueue` profile-local commit that was reverted on `main`, fix the unrelated Arrow asset test expectation mismatch, and validate in game with minimap open, nearby-player kills, looting, comms toggles, and Arrow throttles.
+
 ## [1.6.3]
 
 ### Bug Fixes

@@ -176,6 +176,23 @@
     </div>
 
     <div class="container">
+        <h2 id="unreleased-performance-refactor">[Unreleased] &mdash; Performance Refactor Branches</h2>
+        <ul>
+            <li><strong>[QuestieLearner &mdash; Kill/Pin Refresh Throttling]</strong> Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.</li>
+            <li><strong>[QuestieLearner &mdash; Bystander Kill Suppression]</strong> Changed visible nearby <code>UNIT_DIED</code> handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.</li>
+            <li><strong>[QuestieLearner &mdash; PARTY_KILL Event-Order Fix]</strong> Fixed an edge case where a <code>UNIT_DIED</code> debounce entry could suppress a later authoritative <code>PARTY_KILL</code> for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.</li>
+            <li><strong>[QuestieLearner &mdash; Live Performance Options]</strong> Added Advanced-tab controls for learner intensity, pin refresh delay, maximum pin refresh wait, minimum kills before learned pins, and live NPC update delay so users can tune the system for low-end PCs or heavy-activity zones.</li>
+            <li><strong>[QuestieComms &mdash; User-Controlled Intensity]</strong> Added Advanced-tab QuestieComms controls, including a full disable switch and live throttles for queue processing, quest-state broadcasts, and bulk sync pacing.</li>
+            <li><strong>[QuestieComms &mdash; Disable Gate Fix]</strong> Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.</li>
+            <li><strong>[Arrow &mdash; Low-End Performance Controls]</strong> Added live Arrow update throttles to reduce repeated nearest-target and coordinate work while preserving existing arrow behavior.</li>
+            <li><strong>[Measured Hot Paths &mdash; Phase 3]</strong> Landed measured optimizations on the phase 3 branch for literal localization caching, available quest redraw batching, <code>QuestieDB.IsDoable</code> batch reads, hot profile aliases, <code>GetTime()</code> hoists, NPC fallback lookup caching, and validate-cache allocation cleanup.</li>
+            <li><strong>[Error Suppression &mdash; Debug Modes]</strong> Moved missing quest and other non-fatal database/error spam out of normal chat output and into Questie debug-critical/developer output. Fatal startup failures remain loud.</li>
+            <li><strong>[Tooltip Data Precedence]</strong> Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.</li>
+        </ul>
+        <div class="important">
+            <strong>Release status:</strong> The most complete performance candidate is not yet a single branch. Merge <code>questie-learner-comms-improvements</code> with <code>phase3-measured-perf</code>, remove or revalidate the stale reverted <code>QuestieMap.ProcessQueue</code> profile-local commit, fix the unrelated Arrow asset test mismatch, and validate in game before stable release.
+        </div>
+
         <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
             <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>
