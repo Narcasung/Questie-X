@@ -1,4 +1,11 @@
 describe("Questie item name safety", function()
+    local function read(path)
+        local f = assert(io.open(path, "r"), "cannot open " .. path)
+        local c = f:read("*a")
+        f:close()
+        return c
+    end
+
     before_each(function()
         dofile("Tests/wow_api_mock.lua")
         GetItemInfo = function()
@@ -15,5 +22,12 @@ describe("Questie item name safety", function()
     it("also handles non-numeric item ids safely", function()
         local item = Item:CreateFromItemID("bad-id")
         assert.equals("item:bad-id", item:GetItemName())
+    end)
+
+    it("skips malformed item objectives without an item id", function()
+        local lib = read("Modules/Libs/QuestieLib.lua")
+        assert.is_true(string.find(lib, "local itemId = objectiveDB.Id", 1, true) ~= nil)
+        assert.is_true(string.find(lib, "if not itemId then", 1, true) ~= nil)
+        assert.is_true(string.find(lib, "QuestieDB.itemDataOverrides[itemId]", 1, true) ~= nil)
     end)
 end)

@@ -427,19 +427,25 @@ function QuestieLib:CacheItemNames(questId)
     if (quest and quest.ObjectiveData) then
         for _, objectiveDB in pairs(quest.ObjectiveData) do
             if objectiveDB.Type == "item" then
-                if not ((QuestieDB.ItemPointers or QuestieDB.itemData)[objectiveDB.Id]) then
-                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLib:CacheItemNames] Requesting item information for missing itemId:", objectiveDB.Id)
-                    local item = Item:CreateFromItemID(objectiveDB.Id)
+                local itemId = objectiveDB.Id
+                if not itemId then
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLib:CacheItemNames] Skipping item objective without itemId for quest:", questId)
+                elseif not ((QuestieDB.ItemPointers or QuestieDB.itemData)[itemId]) then
+                    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLib:CacheItemNames] Requesting item information for missing itemId:", itemId)
+                    local item = Item:CreateFromItemID(itemId)
                     item:ContinueOnItemLoad(
                         function()
                             local itemName = item:GetItemName()
-                            if not QuestieDB.itemDataOverrides[objectiveDB.Id] then
-                                QuestieDB.itemDataOverrides[objectiveDB.Id] = { itemName, { questId }, {}, {} }
+                            if not itemId then
+                                return
+                            end
+                            if not QuestieDB.itemDataOverrides[itemId] then
+                                QuestieDB.itemDataOverrides[itemId] = { itemName, { questId }, {}, {} }
                             else
-                                QuestieDB.itemDataOverrides[objectiveDB.Id][1] = itemName
+                                QuestieDB.itemDataOverrides[itemId][1] = itemName
                             end
                             Questie:Debug(Questie.DEBUG_DEVELOP,
-                                "[QuestieLib:CacheItemNames] Created item information for item:", itemName, ":", objectiveDB.Id)
+                                "[QuestieLib:CacheItemNames] Created item information for item:", itemName, ":", itemId)
                         end)
                 end
             end
