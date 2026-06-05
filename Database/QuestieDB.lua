@@ -321,6 +321,19 @@ if not Item then
 end
 
 if not Item.CreateFromItemID then
+    local function SafeGetItemName(itemID)
+        local numericItemID = tonumber(itemID)
+        if not numericItemID or numericItemID == 0 then
+            return "item:" .. tostring(itemID)
+        end
+
+        local ok, name = pcall(GetItemInfo, numericItemID)
+        if not ok then
+            return "item:" .. tostring(numericItemID)
+        end
+        return name or ("item:" .. tostring(numericItemID))
+    end
+
     function Item:CreateFromItemID(itemID)
         local obj = {}
 
@@ -332,8 +345,7 @@ if not Item.CreateFromItemID then
         end
 
         function obj:GetItemName()
-            local name = GetItemInfo(itemID)
-            return name or ("item:" .. tostring(itemID))
+            return SafeGetItemName(itemID)
         end
 
         return obj
