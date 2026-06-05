@@ -25,13 +25,19 @@ local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 local GetQuestGreenRange = GetQuestGreenRange
 local yield = coroutine.yield
 local tinsert = table.insert
-local NewThread = ThreadLib.ThreadSimple
 
 local QUESTS_PER_YIELD = 24
 
 --- Used to keep track of the active timer for CalculateAndDrawAll
 ---@type Ticker|nil
 local timer
+
+--- Used to keep track of the active debounce timer for CalculateAndDrawAllDebounced
+---@type Ticker|nil
+local debounceTimer
+local pendingCallback
+local pendingMessage
+local pendingDelay
 
 -- Keep track of all available quests to unload undoable when abandoning a quest
 local availableQuests = {}
@@ -49,6 +55,30 @@ function AvailableQuests.CalculateAndDrawAll(callback)
         timer:Cancel()
     end
     timer = ThreadLib.Thread(_CalculateAvailableQuests, 0, "Error in AvailableQuests.CalculateAndDrawAll", callback)
+end
+
+---@param callback function | nil
+---@param delay number?
+---@param message string?
+function AvailableQuests.CalculateAndDrawAllDebounced(callback, delay, message)
+    if debounceTimer then
+        debounceTimer:Cancel()
+        debounceTimer = nil
+    end
+
+    pendingCallback = callback
+    pendingDelay = delay or 0.1
+    pendingMessage = message
+
+    debounceTimer = Questie:ScheduleTimer(function()
+        debounceTimer = nil
+        timer = ThreadLib.Thread(_CalculateAvailableQuests, 0, "Error in AvailableQuests.CalculateAndDrawAll", pendingCallback)
+        pendingCallback = nil
+        if pendingMessage then
+            Questie:Debug(Questie.DEBUG_DEVELOP, pendingMessage)
+        end
+        pendingMessage = nil
+    end, pendingDelay)
 end
 
 --Draw a single available quest, it is used by the CalculateAndDrawAll function.
@@ -280,16 +310,14 @@ end
 
 ---@param questId number
 _DrawAvailableQuest = function(questId)
-    NewThread(function()
-        local quest = QuestieDB.GetQuest(questId)
-        if (not quest.tagInfoWasCached) then
-            QuestieDB.GetQuestTagInfo(questId) -- cache to load in the tooltip
+    local quest = QuestieDB.GetQuest(questId)
+    if (not quest.tagInfoWasCached) then
+        QuestieDB.GetQuestTagInfo(questId) -- cache to load in the tooltip
 
-            quest.tagInfoWasCached = true
-        end
+        quest.tagInfoWasCached = true
+    end
 
-        AvailableQuests.DrawAvailableQuest(quest)
-    end, 0)
+    AvailableQuests.DrawAvailableQuest(quest)
 end
 
 ---@param quest Quest

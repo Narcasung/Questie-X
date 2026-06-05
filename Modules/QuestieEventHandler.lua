@@ -84,7 +84,7 @@ function QuestieEventHandler:RegisterLateEvents()
     -- Spell objectives
     Questie:RegisterEvent("NEW_RECIPE_LEARNED", function() -- Needed for some spells that don't necessarily appear in the spellbook, but are definitely spells
         Questie:Debug(Questie.DEBUG_DEVELOP, "[EVENT] NEW_RECIPE_LEARNED")
-        AvailableQuests.CalculateAndDrawAll()
+        AvailableQuests.CalculateAndDrawAllDebounced()
     end)
 
     -- UI Quest Events
@@ -345,7 +345,7 @@ function _EventHandler:PlayerLevelUp(level)
     C_Timer.After(3, function()
         QuestiePlayer:SetPlayerLevel(level)
 
-        AvailableQuests.CalculateAndDrawAll()
+        AvailableQuests.CalculateAndDrawAllDebounced()
     end)
 
     QuestieJourney:PlayerLevelUp(level)
@@ -434,7 +434,7 @@ function _EventHandler:ChatMsgSkill()
     -- This needs to be done to draw new quests that just came available
     local isProfUpdate, isNewProfession = QuestieProfessions:Update()
     if isProfUpdate or isNewProfession then
-        AvailableQuests.CalculateAndDrawAll()
+        AvailableQuests.CalculateAndDrawAllDebounced()
     end
 
     -- Skill based Achievement updates
@@ -454,7 +454,7 @@ function _EventHandler:ChatMsgCompatFactionChange()
             QuestieTracker:Update()
         end)
 
-        AvailableQuests.CalculateAndDrawAll()
+        AvailableQuests.CalculateAndDrawAllDebounced()
     end
 end
 

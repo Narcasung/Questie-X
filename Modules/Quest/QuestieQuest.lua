@@ -386,7 +386,7 @@ function QuestieQuest:SmoothReset()
         end,
         function()
             QuestieQuest._resetNeedsAvailables = true
-            AvailableQuests.CalculateAndDrawAll(function() QuestieQuest._resetNeedsAvailables = false end)
+            AvailableQuests.CalculateAndDrawAllDebounced(function() QuestieQuest._resetNeedsAvailables = false end)
             return true
         end,
         function()
@@ -463,7 +463,7 @@ end
 
 function QuestieQuest:UnhideQuest(id)
     Questie.db.char.hidden[id] = nil
-    AvailableQuests.CalculateAndDrawAll()
+    AvailableQuests.CalculateAndDrawAllDebounced()
 end
 
 --- Returns true when a quest can be safely unloaded from the map/tooltip tracker.
@@ -578,7 +578,7 @@ function QuestieQuest:AcceptQuest(questId)
                     Questie:SendMessage("QC_ID_BROADCAST_QUEST_UPDATE", questId)
                 end,
                 function() QuestieQuest:PopulateObjectiveNotes(quest) end,
-                function() AvailableQuests.CalculateAndDrawAll() end,
+                function() AvailableQuests.CalculateAndDrawAllDebounced() end,
                 function()
                     C_Timer.After(0.5, function()
                         _UnloadAcceptedAvailableFrames(questId)
@@ -674,7 +674,7 @@ function QuestieQuest:CompleteQuest(questId)
     end)
 
     -- TODO: Should this be done first? Because CalculateAndDrawAll looks at QuestieMap.questIdFrames[QuestId] to add available
-    AvailableQuests.CalculateAndDrawAll()
+    AvailableQuests.CalculateAndDrawAllDebounced()
 
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest] Completed Quest:", questId)
 end
@@ -728,7 +728,7 @@ function QuestieQuest:AbandonedQuest(questId)
         QuestieTracker:Update()
     end)
 
-    AvailableQuests.CalculateAndDrawAll()
+    AvailableQuests.CalculateAndDrawAllDebounced()
 
     -- Delayed verification to ensure all objective icons are removed
     -- This handles race conditions where QuestieQuest:UpdateQuest might redraw icons
@@ -856,7 +856,7 @@ function QuestieQuest:UpdateQuest(questId)
 
                 QuestieQuest:PopulateQuestLogInfo(quest)
                 QuestieQuest:PopulateObjectiveNotes(quest)
-                AvailableQuests.CalculateAndDrawAll()
+                AvailableQuests.CalculateAndDrawAllDebounced()
             else
                 -- Robustness: ensure objective pins are present for incomplete quests.
                 -- On Ascension, quest log cache can be stale after reload/abandon-reaccept,

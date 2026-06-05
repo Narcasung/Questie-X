@@ -82,7 +82,7 @@ function Tutorial.ShowRunes()
             phase4 = false,
         }
 
-        AvailableQuests.CalculateAndDrawAll()
+        AvailableQuests.CalculateAndDrawAllDebounced()
         baseFrame:Hide()
     end)
 end

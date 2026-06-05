@@ -323,6 +323,15 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"maxLevelFilter set to \" .. value)"))
     end)
 
+    it("[P7] available quest draws run inline inside the batch sweep instead of spawning per-quest threads", function()
+        local available = read("Modules/Quest/AvailableQuests.lua")
+
+        assert.is_true(has(available, "function AvailableQuests.CalculateAndDrawAllDebounced(callback, delay, message)"))
+        assert.is_false(has(available, "local NewThread = ThreadLib.ThreadSimple"))
+        assert.is_false(has(available, "NewThread(function()"))
+        assert.is_true(has(available, "AvailableQuests.DrawAvailableQuest(quest)"))
+    end)
+
     it("[PP1] a batch Query(id, keys) API exists that IsDoable does not use", function()
         local compiler = read("Database/compiler.lua")
         assert.is_true(has(compiler, "handle.Query = function(id, keys)")) -- batch reader exists

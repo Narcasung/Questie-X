@@ -102,7 +102,7 @@ function Tutorial.CreateAscensionScalingFrame()
 		-- Force options & map refresh
 		Questie.db.profileChanged = true
 		
-		AvailableQuests.CalculateAndDrawAll()
+		AvailableQuests.CalculateAndDrawAllDebounced()
 		QuestieTracker:Update()
 		baseFrame:Hide()
 		end)
