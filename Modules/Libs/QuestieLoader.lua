@@ -19,6 +19,111 @@ if not math.mod then
     end
 end
 
+-- Shim for Lua 5.0 where the bit library may be missing.
+-- Questie uses band/bor/bxor/lshift/rshift in core runtime code, so we provide
+-- a pure-Lua fallback when the host does not expose one.
+if not bit or not bit.band or not bit.bor or not bit.bxor or not bit.lshift or not bit.rshift then
+    local bitlib = bit or {}
+    local U32 = 4294967296
+    local U32_MAX = 4294967295
+    local floor = math.floor
+    local mod = math.mod or function(a, b)
+        return a - floor(a / b) * b
+    end
+
+    local function normalizeU32(n)
+        n = tonumber(n) or 0
+        n = floor(n)
+        if n < 0 then
+            n = U32 + mod(n, U32)
+        elseif n >= U32 then
+            n = mod(n, U32)
+        end
+        return n
+    end
+
+    local function bitAt(n, mask)
+        return mod(floor(n / mask), 2)
+    end
+
+    local function band32(a, b)
+        a = normalizeU32(a)
+        b = normalizeU32(b)
+        local result = 0
+        local mask = 1
+        for _ = 1, 32 do
+            if bitAt(a, mask) == 1 and bitAt(b, mask) == 1 then
+                result = result + mask
+            end
+            mask = mask * 2
+        end
+        return normalizeU32(result)
+    end
+
+    local function bor32(a, b)
+        a = normalizeU32(a)
+        b = normalizeU32(b)
+        local result = 0
+        local mask = 1
+        for _ = 1, 32 do
+            if bitAt(a, mask) == 1 or bitAt(b, mask) == 1 then
+                result = result + mask
+            end
+            mask = mask * 2
+        end
+        return normalizeU32(result)
+    end
+
+    local function bxor32(a, b)
+        a = normalizeU32(a)
+        b = normalizeU32(b)
+        local result = 0
+        local mask = 1
+        for _ = 1, 32 do
+            if bitAt(a, mask) ~= bitAt(b, mask) then
+                result = result + mask
+            end
+            mask = mask * 2
+        end
+        return normalizeU32(result)
+    end
+
+    local function lshift32(a, disp)
+        a = normalizeU32(a)
+        disp = tonumber(disp) or 0
+        if disp <= 0 then
+            return normalizeU32(math.floor(a / (2 ^ (-disp))))
+        elseif disp >= 32 then
+            return 0
+        end
+        return normalizeU32(a * (2 ^ disp))
+    end
+
+    local function rshift32(a, disp)
+        a = normalizeU32(a)
+        disp = tonumber(disp) or 0
+        if disp <= 0 then
+            return normalizeU32(a * (2 ^ (-disp)))
+        elseif disp >= 32 then
+            return 0
+        end
+        return normalizeU32(floor(a / (2 ^ disp)))
+    end
+
+    local function bnot32(a)
+        return normalizeU32(U32_MAX - normalizeU32(a))
+    end
+
+    bitlib.band = bitlib.band or band32
+    bitlib.bor = bitlib.bor or bor32
+    bitlib.bxor = bitlib.bxor or bxor32
+    bitlib.lshift = bitlib.lshift or lshift32
+    bitlib.rshift = bitlib.rshift or rshift32
+    bitlib.bnot = bitlib.bnot or bnot32
+    bit = bitlib
+    _G.bit = bitlib
+end
+
 -- Shim for Lua 5.0 where string.match is missing.
 -- Supports up to 5 captures (sufficient for all Questie uses).
 if not string.match then
@@ -54,6 +159,44 @@ if not select then
             index = tonumber(index) or 1
             return unpack(arg, index, arg.n)
         end
+    end
+end
+
+-- Shim for Lua 5.0 where strsplit is missing.
+if not strsplit then
+    strsplit = function(separator, text, max)
+        if text == nil then
+            return nil
+        end
+        if separator == "" then
+            return text
+        end
+
+        local results = {}
+        local resultCount = 0
+        local startPos = 1
+        local maxSplits = tonumber(max)
+
+        while true do
+            if maxSplits and resultCount >= (maxSplits - 1) then
+                resultCount = resultCount + 1
+                results[resultCount] = string.sub(text, startPos)
+                break
+            end
+
+            local sepStart, sepEnd = string.find(text, separator, startPos, true)
+            if not sepStart then
+                resultCount = resultCount + 1
+                results[resultCount] = string.sub(text, startPos)
+                break
+            end
+
+            resultCount = resultCount + 1
+            results[resultCount] = string.sub(text, startPos, sepStart - 1)
+            startPos = sepEnd + 1
+        end
+
+        return unpack(results, 1, resultCount)
     end
 end
 

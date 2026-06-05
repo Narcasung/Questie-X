@@ -206,7 +206,7 @@ describe("Audit Pass 9 - file-by-file findings (snapshot at HEAD)", function()
     it("[9.1->11.1] CORRECTED: % modulo IS used (the 'avoided' claim was wrong)", function()
         -- Pass 8-10 wrongly said % modulo = 0. Real modulo operators exist in
         -- Turtle-TOC files and are 5.0 parse errors that math.mod cannot rescue.
-        assert.is_true(has(read("Modules/QuestieStream.lua"), " % 256"))
+        assert.is_true(has(read("Modules/QuestieStream.lua"), "mod(val, 256)"))
         assert.is_true(has(read("Modules/QuestiePlayer.lua"), "% playerRaceFlagX2"))
     end)
 end)
@@ -325,5 +325,26 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(advancedOptions, "questieCommsQuestListInitialJitter"))
         assert.is_true(has(advancedOptions, "questieCommsQuestListBlockInterval"))
         assert.is_true(has(advancedOptions, "Questie.db.profile.questieCommsEnabled == false"))
+    end)
+
+    it("[L50] loader, serializer, and stream are wired for Lua 5.0 compatibility", function()
+        local loader = read("Modules/Libs/QuestieLoader.lua")
+        local serializer = read("Modules/Libs/QuestieSerializer.lua")
+        local stream = read("Modules/QuestieStream.lua")
+
+        assert.is_true(has(loader, "bitlib.band = bitlib.band or band32"))
+        assert.is_true(has(loader, "strsplit = function(separator, text, max)"))
+
+        assert.is_true(has(serializer, "local mod = math.mod"))
+        assert.is_true(has(serializer, "mod(expo, 0x2)"))
+        assert.is_true(has(serializer, "mod(b1, 0x80)"))
+        assert.is_false(has(serializer, "expo % 0x2"))
+
+        assert.is_true(has(stream, "local mod = math.mod"))
+        assert.is_true(has(stream, "table.getn(self._bin)"))
+        assert.is_true(has(stream, "mod(val1, 256)"))
+        assert.is_true(has(stream, "mod(val2, 256)"))
+        assert.is_false(has(stream, "val1 % 256"))
+        assert.is_false(has(stream, "val2 % 256"))
     end)
 end)
