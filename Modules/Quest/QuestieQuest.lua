@@ -1646,13 +1646,35 @@ _RegisterObjectiveTooltips = function(objective, questId, blockItemTooltips)
             objective.hasRegisteredTooltips = true
         end
     else
-        -- No spawnList and no Id means there is nothing Questie can draw for this objective.
-        -- This covers server-tracked trigger objectives (e.g. "complete N quests in zone" for
-        -- quest 50150) which may have any objectiveType from the server, not just "event".
         if not objective.Id or objective.Id == 0 then
+            -- No spawnList and no Id means there is nothing Questie can draw for this objective.
+            -- This covers server-tracked trigger objectives (e.g. "complete N quests in zone" for
+            -- quest 50150) which may have any objectiveType from the server, not just "event".
             objective.hasRegisteredTooltips = true
             return
         end
+
+        if objective.Type == "monster" or objective.Type == "object" or objective.Type == "item" then
+            local tooltipKey = nil
+            if objective.Type == "monster" then
+                tooltipKey = "m_" .. objective.Id
+            elseif objective.Type == "object" then
+                tooltipKey = "o_" .. objective.Id
+            elseif objective.Type == "item" then
+                tooltipKey = "i_" .. objective.Id
+            end
+
+            if tooltipKey and not objective.hasRegisteredTooltips then
+                QuestieTooltips:RegisterObjectiveTooltip(questId, tooltipKey, objective)
+                objective.hasRegisteredTooltips = true
+            end
+
+            if objective.Type == "item" then
+                objective.registeredItemTooltips = true
+            end
+            return
+        end
+
         Questie:Error("[QuestieQuest]: [Tooltips] " ..
         l10n("There was an error populating objectives for %s %s %s %s", objective.Description or "No objective text",
             questId or "No quest id", 0 or "No objective", "No error"))
