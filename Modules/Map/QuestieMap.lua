@@ -356,7 +356,6 @@ function QuestieMap.ProcessQueue()
     end
 
     local scaleValue = QuestieMap.GetScaleValue()
-    local profile = Questie.db.profile
     for _ = 1, math.min(24, math.max(#mapDrawQueue, #minimapDrawQueue)) do
         local mapDrawCall = tremove(mapDrawQueue, 1);
         if mapDrawCall then
