@@ -1,3 +1,5 @@
+> **Notice:** I am actively working on a major performance refactor. Until I publish a stable release that I am satisfied with, please use the repository version instead of the release asset.
+
 <div align="center">
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
