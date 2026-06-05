@@ -22,7 +22,7 @@ local l10n = QuestieLoader:ImportModule("l10n")
 --- COMPATIBILITY ---
 local C_Timer = QuestieCompat.C_Timer
 
-QuestieOptions.tabs.tracker = { ... }
+QuestieOptions.tabs.tracker = {}
 
 local _GetShortcuts
 local trackerOptions = {}

@@ -32,7 +32,7 @@ local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@class QuestieMap
 local QuestieMap = QuestieLoader:CreateModule("QuestieMap");
 
-QuestieOptions.tabs.general = { ... }
+QuestieOptions.tabs.general = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 
 local _GetAnnounceChannels

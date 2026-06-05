@@ -8,7 +8,7 @@ local QuestieOptionsUtils = QuestieLoader:ImportModule("QuestieOptionsUtils")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
-QuestieOptions.tabs.keybinds = { ... }
+QuestieOptions.tabs.keybinds = {}
 
 local keybindOptions = {}
 

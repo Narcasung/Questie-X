@@ -169,6 +169,33 @@ function _l10n:translate(key, ...)
         return ""
     end
     key = tostring(key)
+    local argCount = select("#", ...)
+    if argCount == 0 then
+        local translationEntry = l10n.translations[key]
+        if not translationEntry then
+            if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing completely!") end
+            return key
+        end
+
+        local translationValue = translationEntry[locale]
+        if (not translationValue) then
+            if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing the entry for language" , locale, "!") end
+            return key
+        end
+
+        if translationValue == true then
+            -- Fallback to enUS which is the key
+            return key
+        end
+
+        if type(translationValue) ~= "string" then
+            if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translation for '" .. tostring(key) .. "' is not a string!") end
+            return key
+        end
+
+        return translationValue
+    end
+
     local args = {...}
 
     for i, v in ipairs(args) do

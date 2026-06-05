@@ -176,6 +176,13 @@
     </div>
 
     <div class="container">
+        <h2 id="unreleased">[Unreleased]</h2>
+        <h3>Performance</h3>
+        <ul>
+            <li><strong>[Phase 2 - Options Bootstrap Cleanup]</strong> Replaced the remaining file-scope <code>QuestieOptions.tabs.* = { ... }</code> placeholders with empty tables in the options bootstrap files (<code>QuestieOptions.lua</code>, <code>QuestieOptionsArrow.lua</code>, <code>QuestieOptionsGeneral.lua</code>, <code>QuestieOptionsKeybinds.lua</code>, and <code>QuestieOptionsTracker.lua</code>). This closes the audit's <code>N3</code> parser-safety row and keeps the options tabs loadable under the stricter Lua 5.0 compatibility sweep.</li>
+            <li><strong>[Phase 2 - l10n No-Arg Fast Path]</strong> Added a no-argument fast path to <code>Localization/l10n.lua</code> so the common literal-translation case no longer allocates a fresh vararg table on every call. That trims the hottest remaining alloc hotspot called out by the audit while preserving the existing formatted-string path when arguments are actually provided.</li>
+        </ul>
+
         <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
             <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>

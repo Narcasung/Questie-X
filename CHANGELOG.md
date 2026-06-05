@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Performance
+
+- **[Phase 2 - Options Bootstrap Cleanup]** Replaced the remaining file-scope `QuestieOptions.tabs.* = { ... }` placeholders with empty tables in the options bootstrap files (`QuestieOptions.lua`, `QuestieOptionsArrow.lua`, `QuestieOptionsGeneral.lua`, `QuestieOptionsKeybinds.lua`, and `QuestieOptionsTracker.lua`). This closes the audit's `N3` parser-safety row and keeps the options tabs loadable under the stricter Lua 5.0 compatibility sweep.
+- **[Phase 2 - l10n No-Arg Fast Path]** Added a no-argument fast path to `Localization/l10n.lua` so the common literal-translation case no longer allocates a fresh vararg table on every call. That trims the hottest remaining alloc hotspot called out by the audit while preserving the existing formatted-string path when arguments are actually provided.
+
 ## [1.6.3]
 
 ### Bug Fixes
