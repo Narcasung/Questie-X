@@ -301,6 +301,17 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(questEvent, "math.mod(weeksSinceStart, 4)"))
     end)
 
+    it("[P5] party member lookups use a cache invalidated by roster changes", function()
+        local player = read("Modules/QuestiePlayer.lua")
+        local eventHandler = read("Modules/QuestieEventHandler.lua")
+
+        assert.is_true(has(player, "QuestiePlayer.partyMemberCache = nil"))
+        assert.is_true(has(player, "function QuestiePlayer:InvalidatePartyMemberCache()"))
+        assert.is_true(has(player, "local function BuildPartyMemberCache()"))
+        assert.is_true(has(player, "local partyMemberCache = QuestiePlayer.partyMemberCache or BuildPartyMemberCache()"))
+        assert.is_true(has(eventHandler, "QuestiePlayer:InvalidatePartyMemberCache()"))
+    end)
+
     it("[PP1] a batch Query(id, keys) API exists that IsDoable does not use", function()
         local compiler = read("Database/compiler.lua")
         assert.is_true(has(compiler, "handle.Query = function(id, keys)")) -- batch reader exists

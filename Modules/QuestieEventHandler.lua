@@ -460,6 +460,7 @@ end
 
 function _EventHandler.GroupRosterUpdate()
     local currentMembers = GetNumGroupMembers()
+    QuestiePlayer:InvalidatePartyMemberCache()
     -- Only want to do logic when number increases, not decreases.
     if QuestiePlayer.numberOfGroupMembers < currentMembers then
         -- Tell comms to send information to members.
@@ -496,6 +497,7 @@ end
 function _EventHandler:GroupLeft()
     --Resets both QuestieComms.remoteQuestLog and QuestieComms.data
     QuestieComms:ResetAll()
+    QuestiePlayer:InvalidatePartyMemberCache()
 end
 
 local trackerHiddenByCombat, optionsHiddenByCombat, journeyHiddenByCombat = false, false, false

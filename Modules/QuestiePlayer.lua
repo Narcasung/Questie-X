@@ -34,6 +34,7 @@ local math_max = math.max;
 
 QuestiePlayer.numberOfGroupMembers = 0
 QuestiePlayer.pendingCompleteQuestIds = {}
+QuestiePlayer.partyMemberCache = nil
 
 function QuestiePlayer:Initialize()
     _QuestiePlayer.playerLevel = UnitLevel("player") or 1
@@ -166,25 +167,45 @@ function QuestiePlayer:GetPartyMembers()
     return nil
 end
 
+function QuestiePlayer:InvalidatePartyMemberCache()
+    QuestiePlayer.partyMemberCache = nil
+end
+
+local function BuildPartyMemberCache()
+    local partyMembers = QuestiePlayer:GetPartyMembers()
+    local cache = {}
+
+    if partyMembers then
+        for _, member in pairs(partyMembers) do
+            local rPerc, gPerc, bPerc, argbHex = GetClassColor(member.Class)
+            cache[member.Name] = {
+                name = member.Name,
+                class = member.Class,
+                r = rPerc,
+                g = gPerc,
+                b = bPerc,
+                colorHex = argbHex,
+            }
+        end
+    end
+
+    QuestiePlayer.partyMemberCache = cache
+    return cache
+end
+
 function QuestiePlayer:GetPartyMemberByName(playerName)
     if(UnitInParty("player") or UnitInRaid("player")) then
-        local player = {}
-        for index=1, 40 do
-            local name = UnitName("party"..index);
-            local _, classFilename = UnitClass("party"..index);
-            if name == playerName then
-                player.name = playerName;
-                player.class = classFilename;
-                local rPerc, gPerc, bPerc, argbHex = GetClassColor(classFilename)
-                player.r = rPerc;
-                player.g = gPerc;
-                player.b = bPerc;
-                player.colorHex = argbHex;
-                return player;
-            end
-            if(index > 6 and not UnitInRaid("player")) then
-                break;
-            end
+        local partyMemberCache = QuestiePlayer.partyMemberCache or BuildPartyMemberCache()
+        local player = partyMemberCache[playerName]
+        if player then
+            return {
+                name = player.name,
+                class = player.class,
+                r = player.r,
+                g = player.g,
+                b = player.b,
+                colorHex = player.colorHex,
+            }
         end
     end
     return nil;
