@@ -40,6 +40,10 @@ local function IsAscensionProtected(dbType, id, key)
     return protected and protected[key] == true
 end
 
+local function HasAscensionQuestObjectiveData(questId)
+    return IsAscensionProtected("QUEST", questId, 10)
+end
+
 local function NormalizeSpawnZoneKey(zoneKey)
     -- Convert raw area IDs (e.g. 3431 from GetAreaID()) to the canonical map IDs
     -- used by AscensionDB and the rendering system (e.g. 1241 for Sunstrider Isle).
@@ -1651,7 +1655,7 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
     -- 3. Register with tooltip system immediately. Preserve the objective icon so
     -- nameplates can render the correct learned slay/loot/talk marker.
     local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
-    if QuestieTooltips and QuestieTooltips.RegisterObjectiveTooltip then
+    if QuestieTooltips and QuestieTooltips.RegisterObjectiveTooltip and not HasAscensionQuestObjectiveData(questId) then
         local objectiveIcon
         local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
         local objectives = QuestLogCache and QuestLogCache.GetQuestObjectives and QuestLogCache.GetQuestObjectives(questId)
