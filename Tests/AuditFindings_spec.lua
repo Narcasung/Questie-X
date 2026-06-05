@@ -197,10 +197,21 @@ describe("Audit Pass 9 - file-by-file findings (snapshot at HEAD)", function()
         assert.is_true(has(d, "if(dbItem and dbItem.name and (not dbItem.Hidden)) then"))
     end)
 
-    it("[N5] select(8, GetInstanceInfo()) left in QuestiePlayer (5.0 rewrite unfinished)", function()
-        assert.is_true(has(read("Modules/QuestiePlayer.lua"), "select(8, GetInstanceInfo())"))
-        -- QuestieLearner was rewritten away from it:
-        assert.is_true(has(read("Modules/QuestieLearner.lua"), "Lua 5.0 compat"))
+    it("[N5] explicit unpack replaced select(8, ...) in live quest/instance lookups", function()
+        local player = read("Modules/QuestiePlayer.lua")
+        local handler = read("Modules/Quest/QuestEventHandler.lua")
+        local tracker = read("Modules/Tracker/QuestieTracker.lua")
+
+        assert.is_true(has(player, "local _, _, _, _, _, _, _, instanceMapID = GetInstanceInfo()"))
+        assert.is_false(has(player, "select(8, GetInstanceInfo())"))
+
+        assert.is_true(has(handler, "local _, _, _, _, _, _, _, questLogQuestId = GetQuestLogTitle(questLogIndex)"))
+        assert.is_false(has(handler, "select(8, GetQuestLogTitle(questLogIndex))"))
+
+        assert.is_true(has(tracker, "local _, _, _, _, _, _, _, questId = GetQuestLogTitle(questIndex)"))
+        assert.is_true(has(tracker, "local _, _, _, _, _, _, _, questId = GetQuestLogTitle(index)"))
+        assert.is_false(has(tracker, "select(8, GetQuestLogTitle(questIndex))"))
+        assert.is_false(has(tracker, "select(8, GetQuestLogTitle(index))"))
     end)
 
     it("[9.1->11.1] CORRECTED: % modulo IS used (the 'avoided' claim was wrong)", function()

@@ -413,7 +413,7 @@ function QuestieTracker.Initialize()
                 for i = 1, questsWatched do
                     local questIndex = GetQuestIndexForWatch(i)
                     if questIndex then
-                        local questId = select(8, GetQuestLogTitle(questIndex))
+                        local _, _, _, _, _, _, _, questId = GetQuestLogTitle(questIndex)
                         if questId then
                             tempQuestIDs[i] = questId
                         end
@@ -2277,7 +2277,7 @@ function QuestieTracker:HookBaseTracker()
 
     -- Intercept and return a Questie boolean value
     IsQuestWatched = function(index)
-        local questId = select(8, GetQuestLogTitle(index))
+        local _, _, _, _, _, _, _, questId = GetQuestLogTitle(index)
         if questId == 0 then
             -- When an objective progresses in TBC "index" is the questId, but when a quest is manually added to the quest watch
             -- (e.g. shift clicking it in the quest log) "index" is the questLogIndex.
