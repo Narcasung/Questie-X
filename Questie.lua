@@ -134,10 +134,14 @@ function Questie:Print(...)
 end
 
 function Questie:Error(...)
+    Questie:Debug(Questie.DEBUG_CRITICAL, ...)
+end
+
+function Questie:Fatal(...)
     if orig_Print then
-        orig_Print(Questie, "|cffff0000[ERROR]|r", ...)
+        orig_Print(Questie, "|cffff0000[FATAL]|r", ...)
     else
-        print("|cffff0000[ERROR]|r", ...)
+        print("|cffff0000[FATAL]|r", ...)
     end
 end
 

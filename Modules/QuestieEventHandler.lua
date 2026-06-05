@@ -232,8 +232,7 @@ function _EventHandler:PlayerLogin()
     -- Check config exists
     if not Questie.db or not QuestieConfig then
         -- Did you move Questie.db = LibStub("AceDB-3.0"):New("QuestieConfig",.......) out of Questie:OnInitialize() ?
-        Questie:Error("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
-        error("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
+        Questie:Fatal("Config DB from saved variables is not loaded and initialized. Please report this issue on Questie github or discord.")
         return
     end
 

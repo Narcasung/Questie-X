@@ -27,7 +27,7 @@ local function InitializeQuestie()
         LibStub("AceAddon-3.0"):NewAddon(existingQuestie, addonName, "AceConsole-3.0", "AceEvent-3.0", "AceTimer-3.0", "AceComm-3.0", "AceBucket-3.0")
     end)
     if not ok then
-        Questie:Error("ERROR inside NewAddon: " .. tostring(err))
+        Questie:Fatal("ERROR inside NewAddon: " .. tostring(err))
     end
     
     -- Ensure the global reference points to our unified object

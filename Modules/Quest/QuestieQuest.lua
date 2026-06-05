@@ -953,7 +953,7 @@ function QuestieQuest:GetAllQuestIds()
         if not quest then
             if not Questie._sessionWarnings[questId] then
                 if not Questie.IsSoD then
-                    Questie:Error(l10n(
+                    Questie:Debug(Questie.DEBUG_CRITICAL, l10n(
                     "The quest %s is missing from Questie's database. Please report this on GitHub or Discord!",
                         tostring(questId)))
                 end
@@ -1150,7 +1150,7 @@ function QuestieQuest:GetAllQuestIdsNoObjectives()
         if not quest then
             if not Questie._sessionWarnings[questId] then
                 if not Questie.IsSoD then
-                    Questie:Error(l10n(
+                    Questie:Debug(Questie.DEBUG_CRITICAL, l10n(
                     "The quest %s is missing from Questie's database. Please report this on GitHub or Discord!",
                         tostring(questId)))
                 end

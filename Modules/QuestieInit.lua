@@ -183,7 +183,7 @@ end
 ---Run the validator
 local function runValidator()
     if type(QuestieDB.questData) == "string" or type(QuestieDB.npcData) == "string" or type(QuestieDB.objectData) == "string" or type(QuestieDB.itemData) == "string" then
-        Questie:Error("Cannot run the validator on string data, load database first")
+        Questie:Debug(Questie.DEBUG_CRITICAL, "Cannot run the validator on string data, load database first")
         return
     end
     -- Run validator
@@ -416,7 +416,7 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     if QuestieArrow and QuestieArrow.Initialize then
         QuestieArrow:Initialize()
     else
-        Questie:Error("[QuestieArrow] Module not loaded correctly (missing Initialize).")
+        Questie:Fatal("[QuestieArrow] Module not loaded correctly (missing Initialize).")
     end
     TrackerQuestTimers:Initialize()
     QuestieComms:Initialize()
