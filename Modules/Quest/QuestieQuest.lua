@@ -1673,6 +1673,20 @@ _RegisterObjectiveTooltips = function(objective, questId, blockItemTooltips)
                 objective.registeredItemTooltips = true
             end
             return
+        elseif objective.Type == "killcredit" then
+            local ids = objective.IdList
+            if type(ids) ~= "table" then
+                ids = { objective.Id }
+            end
+
+            for _, id in ipairs(ids) do
+                if id then
+                    QuestieTooltips:RegisterObjectiveTooltip(questId, "m_" .. id, objective)
+                end
+            end
+
+            objective.hasRegisteredTooltips = true
+            return
         end
 
         Questie:Error("[QuestieQuest]: [Tooltips] " ..
