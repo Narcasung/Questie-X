@@ -33,6 +33,14 @@ local function count(content, needle)
     return n
 end
 
+local function section(content, startMarker, endMarker)
+    local startPos = string.find(content, startMarker, 1, true)
+    assert.is_not_nil(startPos, "missing start marker: " .. startMarker)
+    local endPos = string.find(content, endMarker, startPos + 1, true)
+    assert.is_not_nil(endPos, "missing end marker: " .. endMarker)
+    return string.sub(content, startPos, endPos - 1)
+end
+
 local function startsWithBOM(path)
     local f = assert(io.open(path, "rb"), "cannot open " .. path)
     local head = f:read(3)
@@ -338,8 +346,22 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         local compiler = read("Database/compiler.lua")
         assert.is_true(has(compiler, "handle.Query = function(id, keys)")) -- batch reader exists
         local db = read("Database/QuestieDB.lua")
-        -- IsDoable issues many single-key reads instead of one batch read:
-        assert.is_true(count(db, "QueryQuestSingle(questId,") >= 8)
+        local doable = section(db, "function QuestieDB.IsDoable(questId, debugPrint)", "function QuestieDB.IsDoableVerbose")
+
+        assert.is_true(has(db, "local IS_DOABLE_QUERY_ORDER = {"))
+        assert.is_true(has(doable, "local doableQuestData = QuestieDB.QueryQuest(questId, IS_DOABLE_QUERY_ORDER)"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredRaces\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"preQuestSingle\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredClasses\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredMinRep\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredMaxRep\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredSkill\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"preQuestGroup\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"parentQuest\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"nextQuestInChain\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"exclusiveTo\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredSpecialization\")"))
+        assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredSpell\")"))
     end)
 
     it("[PP2] hot non-fragile files repeat Questie.db.profile chains", function()

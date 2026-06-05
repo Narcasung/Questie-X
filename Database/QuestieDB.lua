@@ -217,6 +217,21 @@ QuestieDB.autoBlacklist = {}
 local tinsert = table.insert
 local bitband = bit.band
 
+local IS_DOABLE_QUERY_ORDER = {
+    "requiredRaces",
+    "preQuestSingle",
+    "requiredClasses",
+    "requiredMinRep",
+    "requiredMaxRep",
+    "requiredSkill",
+    "preQuestGroup",
+    "parentQuest",
+    "nextQuestInChain",
+    "exclusiveTo",
+    "requiredSpecialization",
+    "requiredSpell",
+}
+
 -- questFlags https://github.com/cmangos/issues/wiki/Quest_template#questflags
 local QUEST_FLAGS_DAILY = 4096
 local QUEST_FLAGS_WEEKLY = 32768
@@ -930,7 +945,9 @@ function QuestieDB.IsDoable(questId, debugPrint)
         -- if we're on the parent quest then we implicitly know all other requirements are met
     end
 
-    local requiredRaces = QuestieDB.QueryQuestSingle(questId, "requiredRaces")
+    local doableQuestData = QuestieDB.QueryQuest(questId, IS_DOABLE_QUERY_ORDER)
+
+    local requiredRaces = doableQuestData and doableQuestData[1]
     if (requiredRaces and not checkRace[requiredRaces]) then
         QuestieDB.autoBlacklist[questId] = "race"
         if debugPrint then Questie:Debug(Questie.DEBUG_SPAM, "[QuestieDB.IsDoable] Race requirement not fulfilled for quest " .. questId) end
@@ -938,7 +955,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
     end
 
     -- Check the preQuestSingle field where just one of the required quests has to be complete for a quest to show up
-    local preQuestSingle = QuestieDB.QueryQuestSingle(questId, "preQuestSingle")
+    local preQuestSingle = doableQuestData and doableQuestData[2]
     if preQuestSingle then
         local isPreQuestSingleFulfilled = QuestieDB:IsPreQuestSingleFulfilled(preQuestSingle)
         if not isPreQuestSingleFulfilled then
@@ -947,15 +964,15 @@ function QuestieDB.IsDoable(questId, debugPrint)
         end
     end
 
-    local requiredClasses = QuestieDB.QueryQuestSingle(questId, "requiredClasses")
+    local requiredClasses = doableQuestData and doableQuestData[3]
     if (requiredClasses and not checkClass[requiredClasses]) then
         QuestieDB.autoBlacklist[questId] = "class"
         if debugPrint then Questie:Debug(Questie.DEBUG_SPAM, "[QuestieDB.IsDoable] Class requirement not fulfilled for quest " .. questId) end
         return false
     end
 
-    local requiredMinRep = QuestieDB.QueryQuestSingle(questId, "requiredMinRep")
-    local requiredMaxRep = QuestieDB.QueryQuestSingle(questId, "requiredMaxRep")
+    local requiredMinRep = doableQuestData and doableQuestData[4]
+    local requiredMaxRep = doableQuestData and doableQuestData[5]
     if (requiredMinRep or requiredMaxRep) then
         local aboveMinRep, hasMinFaction, belowMaxRep, hasMaxFaction = QuestieReputation:HasFactionAndReputationLevel(requiredMinRep, requiredMaxRep)
         if (not ((aboveMinRep and hasMinFaction) and (belowMaxRep and hasMaxFaction))) then
@@ -969,7 +986,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
         end
     end
 
-    local requiredSkill = QuestieDB.QueryQuestSingle(questId, "requiredSkill")
+    local requiredSkill = doableQuestData and doableQuestData[6]
     if (requiredSkill) then
         local hasProfession, hasSkillLevel = QuestieProfessions:HasProfessionAndSkillLevel(requiredSkill)
         if (not (hasProfession and hasSkillLevel)) then
@@ -987,7 +1004,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
     --? Only try group if single does not exist.
     if not preQuestSingle then
         -- Check the preQuestGroup field where every required quest has to be complete for a quest to show up
-        local preQuestGroup = QuestieDB.QueryQuestSingle(questId, "preQuestGroup")
+        local preQuestGroup = doableQuestData and doableQuestData[7]
         if preQuestGroup then
             local isPreQuestGroupFulfilled = QuestieDB:IsPreQuestGroupFulfilled(preQuestGroup)
             if not isPreQuestGroupFulfilled then
@@ -997,13 +1014,13 @@ function QuestieDB.IsDoable(questId, debugPrint)
         end
     end
 
-    local parentQuest = QuestieDB.QueryQuestSingle(questId, "parentQuest")
+    local parentQuest = doableQuestData and doableQuestData[8]
     if parentQuest and parentQuest ~= 0 then
         if debugPrint then Questie:Debug(Questie.DEBUG_SPAM, "[QuestieDB.IsDoable] Quest " .. questId .. " has an inactive parent quest") end
         return false
     end
 
-    local nextQuestInChain = QuestieDB.QueryQuestSingle(questId, "nextQuestInChain")
+    local nextQuestInChain = doableQuestData and doableQuestData[9]
     if nextQuestInChain and nextQuestInChain ~= 0 then
         if Questie.db.char.complete[nextQuestInChain] or QuestiePlayer.currentQuestlog[nextQuestInChain] then
             if debugPrint then Questie:Debug(Questie.DEBUG_SPAM, "[QuestieDB.IsDoable] Follow up quests already completed or in the quest log for quest " .. questId) end
@@ -1013,7 +1030,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
 
     -- Check if a quest which is exclusive to the current has already been completed or accepted
     -- If yes the current quest can't be accepted
-    local ExclusiveQuestGroup = QuestieDB.QueryQuestSingle(questId, "exclusiveTo")
+    local ExclusiveQuestGroup = doableQuestData and doableQuestData[10]
     if ExclusiveQuestGroup then -- fix (DO NOT REVERT, tested thoroughly)
         local _k, v = next(ExclusiveQuestGroup)
         while _k do
@@ -1030,7 +1047,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
         return false
     end
 
-    local requiredSpecialization = QuestieDB.QueryQuestSingle(questId, "requiredSpecialization")
+    local requiredSpecialization = doableQuestData and doableQuestData[11]
     if (requiredSpecialization) and (requiredSpecialization > 0) then
         local hasSpecialization = QuestieProfessions:HasSpecialization(requiredSpecialization)
         if (not hasSpecialization) then
@@ -1039,7 +1056,7 @@ function QuestieDB.IsDoable(questId, debugPrint)
         end
     end
 
-    local requiredSpell = QuestieDB.QueryQuestSingle(questId, "requiredSpell")
+    local requiredSpell = doableQuestData and doableQuestData[12]
     if (requiredSpell) and (requiredSpell ~= 0) then
         local hasSpell = IsSpellKnownOrOverridesKnown(math.abs(requiredSpell))
         local hasProfSpell = IsPlayerSpell(math.abs(requiredSpell))
