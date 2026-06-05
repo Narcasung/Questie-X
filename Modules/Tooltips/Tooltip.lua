@@ -137,6 +137,7 @@ end
 -- This code is related to QuestieComms, here we fetch all the tooltip data that exist in QuestieCommsData
 -- It uses a similar system like here with i_ID etc as keys.
 local function _FetchTooltipsForGroupMembers(key, tooltipData)
+    local profile = Questie.db.profile
     local anotherPlayer = false;
     if QuestieComms and QuestieComms.data:KeyExists(key) then
         ---@tooltipData @tooltipData[questId][playerName][objectiveIndex].text
@@ -144,7 +145,7 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
         for questId, playerList in next, tooltipDataExternal do
             if (not tooltipData[questId]) then
                 tooltipData[questId] = {
-                    title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
+                    title = QuestieLib:GetColoredQuestName(questId, profile.enableTooltipsQuestLevel, true, true)
                 }
             end
             for playerName, _ in next, playerList do
@@ -166,7 +167,7 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
         for questId, playerList in next, tooltipDataExternal do
             if (not tooltipData[questId]) then
                 tooltipData[questId] = {
-                    title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
+                    title = QuestieLib:GetColoredQuestName(questId, profile.enableTooltipsQuestLevel, true, true)
                 }
             end
             for playerName, objectives in next, playerList do
@@ -201,6 +202,7 @@ end
 ---@param key string
 function QuestieTooltips:GetTooltip(key)
     Questie:Debug(Questie.DEBUG_SPAM, "[QuestieTooltips:GetTooltip]", key)
+    local profile = Questie.db.profile
     if (not key) then
         return nil
     end
@@ -347,8 +349,8 @@ elseif key:sub(1,2) == "o_" then
         local playerName = UnitName("player")
         for k, tooltip in next, QuestieTooltips.lookupByKey[key] do
             if tooltip.name then
-                if Questie.db.profile.showQuestsInNpcTooltip then
-                    local questString = QuestieLib:GetColoredQuestName(tooltip.questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
+                if profile.showQuestsInNpcTooltip then
+                    local questString = QuestieLib:GetColoredQuestName(tooltip.questId, profile.enableTooltipsQuestLevel, true, true)
                     tinsert(tooltipLines, questString)
                 end
             else
@@ -362,7 +364,7 @@ elseif key:sub(1,2) == "o_" then
                 local objectiveIndex = objective.Index;
                 if (not tooltipData[questId]) then
                     tooltipData[questId] = {
-                        title = QuestieLib:GetColoredQuestName(questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
+                        title = QuestieLib:GetColoredQuestName(questId, profile.enableTooltipsQuestLevel, true, true)
                     }
                 end
 
@@ -418,7 +420,7 @@ elseif key:sub(1,2) == "o_" then
                 local playerType = ""
                 if playerInfo then
                     playerColor = "|c" .. playerInfo.colorHex
-                elseif QuestieComms.remotePlayerEnabled[objectivePlayerName] and QuestieComms.remoteQuestLogs[questId] and QuestieComms.remoteQuestLogs[questId][objectivePlayerName] and (not Questie.db.profile.onlyPartyShared or UnitInParty(objectivePlayerName)) then
+                elseif QuestieComms.remotePlayerEnabled[objectivePlayerName] and QuestieComms.remoteQuestLogs[questId] and QuestieComms.remoteQuestLogs[questId][objectivePlayerName] and (not profile.onlyPartyShared or UnitInParty(objectivePlayerName)) then
                     playerColor = QuestieComms.remotePlayerClasses[playerName]
                     if playerColor then
                         playerColor = Questie:GetClassColor(playerColor)

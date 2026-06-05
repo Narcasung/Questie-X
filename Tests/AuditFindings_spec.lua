@@ -364,9 +364,17 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_false(has(doable, "QueryQuestSingle(questId, \"requiredSpell\")"))
     end)
 
-    it("[PP2] hot non-fragile files repeat Questie.db.profile chains", function()
-        assert.is_true(count(read("Modules/Tooltips/MapIconTooltip.lua"), "Questie.db.profile.") >= 8)
-        assert.is_true(count(read("Modules/Map/QuestieMap.lua"), "Questie.db.profile.") >= 8)
+    it("[PP2] hot non-fragile files cache Questie.db.profile locally", function()
+        local mapTooltip = read("Modules/Tooltips/MapIconTooltip.lua")
+        local map = read("Modules/Map/QuestieMap.lua")
+        local tooltip = read("Modules/Tooltips/Tooltip.lua")
+
+        assert.is_true(has(mapTooltip, "local profile = Questie.db.profile"))
+        assert.is_true(has(map, "local profile = Questie.db.profile"))
+        assert.is_true(has(tooltip, "local profile = Questie.db.profile"))
+        assert.is_false(has(mapTooltip, "Questie.db.profile.enableTooltipsQuestLevel"))
+        assert.is_false(has(map, "Questie.db.profile.minimapIconRangeCutoff"))
+        assert.is_false(has(tooltip, "Questie.db.profile.showQuestsInNpcTooltip"))
     end)
 
     it("[PP3] arrow target sort no longer allocates an inline comparator per refresh", function()

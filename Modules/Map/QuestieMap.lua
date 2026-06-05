@@ -302,7 +302,8 @@ function QuestieMap:RefreshMinimapIconVisibility()
         return
     end
 
-    local minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
+    local profile = Questie.db.profile
+    local minimapVisibilityCutoff = profile.minimapIconRangeCutoff or 100
     if HBDPins.SetMinimapVisibilityCutoff then
         HBDPins:SetMinimapVisibilityCutoff(minimapVisibilityCutoff)
     end
@@ -362,7 +363,7 @@ function QuestieMap.ProcessQueue()
             local frame = mapDrawCall[2];
             HBDPins:AddWorldMapIconMap(tunpack(mapDrawCall));
 
-            local size = (16 * (frame.data.IconScale or 1) * (Questie.db.profile.globalScale or 0.7)) * scaleValue;
+            local size = (16 * (frame.data.IconScale or 1) * (profile.globalScale or 0.7)) * scaleValue;
             frame:SetSize(size, size)
             QuestieMap.utils:SetDrawOrder(frame);
         end
@@ -425,7 +426,8 @@ function QuestieMap:ShowNPC(npcID, icon, scale, title, body, disableShiftToRemov
     local data = {}
     data.id = npc.id
     data.Icon = icon or "Interface\\WorldMap\\WorldMapPartyIcon"
-    data.GetIconScale = function() return scale or Questie.db.profile.manualScale or 0.7 end
+    local profile = Questie.db.profile
+    data.GetIconScale = function() return scale or profile.manualScale or 0.7 end
     data.IconScale = data:GetIconScale()
     data.Type = "manual"
     data.spawnType = "monster"
@@ -486,10 +488,11 @@ function QuestieMap:ShowObject(objectID, icon, scale, title, body, disableShiftT
     if typ then
         data.id = object.id
     else
-        data.id = -object.id
+    data.id = -object.id
     end
     data.Icon = icon or "Interface\\WorldMap\\WorldMapPartyIcon"
-    data.GetIconScale = function() return scale or Questie.db.profile.manualScale or 0.7 end
+    local profile = Questie.db.profile
+    data.GetIconScale = function() return scale or profile.manualScale or 0.7 end
     data.IconScale = data:GetIconScale()
     data.Type = "manual"
     data.spawnType = "object"
@@ -582,11 +585,11 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
 
     local iconMinimap = QuestieFramePool:GetFrame()
     local colorsMinimap = { 1, 1, 1 }
-    if data.IconColor ~= nil and Questie.db.profile.questMinimapObjectiveColors then
+    if data.IconColor ~= nil and profile.questMinimapObjectiveColors then
         colorsMinimap = data.IconColor
     end
-    iconMinimap:SetWidth(16 * ((data:GetIconScale() or 1) * (Questie.db.profile.globalMiniMapScale or 0.7)))
-    iconMinimap:SetHeight(16 * ((data:GetIconScale() or 1) * (Questie.db.profile.globalMiniMapScale or 0.7)))
+    iconMinimap:SetWidth(16 * ((data:GetIconScale() or 1) * (profile.globalMiniMapScale or 0.7)))
+    iconMinimap:SetHeight(16 * ((data:GetIconScale() or 1) * (profile.globalMiniMapScale or 0.7)))
     iconMinimap.data = data
     iconMinimap.x = x
     iconMinimap.y = y
@@ -595,7 +598,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     iconMinimap.texture:SetTexture(texture)
     iconMinimap.texture:SetVertexColor(colorsMinimap[1], colorsMinimap[2], colorsMinimap[3], 1);
     iconMinimap.miniMapIcon = true;
-    iconMinimap.minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
+    iconMinimap.minimapVisibilityCutoff = profile.minimapIconRangeCutoff or 100
 
     if (not iconMinimap.FadeLogic) then
         function iconMinimap:SetFade(value)
@@ -610,7 +613,6 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
         end
 
         function iconMinimap:FadeLogic()
-            local profile = Questie.db.profile
             if self.miniMapIcon and self.x and self.y and self.texture and self.UiMapID and self.texture.SetVertexColor and HBD and HBD.GetPlayerZonePosition then
                 if (QuestieMap.playerX and QuestieMap.playerY) then
                     local x, y
@@ -664,14 +666,14 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
     QuestieMap:QueueDraw(QuestieMap.ICON_MINIMAP_TYPE, Questie, iconMinimap, iconMinimap.UiMapID, x / 100, y / 100, true, true);
     tinsert(QuestieMap.manualFrames[typ][data.id], iconMinimap:GetName())
 
-    if (not Questie.db.profile.enabled) then
+    if (not profile.enabled) then
         icon:FakeHide()
         iconMinimap:FakeHide()
     else
-        if (not Questie.db.profile.enableMapIcons) then
+        if (not profile.enableMapIcons) then
             icon:FakeHide()
         end
-        if (not Questie.db.profile.enableMiniMapIcons) then
+        if (not profile.enableMiniMapIcons) then
             iconMinimap:FakeHide()
         end
     end
@@ -691,6 +693,8 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawWorldIcon] must have some data")
         return nil, nil
     end
+
+    local profile = Questie.db.profile
 
     local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)
     if (not uiMapId) then
@@ -740,7 +744,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
     iconMinimap.AreaID = areaID
     iconMinimap.UiMapID = uiMapId
     iconMinimap.miniMapIcon = true;
-    iconMinimap.minimapVisibilityCutoff = Questie.db.profile.minimapIconRangeCutoff or 100
+    iconMinimap.minimapVisibilityCutoff = profile.minimapIconRangeCutoff or 100
     iconMinimap:UpdateTexture(Questie.usedIcons[data.Icon]);
 
     if (not iconMinimap.FadeLogic) then
@@ -756,7 +760,6 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
         end
 
         function iconMinimap:FadeLogic()
-            local profile = Questie.db.profile
             if self.miniMapIcon and self.x and self.y and self.texture and self.UiMapID and self.texture.SetVertexColor and HBD and HBD.GetPlayerZonePosition then
                 if (QuestieMap.playerX and QuestieMap.playerY) then
                     local x, y
