@@ -347,4 +347,12 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_false(has(stream, "val1 % 256"))
         assert.is_false(has(stream, "val2 % 256"))
     end)
+
+    it("[L10] UNIT_DIED dedupe cannot suppress a later PARTY_KILL learner update", function()
+        local learner = read("Modules/QuestieLearner.lua")
+
+        assert.is_true(has(learner, 'local lastEventType = type(last) == "table" and last.eventType or nil'))
+        assert.is_true(has(learner, 'if eventType ~= "PARTY_KILL" or lastEventType == "PARTY_KILL" then'))
+        assert.is_true(has(learner, '_Learner.killDebounce[dstGUID] = { ts = now, eventType = eventType }'))
+    end)
 end)

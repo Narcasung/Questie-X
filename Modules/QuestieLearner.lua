@@ -3128,15 +3128,22 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     -- Dedupe: if this GUID was processed within the last 5 seconds, skip.
     -- PARTY_KILL and UNIT_DIED can both fire for the same kill; we only need one.
     local now = time()
-    local lastTs = _Learner.killDebounce and _Learner.killDebounce[dstGUID]
+    local last = _Learner.killDebounce and _Learner.killDebounce[dstGUID]
+    local lastTs = type(last) == "table" and last.ts or last
+    local lastEventType = type(last) == "table" and last.eventType or nil
     if lastTs and (now - lastTs) < 5 then
-        -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] kill dedupe suppressed duplicate event=", eventType, " dstGUID=", dstGUID)
-        return
+        -- UNIT_DIED can arrive before PARTY_KILL for our own kill. Never let the
+        -- bystander-safe cache path suppress the authoritative local kill event.
+        if eventType ~= "PARTY_KILL" or lastEventType == "PARTY_KILL" then
+            -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] kill dedupe suppressed duplicate event=", eventType, " dstGUID=", dstGUID)
+            return
+        end
     end
     _Learner.killDebounce = _Learner.killDebounce or {}
-    _Learner.killDebounce[dstGUID] = now
+    _Learner.killDebounce[dstGUID] = { ts = now, eventType = eventType }
     -- Prune entries older than 10 seconds to keep the table bounded
-    for g, ts in pairs(_Learner.killDebounce) do
+    for g, entry in pairs(_Learner.killDebounce) do
+        local ts = type(entry) == "table" and entry.ts or entry
         if (now - ts) > 10 then
             _Learner.killDebounce[g] = nil
         end
