@@ -334,7 +334,7 @@ function QuestieOptions.tabs.general:Initialize()
 						end,
 						set = function(_, value)
 							Questie.db.profile.enableAscensionScaling = value
-							AvailableQuests.CalculateAndDrawAll()
+							QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, "ascensionScaling set to " .. tostring(value))
 							QuestieTracker:Update()
 						end,
 					},
@@ -354,7 +354,7 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function () return Questie.db.profile.lowLevelStyle end,
                         set = function (_, value)
                             Questie.db.profile.lowLevelStyle = value
-                            AvailableQuests.CalculateAndDrawAll()
+                            QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, "lowLevelStyle set to " .. tostring(value))
                             Questie:Debug(Questie.DEBUG_DEVELOP, "Lowlevel Quests set to:", value)
                         end,
                     },

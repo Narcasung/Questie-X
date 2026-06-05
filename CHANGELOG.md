@@ -8,6 +8,7 @@
 - **[Phase 2 - l10n No-Arg Fast Path]** Added a no-argument fast path to `Localization/l10n.lua` so the common literal-translation case no longer allocates a fresh vararg table on every call. That trims the hottest remaining alloc hotspot called out by the audit while preserving the existing formatted-string path when arguments are actually provided.
 - **[Phase 3 - l10n Translation Cache]** Added a locale-aware cache for no-argument translation lookups in `Localization/l10n.lua` so repeated literal keys can resolve without redoing the lookup chain. The cache is reset when the locale changes or locale overrides are applied.
 - **[Phase 3 - Tooltip Party Cache]** Reworked `QuestiePlayer:GetPartyMemberByName` to use a cached party-member lookup table instead of scanning party units on every tooltip request. The cache is invalidated when the group roster changes so tooltip lookups stay fast without going stale.
+- **[Phase 3 - Quest Rescan Debounce]** Routed the remaining Options-tab `AvailableQuests.CalculateAndDrawAll()` triggers through `QuestieOptionsUtils:Delay(...)` so the quest redraw burst is coalesced instead of firing immediately from multiple settings changes.
 - **[Phase 2 - Lua 5.0 Modulo Sweep]** Replaced the remaining runtime `%` operators in quest flag checks, Darkmoon Faire date logic, player eligibility helpers, the message handler yield gate, and the pseudo-random helper with `math.mod(...)`. This keeps the load-bearing phase-2 runtime paths compatible with Lua 5.0 while avoiding raw modulo syntax.
 
 ## [1.6.3]

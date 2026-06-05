@@ -312,6 +312,17 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(eventHandler, "QuestiePlayer:InvalidatePartyMemberCache()"))
     end)
 
+    it("[P7] options-triggered quest rescans are debounced through QuestieOptionsUtils:Delay", function()
+        local general = read("Modules/Options/GeneralTab/QuestieOptionsGeneral.lua")
+
+        assert.is_false(has(general, "AvailableQuests.CalculateAndDrawAll()"))
+        assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"ascensionScaling set to \" .. tostring(value))"))
+        assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"lowLevelStyle set to \" .. tostring(value))"))
+        assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"manualLevelOffset set to \" .. value)"))
+        assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"minLevelFilter set to \" .. value)"))
+        assert.is_true(has(general, "QuestieOptionsUtils:Delay(0.3, AvailableQuests.CalculateAndDrawAll, \"maxLevelFilter set to \" .. value)"))
+    end)
+
     it("[PP1] a batch Query(id, keys) API exists that IsDoable does not use", function()
         local compiler = read("Database/compiler.lua")
         assert.is_true(has(compiler, "handle.Query = function(id, keys)")) -- batch reader exists
