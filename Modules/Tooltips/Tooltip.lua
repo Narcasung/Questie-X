@@ -43,6 +43,31 @@ local _tooltipLastText = ""
 
 local _InitObjectiveTexts
 
+local function _GetQuestObjectiveSummary(questId)
+    if not QuestieDB or not QuestieDB.GetQuest then
+        return nil
+    end
+
+    local quest = QuestieDB:GetQuest(questId)
+    if not quest or not quest.ObjectiveData then
+        return nil
+    end
+
+    local summary = {}
+    for _, objective in ipairs(quest.ObjectiveData) do
+        local text = objective and (objective.Text or objective.Description)
+        if type(text) == "string" and text ~= "" then
+            tinsert(summary, text)
+        end
+    end
+
+    if table.getn(summary) == 0 then
+        return nil
+    end
+
+    return summary
+end
+
 ---@param questId number
 ---@param key string monster: m_, items: i_, objects: o_ + string name of the objective
 ---@param objective table
@@ -205,7 +230,7 @@ function QuestieTooltips:GetTooltip(key)
         return nil
     end
 
-    if QuestiePlayer.numberOfGroupMembers > MAX_GROUP_MEMBER_COUNT then
+    if (QuestiePlayer.numberOfGroupMembers or 0) > MAX_GROUP_MEMBER_COUNT then
         return nil -- temporary disable tooltips in raids, we should make a proper fix
     end
 
@@ -345,11 +370,27 @@ elseif key:sub(1,2) == "o_" then
 
     if QuestieTooltips.lookupByKey[key] then
         local playerName = UnitName("player")
+        local hasObjectiveEntries = false
+        for _, tooltip in next, QuestieTooltips.lookupByKey[key] do
+            if not tooltip.name then
+                hasObjectiveEntries = true
+                break
+            end
+        end
+
         for k, tooltip in next, QuestieTooltips.lookupByKey[key] do
             if tooltip.name then
                 if Questie.db.profile.showQuestsInNpcTooltip then
                     local questString = QuestieLib:GetColoredQuestName(tooltip.questId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
                     tinsert(tooltipLines, questString)
+                    if not hasObjectiveEntries then
+                        local objectiveSummary = _GetQuestObjectiveSummary(tooltip.questId)
+                        if objectiveSummary then
+                            for _, objectiveText in ipairs(objectiveSummary) do
+                                tinsert(tooltipLines, "   |cFFcbcbcb" .. objectiveText .. "|r")
+                            end
+                        end
+                    end
                 end
             else
                 local objective = tooltip.objective

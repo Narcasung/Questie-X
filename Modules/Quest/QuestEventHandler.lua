@@ -237,7 +237,8 @@ end
 ---@param questLogIndex number
 ---@param questId number
 function _QuestEventHandler:QuestAccepted(questLogIndex, questId)
-    questId = questId or select(8, GetQuestLogTitle(questLogIndex))
+    local _, _, _, _, _, _, _, questLogQuestId = GetQuestLogTitle(questLogIndex)
+    questId = questId or questLogQuestId
     Questie:Debug(Questie.DEBUG_DEVELOP, "[Quest Event] QUEST_ACCEPTED", questLogIndex, questId)
 
     if questLog[questId] and questLog[questId].timer then

@@ -120,7 +120,8 @@ function QuestiePlayer:GetCurrentZoneId()
         return uiMapId
     end
 
-    return ZoneDB.instanceIdToUiMapId[select(8, GetInstanceInfo())]
+    local _, _, _, _, _, _, _, instanceMapID = GetInstanceInfo()
+    return ZoneDB.instanceIdToUiMapId[instanceMapID]
 end
 
 function QuestiePlayer:GetCurrentUiMapId()
@@ -129,7 +130,8 @@ function QuestiePlayer:GetCurrentUiMapId()
     if uiMapId then
         return uiMapId
     end
-    return ZoneDB.instanceIdToUiMapId[select(8, GetInstanceInfo())]
+    local _, _, _, _, _, _, _, instanceMapID = GetInstanceInfo()
+    return ZoneDB.instanceIdToUiMapId[instanceMapID]
 end
 
 ---@return number
