@@ -39,6 +39,13 @@ describe("QuestieLearner data source mode", function()
         assert.is_true(has(priv, "dataSourceMode == \"none\" or dataSourceMode == \"learner\""))
         assert.is_true(has(tip, "mode ~= \"static\" and mode ~= \"none\""))
     end)
+
+    it("allows learner mode to draw pins from a single learned spawn when needed", function()
+        local priv = read("Modules/Quest/QuestieQuestPrivates.lua")
+        assert.is_true(has(priv, "local staticHasSpawns = spawns and next(spawns) ~= nil"))
+        assert.is_true(has(priv, "local canUseLearnerSpawns = dataSourceMode == \"learner\""))
+        assert.is_true(has(priv, "or not staticHasSpawns"))
+    end)
 end)
 
 describe("QuestieLearner missing base DB fallback", function()

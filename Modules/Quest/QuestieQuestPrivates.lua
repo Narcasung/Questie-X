@@ -204,8 +204,12 @@ monster = function(npcId, objective)
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
                 local hasReliableLearnedSpawns = _CountUniqueSpawnPositions(learnedSpawns) > 1
+                local staticHasSpawns = spawns and next(spawns) ~= nil
+                local canUseLearnerSpawns = dataSourceMode == "learner"
+                    or hasReliableLearnedSpawns
+                    or not staticHasSpawns
                 if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold
-                        and hasReliableLearnedSpawns and not ascProtected then
+                        and canUseLearnerSpawns and not ascProtected then
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
                     spawns = learnedSpawns
                     isLearned = true
@@ -280,7 +284,11 @@ object = function(objectId, objective)
             local learnedObj = ld.objects and ld.objects[objectId]
             if learnedObj and learnedObj[4] and next(learnedObj[4]) then
                 local threshold = ld.settings.minConfidencePins or 1
-                if learnedObj.mc and learnedObj.mc >= threshold then
+                local staticHasSpawns = spawns and next(spawns) ~= nil
+                local canUseLearnerSpawns = dataSourceMode == "learner"
+                    or _CountUniqueSpawnPositions(learnedObj[4]) > 1
+                    or not staticHasSpawns
+                if learnedObj.mc and learnedObj.mc >= threshold and canUseLearnerSpawns then
                     spawns = learnedObj[4]
                     isLearned = true
                 end
