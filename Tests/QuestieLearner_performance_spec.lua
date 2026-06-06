@@ -143,13 +143,28 @@ describe("QuestieLearner kill-path batching", function()
 
     it("records item drop sources even when the item class is not available on first pass", function()
         Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        QuestieDB.private.itemCache = {
+            [2301] = { cached = true },
+        }
 
         QuestieLearner:LearnItem(2301, "Quest Shard", 1, 1, 1, 0)
         QuestieLearner:LearnItemDrop(2301, 7301)
 
         assert.is_table(Questie.dbLearner.global.items[2301][2])
         assert.equals(7301, Questie.dbLearner.global.items[2301][2][1])
-        assert.equals(7301, QuestieDB.itemDataOverrides[2301][2][1])
+        assert.is_nil(QuestieDB.private.itemCache[2301])
+    end)
+
+    it("clears cached quest data when learner adds questgiver links", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        QuestieDB.private.questCache = {
+            [6004] = { cached = true },
+        }
+
+        QuestieLearner:LearnQuestGiver(6004, 4001, 1, true)
+
+        assert.is_table(Questie.dbLearner.global.quests[6004])
+        assert.is_nil(QuestieDB.private.questCache[6004])
     end)
 
     it("force-flushes active quest pins within the NPC live-update flush (no second debounce)", function()

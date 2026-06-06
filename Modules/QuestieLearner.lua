@@ -1281,6 +1281,7 @@ local function CrossLinkAfterItem(itemId)
     if not iData then return end
     local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
     local qOvr = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
+    local activeRefs = {}
 
     -- If this item starts a quest (item[5]=startQuest), ensure that quest knows
     -- about it via quest[2][3] (starter items slot)
@@ -1302,11 +1303,14 @@ local function CrossLinkAfterItem(itemId)
                 if entry[1] == itemId and iData[2] then
                     for _, dropNpcId in ipairs(iData[2]) do
                         _AddToQuestObjective(qData, 1, dropNpcId, nil, qOvr, questId)
+                        activeRefs[questId] = true
                     end
                 end
             end
         end
     end
+
+    _RefreshActiveQuestPins(activeRefs)
 end
 
 ------------------------------------------------------------------------
@@ -1860,6 +1864,9 @@ function QuestieLearner:LearnQuest(questId, data)
                 if ovr[k] == nil and not IsAscensionProtected("QUEST", questId, k) then ovr[k] = v end
             end
         end
+        if QuestieDB.private and QuestieDB.private.questCache then
+            QuestieDB.private.questCache[questId] = nil
+        end
     end
 
     if isNew then
@@ -1906,6 +1913,9 @@ function QuestieLearner:LearnQuestGiver(questId, entityId, entityType, isStart)
             if id == entityId then found = true; break end
         end
         if not found then table.insert(ovrList, entityId) end
+        if QuestieDB.private and QuestieDB.private.questCache then
+            QuestieDB.private.questCache[questId] = nil
+        end
     end
 
     -- Cross-link both directions for all entity types
@@ -1978,6 +1988,9 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
         if objectiveIndex then
             ovr.objIndex = ovr.objIndex or {}
             ovr.objIndex[objectiveIndex] = existing.objIndex[objectiveIndex]
+        end
+        if QuestieDB.private and QuestieDB.private.questCache then
+            QuestieDB.private.questCache[questId] = nil
         end
     end
 
@@ -2058,6 +2071,9 @@ function QuestieLearner:LearnQuestObjectiveObject(questId, objectId, objText, ob
             ovr.objIndex = ovr.objIndex or {}
             ovr.objIndex[objectiveIndex] = existing.objIndex[objectiveIndex]
         end
+        if QuestieDB.private and QuestieDB.private.questCache then
+            QuestieDB.private.questCache[questId] = nil
+        end
     end
 
     if self:IsLearnerLiveEnabled() then
@@ -2112,6 +2128,9 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
                 if ovr[k] == nil and not IsAscensionProtected("ITEM", itemId, k) then ovr[k] = v end
             end
         end
+        if QuestieDB.private and QuestieDB.private.itemCache then
+            QuestieDB.private.itemCache[itemId] = nil
+        end
     end
 
     if isNew then
@@ -2151,6 +2170,9 @@ function QuestieLearner:LearnItemDrop(itemId, npcId)
             if id == npcId then found = true; break end
         end
         if not found then table.insert(ovr[2], npcId) end
+        if QuestieDB.private and QuestieDB.private.itemCache then
+            QuestieDB.private.itemCache[itemId] = nil
+        end
     end
 
     -- New drop relationship: re-run item cross-link to chain drop NPC → quest objectives
