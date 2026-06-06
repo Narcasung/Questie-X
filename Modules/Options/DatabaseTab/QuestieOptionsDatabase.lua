@@ -71,6 +71,10 @@ local function GetLearnerRuntimeMode()
     return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
 end
 
+local function GetLearnerSelectedMode()
+    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
+end
+
 local function IsLearnerRuntimeEnabled()
     local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
     if QuestieLearner and QuestieLearner.IsEnabled then
@@ -255,14 +259,20 @@ function QuestieOptions.tabs.database:Initialize()
                 type  = "select",
                 order = 2.06,
                 name  = function() return l10n("Data Source Mode") end,
-                desc  = function() return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently.") end,
+                desc  = function()
+                    local runtimeMode = GetLearnerRuntimeMode()
+                    if runtimeMode == "learner" and GetLearnerSelectedMode() ~= "learner" then
+                        return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently. The runtime may still force learner if the static DB is unavailable.")
+                    end
+                    return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently.")
+                end,
                 values = {
                     auto    = l10n("Auto (current behavior)"),
                     learner = l10n("Learner Only"),
                     static  = l10n("Static Only"),
                     none    = l10n("Neither (base DB only)"),
                 },
-                get   = function() return GetLearnerRuntimeMode() end,
+                get   = function() return GetLearnerSelectedMode() end,
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.dataSourceMode = v
