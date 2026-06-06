@@ -286,7 +286,7 @@ _DrawAvailableQuest = function(questId)
         if not quest then
             if not unavailableQuestLogged[questId] then
                 unavailableQuestLogged[questId] = true
-                Questie:Debug(Questie.DEBUG_LEARNER, "[AvailableQuests] Skipping unavailable quest during draw:", questId)
+                Questie:Debug(Questie.DEBUG_INFO, "[AvailableQuests] Skipping unavailable quest during draw:", questId)
             end
             return
         end

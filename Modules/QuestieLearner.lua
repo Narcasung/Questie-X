@@ -123,7 +123,7 @@ end
 local UnitExists = UnitExists
 local UnitIsVisible = UnitIsVisible
 local UnitIsPlayer = UnitIsPlayer
-local UnitGUID = UnitGUID
+local UnitGUID = QuestieCompat and QuestieCompat.UnitGUID or UnitGUID or function() return nil end
 local UnitName = UnitName
 local UnitLevel = UnitLevel
 local UnitFactionGroup = UnitFactionGroup
@@ -1526,7 +1526,7 @@ local function _MergeSpawnEvidence(npcId)
         if entry and entry.zoneId and entry.x and entry.y then
             local evidenceX, evidenceY = NormalizeCoordPair(entry.x, entry.y)
             if not evidenceX or not evidenceY then
-                Questie:Debug(Questie.DEBUG_LEARNER,
+                Questie:Debug(Questie.DEBUG_INFO,
                     "[QuestieLearner] _MergeSpawnEvidence skipping invalid coords: spawnUID=", spawnUID,
                     "entry.x=", tostring(entry.x), "entry.y=", tostring(entry.y))
             else
@@ -1571,9 +1571,9 @@ local function _MergeSpawnEvidence(npcId)
     local topEvidence = evidence[topKey]
     local topPct = (topCount / totalEvidence) * 100
 
-    -- DEBUG: log topEvidence raw values to diagnose coordinate corruption
-    Questie:Debug(Questie.DEBUG_LEARNER,
-        "[QuestieLearner] _MergeSpawnEvidence DEBUG: topKey=", topKey,
+    -- Info-only trace: raw top evidence is useful for diagnosing coordinate corruption
+    Questie:Debug(Questie.DEBUG_INFO,
+        "[QuestieLearner] _MergeSpawnEvidence: topKey=", topKey,
         "topEvidence.x=", topEvidence.x, "topEvidence.y=", topEvidence.y,
         "topCount=", topCount, "totalEvidence=", totalEvidence)
 
@@ -1590,7 +1590,7 @@ local function _MergeSpawnEvidence(npcId)
 
     -- Only override if > confidence threshold AND spawn differs from static DB
     if topPct <= confidenceThreshold then
-        Questie:Debug(Questie.DEBUG_LEARNER,
+        Questie:Debug(Questie.DEBUG_INFO,
             "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
             "top spawn", topCount .. "/" .. totalEvidence,
             "= " .. floor(topPct + 0.5) .. "%" ..
@@ -1608,7 +1608,7 @@ local function _MergeSpawnEvidence(npcId)
         -- REGRESSION NOTE: If AscensionDB protection check is removed or disabled,
         -- learner pins will reappear at wrong locations. Do not remove this guard.
         if (not learnerLiveMode) and IsAscensionProtected("NPC", npcId, 7) then
-            Questie:Debug(Questie.DEBUG_LEARNER,
+            Questie:Debug(Questie.DEBUG_INFO,
                 "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
                 "Sunstrider zone but AscensionDB owns spawns — skipping learner injection")
             return false
@@ -1640,7 +1640,7 @@ local function _MergeSpawnEvidence(npcId)
             end
         end
 
-        Questie:Debug(Questie.DEBUG_LEARNER,
+        Questie:Debug(Questie.DEBUG_INFO,
             "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
             "promoted Sunstrider evidence groups", promoted,
             "duplicates", duplicates,
@@ -1697,13 +1697,13 @@ local function _MergeSpawnEvidence(npcId)
     end
 
     if matchesStatic then
-        Questie:Debug(Questie.DEBUG_LEARNER,
+        Questie:Debug(Questie.DEBUG_INFO,
             "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
             "top spawn matches static DB — no override needed")
         return false
     end
 
-    Questie:Debug(Questie.DEBUG_LEARNER,
+    Questie:Debug(Questie.DEBUG_INFO,
         "[QuestieLearner] _MergeSpawnEvidence promoting npcId", npcId,
         "zone", tostring(topEvidence.zoneId),
         "x", tostring(topEvidence.x),
@@ -1729,7 +1729,7 @@ local function _MergeSpawnEvidence(npcId)
             topEvidence.x, topEvidence.y, GetCoordGridForZone(topEvidence.zoneId))
     end
 
-    Questie:Debug(Questie.DEBUG_LEARNER,
+    Questie:Debug(Questie.DEBUG_INFO,
         "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
         "overrode static DB — learned spawn (" .. tostring(topEvidence.x) .. "," .. tostring(topEvidence.y) .. ")",
         "zone " .. topEvidence.zoneId .. " at " .. floor(topPct + 0.5) .. "% confidence",
@@ -1753,13 +1753,13 @@ end
 --  [17] details text   [18] finishText  [19] completedText
 function QuestieLearner:LearnQuest(questId, data)
     if not self:IsEnabled() then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learner not enabled")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] LearnQuest blocked: learner not enabled")
         return
     end
     questId = tonumber(questId)
     if not questId or questId <= 0 then return end
     if not Questie.dbLearner.global.settings.learnQuests then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.dbLearner.global.settings.learnQuests))
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] LearnQuest blocked: learnQuests=", tostring(Questie.dbLearner.global.settings.learnQuests))
         return
     end
     if not questId or questId <= 0 then return end
@@ -2192,14 +2192,14 @@ function QuestieLearner:InjectLearnedData()
     if not EnsureLearnedData() then return end
     if not self:IsEnabled() then
         QuestieLearner.data = Questie.dbLearner.global
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
         return
     end
 
     local mode = self:GetDataSourceMode()
     if mode == "static" or mode == "none" then
         QuestieLearner.data = Questie.dbLearner.global
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] InjectLearnedData skipped because data source mode is", mode)
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] InjectLearnedData skipped because data source mode is", mode)
         return
     end
 
@@ -2364,7 +2364,7 @@ function QuestieLearner:InjectLearnedData()
             local normalizedZone = NormalizeSpawnZoneKey(data[9])
             local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[9] then
-                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
                 data[9] = maybeAreaId
                 fieldsFixed = fieldsFixed + 1
             end
@@ -2375,7 +2375,7 @@ function QuestieLearner:InjectLearnedData()
             local normalizedZone = NormalizeSpawnZoneKey(data[5])
             local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[5] then
-                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
                 data[5] = maybeAreaId
                 fieldsFixed = fieldsFixed + 1
             end
@@ -2447,7 +2447,7 @@ function QuestieLearner:InjectLearnedData()
         if learned.npcs[objId] then
             learned.objects[objId] = nil
             dupObjectsRemoved = dupObjectsRemoved + 1
-            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Removed duplicate Object", objId, "(NPC version exists)")
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Removed duplicate Object", objId, "(NPC version exists)")
         end
     end
     if dupObjectsRemoved > 0 then
@@ -2525,7 +2525,7 @@ function QuestieLearner:InjectLearnedData()
         local qid = tonumber(questId)
         if not hasRealData or (qid and OBJECTIVE_TEXT_QUEST_IDS[qid]) then
             local reason = not hasRealData and "garbage" or "objective-text"
-            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Purged", reason, "quest", questId, data[1] or "?")
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged", reason, "quest", questId, data[1] or "?")
             learned.quests[questId] = nil
             purgedQuests = purgedQuests + 1
         end
@@ -2564,7 +2564,7 @@ function QuestieLearner:InjectLearnedData()
             if sortKey then
                 data[17] = sortKey
                 sortKeysInferred = sortKeysInferred + 1
-                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Inferred sortKey", sortKey, "for quest", questId, data[1])
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Inferred sortKey", sortKey, "for quest", questId, data[1])
             end
         end
     end
@@ -3165,10 +3165,10 @@ end
 
 -- Fires when a quest is accepted.
 function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted raw args: first=" .. tostring(firstArg) .. " second=" .. tostring(secondArg))
+    Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] OnQuestAccepted raw args: first=" .. tostring(firstArg) .. " second=" .. tostring(secondArg))
     local questId = ResolveAcceptedQuestId(firstArg, secondArg)
 
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted id=" .. tostring(questId))
+    Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] OnQuestAccepted id=" .. tostring(questId))
     if not questId or questId <= 0 then return end
 
     -- Build data table from quest log (scan for matching entry)
@@ -3273,10 +3273,10 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
                         npcId = self:GetNPCIdByName(targetName)
                     end
                     if npcId then
-                        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Proactively mapped objective", j, "to NPC", npcId, "(" .. targetName .. ")")
+                        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Proactively mapped objective", j, "to NPC", npcId, "(" .. targetName .. ")")
                         self:LearnQuestObjectiveNPC(questId, npcId, objText, j)
                     elseif objectId then
-                        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Proactively mapped objective", j, "to OBJECT", objectId, "(" .. targetName .. ")")
+                        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Proactively mapped objective", j, "to OBJECT", objectId, "(" .. targetName .. ")")
                         self:LearnQuestObjectiveObject(questId, objectId, objText, j)
                     end
                 end
@@ -3562,7 +3562,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         local now = GetTime and GetTime() or 0
         if not _Learner.combatLogSilentUntil or (now - _Learner.combatLogSilentUntil) > 60 then
             _Learner.combatLogSilentUntil = now
-            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] COMBAT_LOG_EVENT_UNFILTERED fired but no args available "
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] COMBAT_LOG_EVENT_UNFILTERED fired but no args available "
                 .. "(CombatLogGetCurrentEventInfo=" .. tostring(CombatLogGetCurrentEventInfo ~= nil) .. ", arg1=" .. tostring(arg1) .. ") "
                 .. "— combat-log kill learning skipped this event (not disabled)")
         end
@@ -3757,7 +3757,7 @@ function QuestieLearner:PruneGuidNpcCache()
         end
     end
     if count > 0 then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Pruned", count, "entries from guidNpcCache")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Pruned", count, "entries from guidNpcCache")
     end
 end
 
@@ -3965,7 +3965,7 @@ function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
                                     changed = true
                                 end
                                 if changed then
-                                    Questie:Debug(Questie.DEBUG_LEARNER,
+                                    Questie:Debug(Questie.DEBUG_INFO,
                                         "[QuestieLearner] Pruned", rmCount,
                                         "learned NPC", npcId, "zone", zoneId,
                                         "(deviated from static anchor)")
@@ -4012,7 +4012,7 @@ function QuestieLearner:PruneLearnedSpawnOutliers(threshold)
     -- Re-inject cleaned data into live overrides so subsequent reads are consistent
     if anyChanged then
         self:InjectLearnedData()
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Re-injected learned data after outlier pruning")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Re-injected learned data after outlier pruning")
     end
 
     return anyChanged
@@ -4023,7 +4023,7 @@ function QuestieLearner:ClearQuestObjectiveTracking(questId)
     if not questId then return end
     if _Learner.prevObjCounts and _Learner.prevObjCounts[questId] then
         _Learner.prevObjCounts[questId] = nil
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Cleared prevObjCounts for quest", questId)
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Cleared prevObjCounts for quest", questId)
     end
 end
 
@@ -4101,10 +4101,8 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
     local guid = UnitGUID(unitToken)
     if not guid then return end
 
-    local guidType, _, _, _, _, npcIdStr, _ = strsplit("-", guid)
+    local npcId, guidType = GetIdAndTypeFromGUID(guid)
     if guidType ~= "Creature" and guidType ~= "Vehicle" then return end
-
-    local npcId = tonumber(npcIdStr)
     if not npcId then return end
 
     local entry = Questie.dbLearner.global.npcs[npcId]
@@ -4237,7 +4235,7 @@ function QuestieLearner:ScanExistingQuestLog()
     if not Questie.dbLearner.global.settings.learnQuests then return end
     if not GetNumQuestLogEntries then return end
 
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Scanning existing quest log...")
+    Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Scanning existing quest log...")
     local count = 0
 
     for i = 1, GetNumQuestLogEntries() do
@@ -4296,7 +4294,7 @@ function QuestieLearner:ScanExistingQuestLog()
                                 npcId = self:GetNPCIdByName(targetName)
                             end
                             if npcId then
-                                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Scanned existing quest", questId, "objective", j, "to NPC", npcId, "(" .. targetName .. ")")
+                                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Scanned existing quest", questId, "objective", j, "to NPC", npcId, "(" .. targetName .. ")")
                                 self:LearnQuestObjectiveNPC(questId, npcId, objText, j)
                                 count = count + 1
                             end
@@ -4469,7 +4467,7 @@ function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
 
     -- Validate external data before merging to prevent crash on malformed input
     if not _ValidateLearnedSpawnData(d) then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Rejected malformed network data", typ, id)
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Rejected malformed network data", typ, id)
         return false
     end
 
