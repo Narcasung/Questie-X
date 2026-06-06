@@ -214,6 +214,25 @@ function QuestieDB:IsBaseDatabaseMissing()
     return QuestieDB.baseDatabaseMissing == true
 end
 
+local function _GetLearnerSettings()
+    local ld = Questie and Questie.dbLearner and Questie.dbLearner.global
+    return ld and ld.settings or nil
+end
+
+local function _GetLearnerRecord(storeName, id)
+    local ld = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not ld then
+        return nil
+    end
+
+    local store = ld[storeName]
+    if not store then
+        return nil
+    end
+
+    return store[id] or store[tostring(id)]
+end
+
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieQuestPrivate
@@ -542,11 +561,22 @@ function QuestieDB:GetObject(objectId)
         return _QuestieDB.objectCache[objectId];
     end
 
-    -- Try to get from compiled DB first
-    local rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("objects", objectId)
 
-    -- Check for overrides
-    local override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsBaseDatabaseMissing() then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
+        if not rawdata and learnerRecord then
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] data not found for objectID:", objectId)
@@ -588,8 +618,21 @@ function QuestieDB:GetItem(itemId)
         return _QuestieDB.itemCache[itemId];
     end
 
-    local rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
-    local override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("items", itemId)
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsBaseDatabaseMissing() then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
+        if not rawdata and learnerRecord then
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] data not found for itemID:", itemId)
@@ -1457,8 +1500,21 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
         return _QuestieDB.questCache[questId];
     end
 
-    local rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
-    local overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("quests", questId)
+    local rawdata
+    local overrideData
+    if mode == "learner" or QuestieDB:IsBaseDatabaseMissing() then
+        rawdata = learnerRecord
+        overrideData = nil
+    else
+        rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
+        if not rawdata and learnerRecord then
+            rawdata = learnerRecord
+        end
+        overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
+    end
 
     if (not rawdata) then
         rawdata = overrideData
@@ -2057,8 +2113,21 @@ function QuestieDB:GetNPC(npcId)
         return _QuestieDB.npcCache[npcId]
     end
 
-    local rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
-    local override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("npcs", npcId)
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsBaseDatabaseMissing() then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
+        if not rawdata and learnerRecord then
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] data not found for npcID:", npcId)

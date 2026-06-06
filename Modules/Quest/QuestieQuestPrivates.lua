@@ -148,17 +148,8 @@ monster = function(npcId, objective)
         and Questie.dbLearner.global
         and Questie.dbLearner.global.settings
         and Questie.dbLearner.global.settings.dataSourceMode or "auto"
-    local strictLearnerOnly = dataSourceMode == "learner"
-
-    local name = strictLearnerOnly and nil or QuestieDB.QueryNPCSingle(npcId, "name")
-    if not name or name == "" then
-        if strictLearnerOnly then
-            local learnedNpc = Questie.dbLearner and Questie.dbLearner.global
-                and Questie.dbLearner.global.npcs
-                and Questie.dbLearner.global.npcs[npcId]
-            name = learnedNpc and learnedNpc[1] or nil
-        end
-    end
+    local npcData = QuestieDB:GetNPC(npcId)
+    local name = npcData and npcData.name or nil
     if not name or name == "" then
         -- Last resort: extract NPC name from objective description text.
         -- This mirrors the name-parsing logic in the killcredit function and
@@ -182,7 +173,7 @@ monster = function(npcId, objective)
         return nil
     end
 
-    local spawns = strictLearnerOnly and {} or QuestieDB.QueryNPCSingle(npcId, "spawns")
+    local spawns = npcData and npcData.spawns or {}
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
         spawns = {}
@@ -229,7 +220,7 @@ monster = function(npcId, objective)
         end
     end
 
-    local rank = QuestieDB.QueryNPCSingle(npcId, "rank")
+    local rank = npcData and npcData.rank
 
     local enableSpawns = not QuestieCorrections.questNPCBlacklist[npcId]
     local enableWaypoints = enableSpawns and 2 ~= rank -- a rare mob spawn. todo: option for this
@@ -239,7 +230,7 @@ monster = function(npcId, objective)
         Id = npcId,
         Name = name,
         Spawns = enableSpawns and spawns or {},
-        Waypoints = enableWaypoints and QuestieDB.QueryNPCSingle(npcId, "waypoints") or {},
+        Waypoints = enableWaypoints and (npcData and npcData.waypoints or {}) or {},
         Hostile = true,
         Icon = Questie.ICON_TYPE_SLAY,
         GetIconScale = _GetIconScaleForMonster,
@@ -271,23 +262,14 @@ object = function(objectId, objective)
         and Questie.dbLearner.global
         and Questie.dbLearner.global.settings
         and Questie.dbLearner.global.settings.dataSourceMode or "auto"
-    local strictLearnerOnly = dataSourceMode == "learner"
-
-    local name = strictLearnerOnly and nil or QuestieDB.QueryObjectSingle(objectId, "name")
-    if not name or name == "" then
-        if strictLearnerOnly then
-            local learnedObj = Questie.dbLearner and Questie.dbLearner.global
-                and Questie.dbLearner.global.objects
-                and Questie.dbLearner.global.objects[objectId]
-            name = learnedObj and learnedObj[1] or nil
-        end
-    end
+    local objectData = QuestieDB:GetObject(objectId)
+    local name = objectData and objectData.name or nil
     if (not name) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for object:", objectId)
         return nil
     end
 
-    local spawns = strictLearnerOnly and {} or QuestieDB.QueryObjectSingle(objectId, "spawns")
+    local spawns = objectData and objectData.spawns or {}
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for object:", objectId)
         spawns = {}

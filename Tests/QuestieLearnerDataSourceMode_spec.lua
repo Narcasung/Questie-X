@@ -49,11 +49,13 @@ describe("QuestieLearner data source mode", function()
 
     it("keeps learner-only pin builders off the static DB lookup path", function()
         local priv = read("Modules/Quest/QuestieQuestPrivates.lua")
-        assert.is_true(has(priv, "local strictLearnerOnly = dataSourceMode == \"learner\""))
-        assert.is_true(has(priv, "local name = strictLearnerOnly and nil or QuestieDB.QueryNPCSingle(npcId, \"name\")"))
-        assert.is_true(has(priv, "local spawns = strictLearnerOnly and {} or QuestieDB.QueryNPCSingle(npcId, \"spawns\")"))
-        assert.is_true(has(priv, "local name = strictLearnerOnly and nil or QuestieDB.QueryObjectSingle(objectId, \"name\")"))
-        assert.is_true(has(priv, "local spawns = strictLearnerOnly and {} or QuestieDB.QueryObjectSingle(objectId, \"spawns\")"))
+        assert.is_true(has(priv, "local npcData = QuestieDB:GetNPC(npcId)"))
+        assert.is_true(has(priv, "local name = npcData and npcData.name or nil"))
+        assert.is_true(has(priv, "local spawns = npcData and npcData.spawns or {}"))
+        assert.is_true(has(priv, "local rank = npcData and npcData.rank"))
+        assert.is_true(has(priv, "local objectData = QuestieDB:GetObject(objectId)"))
+        assert.is_true(has(priv, "local name = objectData and objectData.name or nil"))
+        assert.is_true(has(priv, "local spawns = objectData and objectData.spawns or {}"))
     end)
 
     it("maps object objectives from learner object captures before refresh", function()
@@ -104,5 +106,72 @@ describe("QuestieLearner learner mode activation", function()
         QuestieLearner:ApplyDataSourceMode()
         assert.is_true(Questie.dbLearner.global.settings.enabled)
         assert.is_true(QuestieLearner:IsEnabled())
+    end)
+end)
+
+describe("QuestieDB learner source fallback", function()
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        dofile("Database/QuestieDB.lua")
+        dofile("Database/npcDB.lua")
+        dofile("Database/objectDB.lua")
+        dofile("Database/questDB.lua")
+        dofile("Database/itemDB.lua")
+
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        Questie.dbLearner.global.npcs = {
+            [9001] = {
+                [1] = "Learner Whelp",
+                [7] = {
+                    [44] = {
+                        { 12.3, 45.6 },
+                    },
+                },
+                [8] = {
+                    [44] = {
+                        { 13.3, 46.6 },
+                    },
+                },
+                [9] = 44,
+            },
+        }
+        Questie.dbLearner.global.objects = {
+            [9002] = {
+                [1] = "Learner Cache",
+                [4] = {
+                    [44] = {
+                        { 11.1, 22.2 },
+                    },
+                },
+                [5] = 44,
+            },
+        }
+
+        QuestieDB.QueryNPC = function() return nil end
+        QuestieDB.QueryObject = function() return nil end
+        QuestieDB.QueryQuest = function() return nil end
+        QuestieDB.QueryItem = function() return nil end
+        QuestieDB.private.npcCache = {}
+        QuestieDB.private.objectCache = {}
+        QuestieDB.private.questCache = {}
+        QuestieDB.private.itemCache = {}
+    end)
+
+    it("returns learner NPC data when static queries are unavailable", function()
+        local npc = QuestieDB:GetNPC(9001)
+        assert.is_table(npc)
+        assert.equals("Learner Whelp", npc.name)
+        assert.is_table(npc.spawns)
+        assert.is_table(npc.waypoints)
+        assert.equals(44, npc.zoneID)
+    end)
+
+    it("returns learner object data when static queries are unavailable", function()
+        local obj = QuestieDB:GetObject(9002)
+        assert.is_table(obj)
+        assert.equals("Learner Cache", obj.name)
+        assert.is_table(obj.spawns)
+        assert.equals(44, obj.zoneID)
     end)
 end)
