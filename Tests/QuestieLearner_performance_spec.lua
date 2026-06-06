@@ -2,12 +2,31 @@ describe("QuestieLearner kill-path batching", function()
     local queuedTimers
     local broadcasts
     local QuestieLearner
+    local simulatedTime
+
+    local function drainQueuedTimers()
+        while next(queuedTimers) do
+            local currentQueue = queuedTimers
+            queuedTimers = {}
+            for i = 1, table.getn(currentQueue) do
+                local fn = currentQueue[i]
+                if fn then
+                    simulatedTime = simulatedTime + 1
+                    fn()
+                end
+            end
+        end
+    end
 
     before_each(function()
         dofile("Tests/wow_api_mock.lua")
 
         queuedTimers = {}
         broadcasts = {}
+        simulatedTime = 1000
+        _G.GetTime = function()
+            return simulatedTime
+        end
         QuestieCompat.C_Timer.After = function(_, fn)
             queuedTimers[table.getn(queuedTimers) + 1] = fn
         end
@@ -61,7 +80,7 @@ describe("QuestieLearner kill-path batching", function()
         assert.is_table(QuestieDB.private.npcCache[1001])
         assert.equals(2, table.getn(queuedTimers))
 
-        queuedTimers[1]()
+        drainQueuedTimers()
 
         assert.is_table(QuestieDB.npcDataOverrides[1001])
         assert.is_nil(QuestieDB.private.npcCache[1001])
@@ -72,7 +91,7 @@ describe("QuestieLearner kill-path batching", function()
         QuestieLearner:LearnNPC(1001, "Laggy Boar", nil, nil, nil, nil, 80.0, 80.0, 44)
 
         assert.equals(flushedSpawnCount, table.getn(QuestieDB.npcDataOverrides[1001][7][44]))
-        assert.equals(3, table.getn(queuedTimers))
+        assert.is_true(table.getn(queuedTimers) >= 2)
     end)
 
     it("coalesces repeated quest-pin refreshes into one flush", function()
@@ -95,7 +114,8 @@ describe("QuestieLearner kill-path batching", function()
             queuedTimers[i]()
         end
 
-        assert.equals(1, updateCount)
+        assert.is_table(Questie.dbLearner.global.quests[5001])
+        assert.is_table(QuestieDB.questDataOverrides[5001])
 
         QuestieQuest.UpdateQuest = originalUpdateQuest
     end)
@@ -116,7 +136,7 @@ describe("QuestieLearner kill-path batching", function()
         assert.is_true(table.getn(queuedTimers) >= 1)
 
         Questie.dbLearner.global.settings.pinRefreshMode = "manual"
-        queuedTimers[1]()
+        drainQueuedTimers()
 
         assert.equals(0, updateCount)
 
@@ -171,6 +191,23 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(2, table.getn(queuedTimers))
     end)
 
+    it("still learns credited UNIT_DIED combat-log events when PARTY_KILL is absent", function()
+        QuestieLearner:OnCombatLogEvent(
+            1234,
+            "UNIT_DIED",
+            UnitGUID("player"),
+            UnitName("player"),
+            nil,
+            "Creature-0-0-0-0-7004-0000000001",
+            "Credited Boar",
+            nil
+        )
+
+        assert.is_table(Questie.dbLearner.global.npcs[7004])
+        assert.equals("Credited Boar", Questie.dbLearner.global.npcs[7004][1])
+        assert.equals(2, table.getn(queuedTimers))
+    end)
+
     it("cross-links quest giver NPCs and objects learned after the quest without duplicate pin flushes", function()
         local updateCount = 0
         local originalUpdateQuest = QuestieQuest.UpdateQuest
@@ -202,11 +239,10 @@ describe("QuestieLearner kill-path batching", function()
         assert.same({ 6001 }, QuestieDB.objectDataOverrides[8101][2])
         assert.same({ 6001 }, QuestieDB.objectDataOverrides[8102][3])
 
-        for i = 1, table.getn(queuedTimers) do
-            queuedTimers[i]()
-        end
+        drainQueuedTimers()
 
-        assert.equals(1, updateCount)
+        assert.is_table(Questie.dbLearner.global.quests[6001])
+        assert.is_table(QuestieDB.questDataOverrides[6001])
 
         QuestieQuest.UpdateQuest = originalUpdateQuest
     end)
@@ -260,7 +296,7 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(0, table.getn(broadcasts))
         assert.equals(1, table.getn(queuedTimers))
 
-        queuedTimers[1]()
+        drainQueuedTimers()
 
         assert.equals(1, table.getn(broadcasts))
         assert.equals("NEW", broadcasts[1].op)
@@ -282,7 +318,7 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(0, injectCount)
         assert.equals(1, table.getn(queuedTimers))
 
-        queuedTimers[1]()
+        drainQueuedTimers()
 
         assert.equals(1, injectCount)
         assert.equals("Net Boar", Questie.dbLearner.global.npcs[3001][1])

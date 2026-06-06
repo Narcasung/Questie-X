@@ -3496,14 +3496,16 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     end
 
     -- UNIT_DIED fires for nearby mobs killed by other players. Keep it only as
-    -- short-lived evidence for quest-progress correlation; otherwise bystander
-    -- kills can churn learner spawn data and redraw active quest pins.
-    if eventType ~= "PARTY_KILL" then
+    -- short-lived evidence for quest-progress correlation unless we can prove
+    -- the kill was credited to us; otherwise bystander kills can churn learner
+    -- spawn data and redraw active quest pins.
+    if eventType ~= "PARTY_KILL" and not credited then
         return
     end
 
     -- Unconditionally map the spawn position for Ascension DB building
     self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Combat-log learned NPC:", eventType, npcId, name or "?")
 
     -- Phase 2: store per-GUID spawn evidence for weighted merge
     self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
