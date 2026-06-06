@@ -2770,10 +2770,31 @@ local HEX_PREFIXES = {
 
 local CREATURE_HEX_PREFIXES = { ["F130"]=true, ["F131"]=true, ["F110"]=true, ["F111"]=true }
 
+local function _GetDashGuidField(guid, index)
+    if not guid or type(guid) ~= "string" or index <= 0 then return nil end
+    local field = 1
+    local startPos = 1
+    while true do
+        local sepStart, sepEnd = string.find(guid, "-", startPos, true)
+        if not sepStart then
+            if field == index then
+                return string.sub(guid, startPos)
+            end
+            return nil
+        end
+        if field == index then
+            return string.sub(guid, startPos, sepStart - 1)
+        end
+        field = field + 1
+        startPos = sepEnd + 1
+    end
+end
+
 local function GetIdAndTypeFromGUID(guid)
     if not guid then return nil, nil end
     -- Modern dash-separated GUID (e.g. "Creature-0-3726-0-189-5638296-...")
-    local unitType, _, _, _, _, parsedId = strsplit("-", guid)
+    local unitType = _GetDashGuidField(guid, 1)
+    local parsedId = _GetDashGuidField(guid, 6)
     local id = tonumber(parsedId)
     if id and id > 0 and unitType then
         return id, unitType
@@ -2901,8 +2922,8 @@ function QuestieLearner:OnMouseoverUnit()
     if guid == _Learner._lastMouseoverGuid then return end
     _Learner._lastMouseoverGuid = guid
 
-    local entityId, unitType = GetIdAndTypeFromGUID(guid)
     local name = UnitName("mouseover")
+    local entityId, unitType = self:ResolveNpcIdFromGuidAndName(guid, name)
     TraceLearnerEntity("mouseover", guid, unitType, entityId, name)
 
     if not entityId or entityId <= 0 then return end
@@ -2969,7 +2990,7 @@ function QuestieLearner:OnTargetChanged()
     _Learner._lastTargetGuid = guid
 
     local name = UnitName("target")
-    local entityId, unitType = GetIdAndTypeFromGUID(guid)
+    local entityId, unitType = self:ResolveNpcIdFromGuidAndName(guid, name)
     TraceLearnerEntity("target", guid, unitType, entityId, name)
 
     if not entityId or entityId <= 0 then return end
@@ -3011,7 +3032,7 @@ function QuestieLearner:OnQuestDetail()
     -- Identify the quest giver NPC or object
     local npcGuid = UnitGUID("npc")
     if npcGuid then
-        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
         TraceLearnerEntity("quest_detail", npcGuid, unitType, entityId, UnitName("npc"))
         if entityId and entityId > 0 then
             local entityName = UnitName("npc")
@@ -3044,7 +3065,7 @@ function QuestieLearner:OnQuestComplete()
     -- Identify the quest turn-in NPC or object
     local npcGuid = UnitGUID("npc")
     if npcGuid then
-        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
         TraceLearnerEntity("quest_complete", npcGuid, unitType, entityId, UnitName("npc"))
         if entityId and entityId > 0 then
             local entityName = UnitName("npc")
@@ -3070,6 +3091,30 @@ function QuestieLearner:GetNPCIdByName(npcName)
     local overrideId = index.override[lowerName]
     if overrideId then return overrideId end
     return index.base[lowerName]
+end
+
+function QuestieLearner:ResolveNpcIdFromGuidAndName(guid, npcName)
+    local entityId, unitType = GetIdAndTypeFromGUID(guid)
+    if not npcName or npcName == "" then
+        return entityId, unitType
+    end
+
+    local namedId = self:GetNPCIdByName(npcName)
+    if not namedId or namedId <= 0 then
+        return entityId, unitType
+    end
+
+    if entityId and entityId > 0 and entityId ~= namedId then
+        local parsedNpc = QuestieDB and QuestieDB.GetNPC and QuestieDB:GetNPC(entityId)
+        local parsedName = parsedNpc and parsedNpc.name
+        if not parsedName or string.lower(parsedName) ~= string.lower(npcName) then
+            return namedId, unitType
+        end
+    elseif not entityId or entityId <= 0 then
+        return namedId, unitType
+    end
+
+    return entityId, unitType
 end
 
 local function ResolveAcceptedQuestId(firstArg, secondArg)
@@ -3244,7 +3289,7 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     local npcGuid = UnitGUID("npc")
     local giverEntity = nil
     if npcGuid then
-        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
         if entityId and entityId > 0 then
             giverEntity = { id = entityId, name = UnitName("npc"), unitType = unitType }
         end
@@ -3275,7 +3320,7 @@ function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
     -- Capture turn-in NPC/object while the gossip unit is still set
     local npcGuid = UnitGUID("npc")
     if npcGuid then
-        local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
         if entityId and entityId > 0 then
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
@@ -3300,7 +3345,7 @@ function QuestieLearner:OnLootOpened()
     local targetId, targetType = nil, nil
     local npcId = nil
     if targetGuid then
-        targetId, targetType = GetIdAndTypeFromGUID(targetGuid)
+        targetId, targetType = self:ResolveNpcIdFromGuidAndName(targetGuid, UnitName("target"))
         TraceLearnerEntity("loot_target", targetGuid, targetType, targetId, UnitName("target"))
         if targetType == "GameObject" and targetId and targetId > 0 then
             self:LearnObject(targetId, UnitName("target"))
@@ -3351,11 +3396,8 @@ function QuestieLearner:OnLootOpened()
                 if itemId and itemId > 0 then
                     local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(link)
                     if itemName then
-                        -- Only record quest items (class 12)
-                        if itemClassId == 12 then
-                            self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                            if npcId then self:LearnItemDrop(itemId, npcId) end
-                        end
+                        self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                        if itemClassId == 12 and npcId then self:LearnItemDrop(itemId, npcId) end
                     else
                         -- GetItemInfo returned nil; queue for retry (class check happens on retry)
                         table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId })
@@ -3395,7 +3437,7 @@ function QuestieLearner:OnGossipShow()
     local npcGuid = UnitGUID("npc")
     if not npcGuid then return end
 
-    local id, unitType = GetIdAndTypeFromGUID(npcGuid)
+    local id, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
     if not id or id <= 0 then return end
 
     local name = UnitName("npc")
@@ -3414,7 +3456,7 @@ end
 function QuestieLearner:LearnSpellCast(spellId, spellName, dstGUID, dstName)
     if not spellId or not spellName then return end
 
-    local npcId = dstGUID and GetNpcIdFromGUID(dstGUID)
+    local npcId = dstGUID and self:ResolveNpcIdFromGuidAndName(dstGUID, dstName)
     local objId = dstGUID and GetObjectIdFromGUID(dstGUID)
 
     -- Check if this spell is a quest objective
@@ -3451,11 +3493,8 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
         if entry.itemId == itemId then
             local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(entry.link)
             if itemName then
-                -- Only record quest items (class 12)
-                if itemClassId == 12 then
-                    self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                    if entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
-                end
+                self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                if itemClassId == 12 and entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
             else
                 table.insert(remaining, entry) -- still not cached, keep
             end
@@ -3600,7 +3639,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         end
     end
 
-    local npcId = GetNpcIdFromGUID(dstGUID)
+    local npcId = self:ResolveNpcIdFromGuidAndName(dstGUID, dstName)
     local name = dstName
 
     -- Fallback chain for mob name: combat-log dstName → cached target/mouseover → current target unit

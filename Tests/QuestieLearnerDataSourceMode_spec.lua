@@ -212,6 +212,93 @@ describe("QuestieLearner quest accept resolution", function()
     end)
 end)
 
+describe("QuestieLearner GUID and loot learning", function()
+    local QuestieLearner
+    local originalGetNPC
+    local originalGetItemInfo
+    local originalLearnItem
+    local originalLearnItemDrop
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        Questie.dbLearner.global.settings.learnItems = true
+        Questie.dbLearner.global.settings.learnNpcs = true
+
+        QuestieDB.npcData = {
+            [15297] = { [1] = "Arcanist Helion" },
+        }
+        originalGetNPC = QuestieDB.GetNPC
+        QuestieDB.GetNPC = function(self, id)
+            if id == 168 then
+                return { name = "Something Else" }
+            end
+            return originalGetNPC and originalGetNPC(self, id) or nil
+        end
+
+        originalGetItemInfo = _G.GetItemInfo
+        _G.GetItemInfo = function(link)
+            if link == "item:20470" then
+                return "Quest Token", nil, nil, 1, 1, 3, 1, nil, nil, nil, nil, 3, 1
+            end
+            return nil
+        end
+        dofile("Modules/QuestieLearner.lua")
+        QuestieLearner = _G.QuestieLearner
+        originalLearnItem = QuestieLearner.LearnItem
+        originalLearnItemDrop = QuestieLearner.LearnItemDrop
+    end)
+
+    after_each(function()
+        QuestieDB.GetNPC = originalGetNPC
+        _G.GetItemInfo = originalGetItemInfo
+        if QuestieLearner then
+            QuestieLearner.LearnItem = originalLearnItem
+            QuestieLearner.LearnItemDrop = originalLearnItemDrop
+        end
+    end)
+
+    it("prefers the exact NPC name over a mismatched GUID entry id", function()
+        local resolvedId, unitType = QuestieLearner:ResolveNpcIdFromGuidAndName("Creature-0-0-0-0-168-0000000000", "Arcanist Helion")
+        assert.equals(15297, resolvedId)
+        assert.equals("Creature", unitType)
+    end)
+
+    it("learns pending loot items once item info arrives even when class metadata is not quest-item shaped", function()
+        local learnedItemId = nil
+        local dropItemId = nil
+        local dropNpcId = nil
+
+        QuestieLearner.LearnItem = function(self, itemId, name, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+            learnedItemId = itemId
+        end
+        QuestieLearner.LearnItemDrop = function(self, itemId, npcId)
+            dropItemId = itemId
+            dropNpcId = npcId
+        end
+
+        _G.GetNumLootItems = function()
+            return 1
+        end
+        _G.GetLootSlotInfo = function(slot)
+            return nil, "Quest Token", nil, nil, 1
+        end
+        _G.GetLootSlotLink = function(slot)
+            return "item:20470"
+        end
+        _G.GetLootSourceInfo = function(slot)
+            return "Creature-0-0-0-0-15297-0000000000", 1
+        end
+
+        QuestieLearner:OnLootOpened()
+
+        assert.equals(20470, learnedItemId)
+        assert.is_nil(dropItemId)
+        assert.is_nil(dropNpcId)
+    end)
+end)
+
 describe("QuestieDB learner source fallback", function()
     before_each(function()
         dofile("Tests/wow_api_mock.lua")
