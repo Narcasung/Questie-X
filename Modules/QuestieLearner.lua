@@ -51,7 +51,17 @@ local function HasAscensionQuestObjectiveData(questId)
     return IsAscensionProtected("QUEST", questId, 10)
 end
 
+local function IsBaseDatabaseMissing()
+    return QuestieDB
+        and QuestieDB.IsBaseDatabaseMissing
+        and QuestieDB:IsBaseDatabaseMissing()
+end
+
 local function GetDataSourceMode()
+    if IsBaseDatabaseMissing() then
+        return "learner"
+    end
+
     local settings = Questie
         and Questie.dbLearner
         and Questie.dbLearner.global
@@ -470,6 +480,9 @@ end
 
 function QuestieLearner:IsEnabled()
     if not EnsureLearnedData() then return false end
+    if IsBaseDatabaseMissing() then
+        return true
+    end
     return Questie.dbLearner.global.settings.enabled
 end
 

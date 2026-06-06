@@ -508,6 +508,12 @@ end
 
 
 function QuestieInit:LoadDatabase(key)
+    local function MarkBaseDatabaseMissing()
+        QuestieDB.baseDatabaseMissing = true
+        QuestieDB.baseDatabaseMissingKeys = QuestieDB.baseDatabaseMissingKeys or {}
+        QuestieDB.baseDatabaseMissingKeys[key] = true
+    end
+
     if type(QuestieDB[key]) == "string" then
         -- Fix #6: `loadstring` at LOAD TIME is safe, but calling it here during
         -- event-driven runtime taints any tables produced on WotLK/Era clients.
@@ -530,6 +536,7 @@ function QuestieInit:LoadDatabase(key)
                 "[DBDiag] LEGACY DB ('" .. key .. "' is string) on modern client. "
                 .. "Runtime loadstring() would taint this data. "
                 .. "Please reinstall the Questie-X-WotLKDB addon in split-file format.")
+            MarkBaseDatabaseMissing()
             QuestieDB[key] = {}
             return
         end
@@ -543,16 +550,19 @@ function QuestieInit:LoadDatabase(key)
                 QuestieDB[key] = result
             else
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR executing('" .. key .. "'): " .. tostring(result))
+                MarkBaseDatabaseMissing()
                 QuestieDB[key] = nil
             end
         else
             Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR loadstring('" .. key .. "'): " .. tostring(loadErr) .. " | len=" .. string.len(QuestieDB[key] or ""))
+            MarkBaseDatabaseMissing()
             QuestieDB[key] = nil
         end
     elseif type(QuestieDB[key]) == "table" then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[LoadDatabase] '" .. key .. "' already a table (split-file format), skipping loadstring")
     else
         Questie:Debug(Questie.DEBUG_DEVELOP, "Database is missing, this is likely do to era vs tbc: ", key)
+        MarkBaseDatabaseMissing()
     end
     if not QuestieDB[key] then
         QuestieDB[key] = {}
@@ -565,6 +575,9 @@ end
 function QuestieInit:LoadBaseDB()
     -- Pointer compilation will look at npcDataOverrides etc, which are populated by plugins.
     -- Base tables (Classic) are loaded here.
+
+    QuestieDB.baseDatabaseMissing = false
+    QuestieDB.baseDatabaseMissingKeys = {}
 
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")

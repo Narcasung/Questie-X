@@ -63,6 +63,22 @@ local function ApplyLearnerMode()
     end
 end
 
+local function GetLearnerRuntimeMode()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.GetDataSourceMode then
+        return QuestieLearner:GetDataSourceMode()
+    end
+    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
+end
+
+local function IsLearnerRuntimeEnabled()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.IsEnabled then
+        return QuestieLearner:IsEnabled()
+    end
+    return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled
+end
+
 -----------------------------------------------------------------------
 -- Export Dialog
 -----------------------------------------------------------------------
@@ -225,8 +241,8 @@ function QuestieOptions.tabs.database:Initialize()
                 type  = "toggle",
                 order = 2.05,
                 name  = function() return l10n("Enable Learner Recording") end,
-                desc  = function() return l10n("Record live learner data. Disable this to stop recording and live learner injection.") end,
-                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled end,
+                desc  = function() return l10n("Record live learner data. Disable this to stop recording and live learner injection. Learner will still auto-enable if the static DB is missing.") end,
+                get   = function() return IsLearnerRuntimeEnabled() end,
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.enabled = v
@@ -246,9 +262,7 @@ function QuestieOptions.tabs.database:Initialize()
                     static  = l10n("Static Only"),
                     none    = l10n("Neither (base DB only)"),
                 },
-                get   = function()
-                    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
-                end,
+                get   = function() return GetLearnerRuntimeMode() end,
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.dataSourceMode = v

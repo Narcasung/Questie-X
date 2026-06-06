@@ -204,6 +204,16 @@ QuestieDB.NPCPointers = _dummyHandle.pointers
 QuestieDB.ObjectPointers = _dummyHandle.pointers
 QuestieDB.ItemPointers = _dummyHandle.pointers
 
+-- Set by QuestieInit when the compiled/static base DB fails to load.
+-- When this is true, learner should force itself on so the addon still works
+-- even if the static database is unavailable or partially missing.
+QuestieDB.baseDatabaseMissing = false
+QuestieDB.baseDatabaseMissingKeys = {}
+
+function QuestieDB:IsBaseDatabaseMissing()
+    return QuestieDB.baseDatabaseMissing == true
+end
+
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieQuestPrivate
