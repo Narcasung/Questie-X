@@ -33,6 +33,7 @@ local string_trim = string.trim
 local string_sub = string.sub
 local string_len = string.len
 local string_upper = string.upper
+local AceConfigRegistry = LibStub and LibStub("AceConfigRegistry-3.0", true)
 
 local function IsAscensionProtected(dbType, id, key)
     local mode = GetDataSourceMode and GetDataSourceMode() or "auto"
@@ -484,6 +485,12 @@ function QuestieLearner:IsEnabled()
         return true
     end
     return Questie.dbLearner.global.settings.enabled
+end
+
+local function NotifyLearnerOptionsChanged()
+    if AceConfigRegistry and AceConfigRegistry.NotifyChange then
+        AceConfigRegistry:NotifyChange("Questie")
+    end
 end
 
 function QuestieLearner:GetSettings()
@@ -2585,11 +2592,23 @@ end
 
 function QuestieLearner:ClearAllData()
     if not EnsureLearnedData() then return end
-    Questie.dbLearner.global.npcs    = {}
-    Questie.dbLearner.global.quests  = {}
-    Questie.dbLearner.global.items   = {}
-    Questie.dbLearner.global.objects = {}
+    local learned = Questie.dbLearner.global
+    local settings = learned.settings or {}
+
+    for key in pairs(learned) do
+        if key ~= "settings" then
+            learned[key] = nil
+        end
+    end
+
+    learned.settings = settings
+    learned.npcs    = {}
+    learned.quests  = {}
+    learned.items   = {}
+    learned.objects = {}
+
     self:ApplyDataSourceMode()
+    NotifyLearnerOptionsChanged()
     Questie:Print("Cleared all learned data.")
 end
 

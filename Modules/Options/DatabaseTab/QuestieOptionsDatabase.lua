@@ -501,9 +501,9 @@ function QuestieOptions.tabs.database:Initialize()
                 confirm = true,
                 confirmText = "Are you sure? This cannot be undone.",
                 func  = function()
-                    if Questie.db and Questie.db.global then
-                        Questie.dbLearner.global = nil
-                        Questie:Print("|cFFFF4444[Questie-X]|r All learned data has been reset.")
+                    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+                    if QuestieLearner and QuestieLearner.ClearAllData then
+                        QuestieLearner:ClearAllData()
                     end
                 end,
             },
