@@ -578,6 +578,28 @@ function QuestieLearner:ApplyDataSourceMode()
     QuestieLearner.data = Questie.dbLearner.global
 end
 
+function QuestieLearner:RefreshLiveState()
+    if not EnsureLearnedData() then return end
+
+    self:ApplyDataSourceMode()
+
+    -- Re-evaluate any pending learner-driven redraws immediately so option
+    -- changes (confidence, dedup, batching, and mode switches) take effect in
+    -- the active session instead of waiting for stale timers to expire.
+    if _Learner.pendingNpcLiveUpdates and next(_Learner.pendingNpcLiveUpdates) then
+        _FlushNpcLiveUpdates()
+    end
+    if _pendingQuestPinRefreshes and next(_pendingQuestPinRefreshes) then
+        _FlushActiveQuestPins()
+    end
+
+    if QuestieQuest and QuestieQuest.SmoothReset then
+        QuestieQuest:SmoothReset()
+    elseif QuestieTracker and QuestieTracker.Update then
+        QuestieTracker:Update()
+    end
+end
+
 local function GetLearnerSetting(key, defaultValue)
     if Questie and Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings then
         local value = Questie.dbLearner.global.settings[key]

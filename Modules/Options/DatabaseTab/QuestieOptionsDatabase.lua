@@ -316,6 +316,7 @@ function QuestieOptions.tabs.database:Initialize()
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.learnNpcs = v
+                        ApplyLearnerMode()
                     end
                 end,
             },
@@ -329,6 +330,7 @@ function QuestieOptions.tabs.database:Initialize()
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.learnQuests = v
+                        ApplyLearnerMode()
                     end
                 end,
             },
@@ -342,6 +344,7 @@ function QuestieOptions.tabs.database:Initialize()
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.learnObjects = v
+                        ApplyLearnerMode()
                     end
                 end,
             },
@@ -355,6 +358,7 @@ function QuestieOptions.tabs.database:Initialize()
                 set   = function(_, v)
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.learnItems = v
+                        ApplyLearnerMode()
                     end
                 end,
             },

@@ -12,6 +12,7 @@ end
 describe("QuestieLearner data source mode", function()
     it("adds a mode selector and explicit fallback options in the database tab", function()
         local dbOptions = read("Modules/Options/DatabaseTab/QuestieOptionsDatabase.lua")
+        local advanced = read("Modules/Options/AdvancedTab/QuestieOptionsAdvanced.lua")
         assert.is_true(has(dbOptions, "Data Source Mode"))
         assert.is_true(has(dbOptions, "auto    = l10n(\"Auto (current behavior)\")"))
         assert.is_true(has(dbOptions, "learner = l10n(\"Learner Only\")"))
@@ -20,6 +21,8 @@ describe("QuestieLearner data source mode", function()
         assert.is_true(has(dbOptions, "local function GetLearnerSelectedMode()"))
         assert.is_true(has(dbOptions, "get   = function() return GetLearnerSelectedMode() end"))
         assert.is_true(has(dbOptions, "Runtime mode:"))
+        assert.is_true(has(advanced, "local function RefreshLearnerRuntime()"))
+        assert.is_true(has(advanced, "RefreshLearnerRuntime()"))
     end)
 
     it("defaults the learner mode to auto and exposes the live refresh hook", function()
@@ -29,6 +32,7 @@ describe("QuestieLearner data source mode", function()
         assert.is_true(has(learner, "function QuestieLearner:GetDataSourceMode()"))
         assert.is_true(has(learner, "function QuestieLearner:IsLearnerLiveEnabled()"))
         assert.is_true(has(learner, "function QuestieLearner:ApplyDataSourceMode()"))
+        assert.is_true(has(learner, "function QuestieLearner:RefreshLiveState()"))
     end)
 
     it("gates static suppression and tooltip fallback on the selected mode", function()
@@ -106,6 +110,23 @@ describe("QuestieLearner learner mode activation", function()
         QuestieLearner:ApplyDataSourceMode()
         assert.is_true(Questie.dbLearner.global.settings.enabled)
         assert.is_true(QuestieLearner:IsEnabled())
+    end)
+
+    it("refreshes live learner caches and quest pins when runtime settings change", function()
+        local clearCount = 0
+        local resetCount = 0
+
+        QuestieDB.ClearModeCaches = function()
+            clearCount = clearCount + 1
+        end
+        QuestieQuest.SmoothReset = function()
+            resetCount = resetCount + 1
+        end
+
+        QuestieLearner:RefreshLiveState()
+
+        assert.is_true(clearCount >= 1)
+        assert.is_true(resetCount >= 1)
     end)
 end)
 

@@ -90,6 +90,13 @@ local function ApplyLearnerPerformancePreset(mode)
     end
 end
 
+local function RefreshLearnerRuntime()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.RefreshLiveState then
+        QuestieLearner:RefreshLiveState()
+    end
+end
+
 function QuestieOptions.tabs.advanced:Initialize()
     -- This needs to be called inside of the Init process for l10n to be fully loaded
     StaticPopupDialogs["QUESTIE_LANG_CHANGED_RELOAD"] = {
@@ -260,6 +267,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function() return GetLearnerSettings().performanceMode or "balanced" end,
                 set = function(_, value)
                     ApplyLearnerPerformancePreset(value)
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerPinRefreshMode = {
@@ -278,6 +286,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.pinRefreshMode = value
                     settings.performanceMode = "manual"
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerPinRefreshDelay = {
@@ -294,6 +303,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.pinRefreshDelay = value
                     settings.performanceMode = "manual"
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerPinRefreshMaxWait = {
@@ -310,6 +320,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.pinRefreshMaxWait = value
                     settings.performanceMode = "manual"
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerLiveNpcUpdateDelay = {
@@ -326,6 +337,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.liveNpcUpdateDelay = value
                     settings.performanceMode = "manual"
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerMinConfidencePins = {
@@ -342,6 +354,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.minConfidencePins = value
                     settings.performanceMode = "manual"
+                    RefreshLearnerRuntime()
                 end,
             },
             learnerSpawnDedupRadius = {
@@ -386,6 +399,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     elseif Questie.db.profile.learnerBroadcast == false then
                         Questie.db.profile.learnerBroadcast = true
                     end
+                    RefreshLearnerRuntime()
                 end,
             },
 
@@ -407,6 +421,10 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function() return Questie.db.profile.arrowUpdateThrottle or optionsDefaults.profile.arrowUpdateThrottle end,
                 set = function(_, value)
                     Questie.db.profile.arrowUpdateThrottle = value
+                    local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
                 end,
             },
             arrowRecalcInterval = {
@@ -439,6 +457,10 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function() return Questie.db.profile.arrowTrackerRefreshThrottle or optionsDefaults.profile.arrowTrackerRefreshThrottle end,
                 set = function(_, value)
                     Questie.db.profile.arrowTrackerRefreshThrottle = value
+                    local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
                 end,
             },
 
@@ -457,6 +479,10 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function() return Questie.db.profile.questieCommsEnabled ~= false end,
                 set = function(_, value)
                     Questie.db.profile.questieCommsEnabled = value
+                    local QuestieComms = QuestieLoader:ImportModule("QuestieComms")
+                    if QuestieComms and QuestieComms.ResetAll then
+                        QuestieComms:ResetAll()
+                    end
                 end,
             },
             questieCommsQuestListPacketSize = {
