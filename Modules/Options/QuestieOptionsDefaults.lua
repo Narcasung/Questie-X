@@ -98,6 +98,7 @@ function QuestieOptionsDefaults:Load()
             questieShutUp = false,
             bugWorkarounds = true,
             hideIconsOnContinents = false,
+            debugMessageThrottle = 0.15,
 
             -- Tracker Settings Tab
             autoTrackQuests = true,

@@ -794,6 +794,21 @@ function QuestieOptions.tabs.advanced:Initialize()
                     end
                 end,
             },
+            debugMessageThrottle = {
+                type = "range",
+                order = 5.10,
+                name = function() return l10n('Debug message throttle'); end,
+                desc = function() return l10n('Minimum seconds between debug lines. Higher values reduce spam while keeping fatal output separate.') end,
+                width = "full",
+                min = 0,
+                max = 1,
+                step = 0.05,
+                disabled = function() return not (Questie.db.profile.debugEnabledPrint and Questie.db.profile.debugEnabled); end,
+                get = function() return Questie.db.profile.debugMessageThrottle or 0 end,
+                set = function(_, value)
+                    Questie.db.profile.debugMessageThrottle = value
+                end,
+            },
             compat_header = {
                 type = "header",
                 order = 6,

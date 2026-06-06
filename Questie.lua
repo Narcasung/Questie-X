@@ -1,4 +1,7 @@
 local band = bit.band
+local debugThrottleState = {
+    lastPrint = nil,
+}
 
 -------------------------
 --Import modules.
@@ -167,6 +170,16 @@ function Questie:Debug(msgDebugLevel, ...)
 
         if (band(optionsDebugLevel, msgDebugLevel) == 0) or (not Questie.db.profile.debugEnabledPrint) then
             return
+        end
+
+        local throttleSeconds = tonumber(Questie.db and Questie.db.profile and Questie.db.profile.debugMessageThrottle) or 0
+        local now = GetTime and GetTime() or time()
+        if throttleSeconds > 0 and debugThrottleState.lastPrint and (now - debugThrottleState.lastPrint) < throttleSeconds then
+            return
+        end
+
+        if throttleSeconds > 0 then
+            debugThrottleState.lastPrint = now
         end
 
         local prefix = ""
