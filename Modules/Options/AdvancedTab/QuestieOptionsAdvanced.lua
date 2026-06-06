@@ -134,7 +134,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function (info) return QuestieOptions:GetProfileValue(info); end,
                 set = function (info, value)
                     QuestieOptions:SetProfileValue(info, value)
-                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n('Setting icon limit value to %s : Redrawing!', value))
+                    QuestieOptionsUtils:Delay(0.05, QuestieQuest.SmoothReset, l10n('Setting icon limit value to %s : Redrawing!', value))
                 end,
             },
             iconLimit = {
@@ -150,7 +150,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function(info) return QuestieOptions:GetProfileValue(info); end,
                 set = function (info, value)
                     QuestieOptions:SetProfileValue(info, value)
-                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n('Setting icon limit value to %s : Redrawing!', value))
+                    QuestieOptionsUtils:Delay(0.05, QuestieQuest.SmoothReset, l10n('Setting icon limit value to %s : Redrawing!', value))
                 end,
             },
             iconSpacer = {
@@ -175,7 +175,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 step = 1,
                 get = function(info) return QuestieOptions:GetProfileValue(info); end,
                 set = function(info, value)
-                    QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting clustering value, clusterLevelHotzone set to %s : Redrawing!', value))
+                    QuestieOptionsUtils:Delay(0.05, QuestieOptions.ClusterRedraw, l10n('Setting clustering value, clusterLevelHotzone set to %s : Redrawing!', value))
                     QuestieOptions:SetProfileValue(info, value)
                     QuestieOptionsUtils.DetermineTheme()
                 end,
@@ -193,7 +193,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                 get = function(info) return QuestieOptions:GetProfileValue(info); end,
                 set = function(info, value)
                     QuestieOptions:SetProfileValue(info, value)
-                    QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting dense pin clustering aggressiveness to %s : Redrawing!', value))
+                    QuestieOptionsUtils:Delay(0.05, QuestieOptions.ClusterRedraw, l10n('Setting dense pin clustering aggressiveness to %s : Redrawing!', value))
                 end,
             },
             quelDanasSpacer1 = QuestieOptionsUtils:Spacer(1.45, (not Questie.IsTBC)),
@@ -374,7 +374,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     if QuestieDB and QuestieDB.ClearModeCaches then
                         QuestieDB:ClearModeCaches()
                     end
-                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n('Setting spawn pin dedup radius to %s : Redrawing!', value))
+                    QuestieOptionsUtils:Delay(0.05, QuestieQuest.SmoothReset, l10n('Setting spawn pin dedup radius to %s : Redrawing!', value))
                 end,
             },
             learnerCommsIntensity = {
