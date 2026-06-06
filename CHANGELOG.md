@@ -5,7 +5,7 @@
 ### Performance
 
 - **[Questie Debug - Message Throttle]** Added a live debug-message throttle so non-fatal debug output cannot spam chat faster than it can be read. The throttle is configurable in the Advanced tab and keeps fatal output separate.
-- **[Questie Learner - Tooltip Controls]** Added learner-specific tooltip controls so players can toggle the learned spawn line, learner confidence lines, and automatic tooltip resizing from the Tooltip options. The learner tooltip paths now respect those toggles before adding extra lines.
+- **[Questie Learner - Tooltip Controls]** Added learner-specific tooltip controls so players can toggle the learned spawn line, total learned spawn count, learner confidence lines, automatic tooltip resizing, and a secondary learner tooltip from the Tooltip options. The learner tooltip paths now respect those toggles before adding extra lines.
 - **[QuestieLearner - Kill/Pin Refresh Throttling]** Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.
 - **[QuestieLearner - Bystander Kill Suppression]** Changed visible nearby `UNIT_DIED` handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.
 - **[QuestieLearner - PARTY_KILL Event-Order Fix]** Fixed an edge case where a `UNIT_DIED` debounce entry could suppress a later authoritative `PARTY_KILL` for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.

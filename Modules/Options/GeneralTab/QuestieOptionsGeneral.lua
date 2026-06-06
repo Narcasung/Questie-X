@@ -522,6 +522,18 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.learnerTooltipShowConfidence = value
                         end
                     },
+                    learnerTooltipShowTotalSpawns = {
+                        type = "toggle",
+                        order = 8.585,
+                        name = function() return l10n('Show total spawns learned'); end,
+                        desc = function() return l10n('Show the total number of learned spawn points for NPC tooltips.'); end,
+                        width = 1.5,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
+                        get = function() return Questie.db.profile.learnerTooltipShowTotalSpawns ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltipShowTotalSpawns = value
+                        end
+                    },
                     learnerTooltipAutoResize = {
                         type = "toggle",
                         order = 8.59,
@@ -534,9 +546,21 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.learnerTooltipAutoResize = value
                         end
                     },
-                    partyOnlyToggle = {
+                    learnerTooltipUseSecondary = {
                         type = "toggle",
                         order = 8.6,
+                        name = function() return l10n('Use secondary learner tooltip'); end,
+                        desc = function() return l10n('Show learner-specific spawn details in a separate tooltip instead of adding them to the existing one.'); end,
+                        width = 1.5,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
+                        get = function() return Questie.db.profile.learnerTooltipUseSecondary == true end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltipUseSecondary = value
+                        end
+                    },
+                    partyOnlyToggle = {
+                        type = "toggle",
+                        order = 8.61,
                         name = function() return l10n('Only show party members'); end,
                         desc = function() return l10n('When this is enabled, shared quest info will only show players in your party.'); end,
                         width = 1.5,

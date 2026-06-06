@@ -84,7 +84,7 @@ local function _ResizeTooltipToFit(tooltip)
 end
 
 function QuestieTooltips:ResizeTooltip(tooltip)
-    if Questie.db.profile.learnerTooltipAutoResize == false then
+    if not (Questie.db and Questie.db.profile) or Questie.db.profile.learnerTooltipAutoResize == false then
         return
     end
     _ResizeTooltipToFit(tooltip)

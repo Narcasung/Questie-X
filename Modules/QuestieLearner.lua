@@ -4427,33 +4427,103 @@ end
 ------------------------------------------------------------------------
 
 local _tooltipHookRegistered = false
+local _learnerTooltipFrame = nil
+
+local function _CountLearnedNpcSpawns(entry)
+    if not entry or not entry[7] then
+        return 0
+    end
+
+    local total = 0
+    for _, zoneSpawns in next, entry[7] do
+        if type(zoneSpawns) == "table" then
+            total = total + table.getn(zoneSpawns)
+        end
+    end
+    return total
+end
+
+local function _GetLearnerTooltipFrame()
+    if _learnerTooltipFrame then
+        return _learnerTooltipFrame
+    end
+
+    local frame = CreateFrame("GameTooltip", "QuestieLearnerTooltip", UIParent, "GameTooltipTemplate")
+    frame:SetFrameStrata("TOOLTIP")
+    frame:SetClampedToScreen(true)
+    frame:SetOwner(UIParent, "ANCHOR_NONE")
+    _learnerTooltipFrame = frame
+    return _learnerTooltipFrame
+end
+
+local function _HideLearnerTooltipFrame()
+    if _learnerTooltipFrame then
+        _learnerTooltipFrame:Hide()
+    end
+end
+
+local function _ShowLearnerTooltipFrame(sourceTooltip, lines)
+    local tooltip = _GetLearnerTooltipFrame()
+    tooltip:ClearLines()
+    tooltip:SetOwner(sourceTooltip or GameTooltip, "ANCHOR_RIGHT")
+    for _, line in next, lines do
+        tooltip:AddLine(line)
+    end
+    local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+    if QuestieTooltips and QuestieTooltips.ResizeTooltip then
+        QuestieTooltips:ResizeTooltip(tooltip)
+    end
+    tooltip:Show()
+end
 
 --- Adds a "Learned spawn: (x, y) from N kills" line to the tooltip
 --- for the NPC represented by the given unit token.
 --- Called by the GameTooltip OnTooltipSetUnit hook.
 ---@param unitToken string WoW unit token (e.g. "mouseover")
 local function _AddLearnedSpawnTooltipLine(unitToken)
-    if not Questie or not Questie.dbLearner then return end
-    if not Questie.db.profile or Questie.db.profile.learnerTooltips == false or Questie.db.profile.learnerTooltipShowSpawn == false then
+    if not Questie or not Questie.dbLearner then
+        _HideLearnerTooltipFrame()
+        return
+    end
+    if not Questie.db.profile or Questie.db.profile.learnerTooltips == false then
+        _HideLearnerTooltipFrame()
         return
     end
     local guid = UnitGUID(unitToken)
-    if not guid then return end
+    if not guid then
+        _HideLearnerTooltipFrame()
+        return
+    end
 
     local npcId, guidType = GetIdAndTypeFromGUID(guid)
-    if guidType ~= "Creature" and guidType ~= "Vehicle" then return end
-    if not npcId then return end
+    if guidType ~= "Creature" and guidType ~= "Vehicle" then
+        _HideLearnerTooltipFrame()
+        return
+    end
+    if not npcId then
+        _HideLearnerTooltipFrame()
+        return
+    end
 
     local entry = Questie.dbLearner.global.npcs[npcId]
-    if not entry or not entry[7] then return end
+    if not entry or not entry[7] then
+        _HideLearnerTooltipFrame()
+        return
+    end
 
     -- Find the first zone with spawn data
     local spawnsByZone = entry[7]
     local zoneId = next(spawnsByZone)
-    if not zoneId then return end
+    if not zoneId then
+        _HideLearnerTooltipFrame()
+        return
+    end
 
     local zoneSpawns = spawnsByZone[zoneId]
-    if not zoneSpawns or #zoneSpawns == 0 then return end
+    if not zoneSpawns or #zoneSpawns == 0 then
+        _HideLearnerTooltipFrame()
+        return
+    end
 
     -- Use the first recorded coordinate
     local x = zoneSpawns[1][1]
@@ -4462,14 +4532,38 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
 
     local formattedX = ("%.1f"):format(x)
     local formattedY = ("%.1f"):format(y)
-    local text = ("(%s, %s)"):format(formattedX, formattedY)
-    if Questie.db.profile.learnerTooltipShowConfidence ~= false then
-        text = text .. (" from %d kill%s"):format(kills, kills == 1 and "" or "s")
+    local lines = {}
+    if Questie.db.profile.learnerTooltipShowSpawn ~= false then
+        local text = ("(%s, %s)"):format(formattedX, formattedY)
+        if Questie.db.profile.learnerTooltipShowConfidence ~= false then
+            text = text .. (" from %d kill%s"):format(kills, kills == 1 and "" or "s")
+        end
+        lines[#lines + 1] = {"Learned spawn", text}
     end
-    GameTooltip:AddDoubleLine("Learned spawn", text)
-    local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
-    if QuestieTooltips and QuestieTooltips.ResizeTooltip then
-        QuestieTooltips:ResizeTooltip(GameTooltip)
+
+    if Questie.db.profile.learnerTooltipShowTotalSpawns ~= false then
+        lines[#lines + 1] = {"Total spawns learned", tostring(_CountLearnedNpcSpawns(entry))}
+    end
+
+    if #lines == 0 then
+        _HideLearnerTooltipFrame()
+        return
+    end
+
+    if Questie.db.profile.learnerTooltipUseSecondary == true then
+        local rendered = {}
+        for _, pair in ipairs(lines) do
+            rendered[#rendered + 1] = pair[1] .. ": " .. pair[2]
+        end
+        _ShowLearnerTooltipFrame(GameTooltip, rendered)
+    else
+        for _, pair in ipairs(lines) do
+            GameTooltip:AddDoubleLine(pair[1], pair[2])
+        end
+        local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+        if QuestieTooltips and QuestieTooltips.ResizeTooltip then
+            QuestieTooltips:ResizeTooltip(GameTooltip)
+        end
     end
 end
 
@@ -4484,6 +4578,9 @@ local function _RegisterLearnedSpawnTooltipHook()
         if unitToken then
             _AddLearnedSpawnTooltipLine(unitToken)
         end
+    end)
+    GameTooltip:HookScript("OnHide", function()
+        _HideLearnerTooltipFrame()
     end)
 end
 
