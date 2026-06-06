@@ -352,7 +352,9 @@ local function CoordBucket(x, y)
     return floor(x / COORD_GRID) * COORD_GRID, floor(y / COORD_GRID) * COORD_GRID
 end
 
--- Inserts {x, y} into coordList only when no existing point falls in the same grid bucket
+-- Inserts {x, y} into coordList only when no existing point falls in the same grid bucket.
+-- If a point already exists in that bucket, gently heal it toward the new evidence
+-- using a weighted average so repeated kills converge instead of duplicating pins.
 local function InsertIfNewBucket(coordList, x, y, customGrid)
     x, y = NormalizeCoordPair(x, y)
     if not x or not y then return false end
@@ -365,9 +367,17 @@ local function InsertIfNewBucket(coordList, x, y, customGrid)
             coord[1], coord[2] = existingX, existingY
         end
         local cx, cy = floor((existingX or coord[1]) / grid) * grid, floor((existingY or coord[2]) / grid) * grid
-        if cx == bx and cy == by then return false end
+        if cx == bx and cy == by then
+            local count = tonumber(coord[3]) or 1
+            local healedCount = count + 1
+            local healedX = ((existingX or coord[1]) * count + x) / healedCount
+            local healedY = ((existingY or coord[2]) * count + y) / healedCount
+            coord[1], coord[2] = NormalizeCoordPair(healedX, healedY)
+            coord[3] = healedCount
+            return false
+        end
     end
-    table.insert(coordList, {x, y})
+    table.insert(coordList, {x, y, 1})
     return true
 end
 
@@ -1497,8 +1507,12 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
 
     if guidSpawns[spawnUID] then
         -- Existing spawn UID: update position and timestamp
-        guidSpawns[spawnUID].x = nx
-        guidSpawns[spawnUID].y = ny
+        local existingCount = tonumber(guidSpawns[spawnUID].count) or 1
+        local healedCount = existingCount + 1
+        local healedX = ((guidSpawns[spawnUID].x or nx) * existingCount + nx) / healedCount
+        local healedY = ((guidSpawns[spawnUID].y or ny) * existingCount + ny) / healedCount
+        guidSpawns[spawnUID].x, guidSpawns[spawnUID].y = NormalizeCoordPair(healedX, healedY)
+        guidSpawns[spawnUID].count = healedCount
         guidSpawns[spawnUID].ts = time()
     else
         -- New spawn UID: insert, bounded by npcId+zoneId.
@@ -1526,6 +1540,7 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
             ts = time(),
             source = "local",
             confidence = 1,
+            count = 1,
         }
     end
 end
@@ -1584,8 +1599,12 @@ local function _MergeSpawnEvidence(npcId)
                 if not evidence[key] then
                     evidence[key] = { zoneId = entry.zoneId, x = rx, y = ry, count = 0 }
                 end
-                evidence[key].count = evidence[key].count + 1
-                totalEvidence = totalEvidence + 1
+                local evidenceWeight = tonumber(entry.count) or 1
+                if evidenceWeight < 1 then
+                    evidenceWeight = 1
+                end
+                evidence[key].count = evidence[key].count + evidenceWeight
+                totalEvidence = totalEvidence + evidenceWeight
             end
         end
     end

@@ -105,6 +105,18 @@ describe("QuestieLearner kill-path batching", function()
         assert.is_true(table.getn(queuedTimers) >= 2)
     end)
 
+    it("heals repeated same-bucket npc coordinates without duplicating the learned spawn", function()
+        QuestieLearner:LearnNPC(2001, "Healing Boar", nil, nil, nil, nil, 40.10, 40.10, 44)
+        QuestieLearner:LearnNPC(2001, "Healing Boar", nil, nil, nil, nil, 40.30, 40.30, 44)
+
+        local spawns = Questie.dbLearner.global.npcs[2001][7][44]
+        assert.is_table(spawns)
+        assert.equals(1, table.getn(spawns))
+        assert.equals(2, spawns[1][3])
+        assert.is_true(math.abs(spawns[1][1] - 40.20) < 0.001)
+        assert.is_true(math.abs(spawns[1][2] - 40.20) < 0.001)
+    end)
+
     it("force-flushes active quest pins within the NPC live-update flush (no second debounce)", function()
         local updateCount = 0
         local originalUpdateQuest = QuestieQuest.UpdateQuest
