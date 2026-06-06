@@ -481,6 +481,59 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.enableTooltipsNextInChain = value
                         end
                     },
+                    learnerTooltipHeader = {
+                        type = "header",
+                        order = 8.55,
+                        name = function() return l10n('Learner Tooltips'); end,
+                    },
+                    learnerTooltips = {
+                        type = "toggle",
+                        order = 8.56,
+                        name = function() return l10n('Enable learner tooltips'); end,
+                        desc = function() return l10n('Show the learned spawn line and other learner-specific tooltip additions.'); end,
+                        width = 1.5,
+                        disabled = function() return not Questie.db.profile.enableTooltips; end,
+                        get = function() return Questie.db.profile.learnerTooltips ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltips = value
+                        end
+                    },
+                    learnerTooltipShowSpawn = {
+                        type = "toggle",
+                        order = 8.57,
+                        name = function() return l10n('Show learned spawn line'); end,
+                        desc = function() return l10n('Show the learned spawn coordinates and kill count on unit tooltips.'); end,
+                        width = 1.5,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
+                        get = function() return Questie.db.profile.learnerTooltipShowSpawn ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltipShowSpawn = value
+                        end
+                    },
+                    learnerTooltipShowConfidence = {
+                        type = "toggle",
+                        order = 8.58,
+                        name = function() return l10n('Show learner confidence lines'); end,
+                        desc = function() return l10n('Show the learner confidence line attached to learned NPC and object tooltips.'); end,
+                        width = 1.5,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
+                        get = function() return Questie.db.profile.learnerTooltipShowConfidence ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltipShowConfidence = value
+                        end
+                    },
+                    learnerTooltipAutoResize = {
+                        type = "toggle",
+                        order = 8.59,
+                        name = function() return l10n('Auto-resize learner tooltips'); end,
+                        desc = function() return l10n('Grow tooltip width to fit learner-added lines cleanly.'); end,
+                        width = 1.5,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
+                        get = function() return Questie.db.profile.learnerTooltipAutoResize ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.learnerTooltipAutoResize = value
+                        end
+                    },
                     partyOnlyToggle = {
                         type = "toggle",
                         order = 8.6,

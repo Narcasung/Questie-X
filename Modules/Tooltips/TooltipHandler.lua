@@ -329,6 +329,9 @@ function _QuestieTooltips:AddUnitDataToTooltip()
             _AddQuestStarterDropsToTooltip(npcNum)
         end
 
+        if QuestieTooltips.ResizeTooltip then
+            QuestieTooltips:ResizeTooltip(GameTooltip)
+        end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
     end
     lastGuid = guid;
@@ -370,6 +373,9 @@ function _QuestieTooltips:AddItemDataToTooltip()
             end
             for _, v in next, tooltipData do
                 self:AddLine(v)
+            end
+            if QuestieTooltips.ResizeTooltip then
+                QuestieTooltips:ResizeTooltip(self)
             end
         end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
@@ -425,6 +431,9 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
                     end
                 end
             end
+        end
+        if QuestieTooltips.ResizeTooltip then
+            QuestieTooltips:ResizeTooltip(GameTooltip)
         end
         GameTooltip:Show()
     end

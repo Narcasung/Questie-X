@@ -43,6 +43,53 @@ local _tooltipLastText = ""
 
 local _InitObjectiveTexts
 
+local function _LearnerTooltipsEnabled()
+    return not (Questie.db and Questie.db.profile) or Questie.db.profile.learnerTooltips ~= false
+end
+
+local function _ResizeTooltipToFit(tooltip)
+    if not tooltip or not tooltip.GetName then
+        return
+    end
+
+    local tooltipName = tooltip:GetName()
+    if not tooltipName then
+        return
+    end
+
+    local maxWidth = 0
+    for i = 1, tooltip:NumLines() do
+        local left = _G[tooltipName .. "TextLeft" .. i]
+        local right = _G[tooltipName .. "TextRight" .. i]
+        if left and left:GetText() then
+            maxWidth = math.max(maxWidth, left:GetStringWidth() or 0)
+        end
+        if right and right:GetText() then
+            maxWidth = math.max(maxWidth, right:GetStringWidth() or 0)
+        end
+    end
+
+    if maxWidth <= 0 then
+        return
+    end
+
+    maxWidth = maxWidth + 24
+    local currentWidth = tooltip.GetWidth and tooltip:GetWidth() or 0
+    if currentWidth < maxWidth then
+        if tooltip.SetMinimumWidth then
+            tooltip:SetMinimumWidth(maxWidth)
+        end
+        tooltip:SetWidth(maxWidth)
+    end
+end
+
+function QuestieTooltips:ResizeTooltip(tooltip)
+    if Questie.db.profile.learnerTooltipAutoResize == false then
+        return
+    end
+    _ResizeTooltipToFit(tooltip)
+end
+
 local function _GetQuestObjectiveSummary(questId)
     if not QuestieDB or not QuestieDB.GetQuest then
         return nil
@@ -307,7 +354,7 @@ if key:sub(1,2) == "m_" then
                                 end
                             end
                         end
-                        if learnedNpc.mc then
+                        if learnedNpc.mc and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
                         end
                     end
@@ -360,7 +407,7 @@ elseif key:sub(1,2) == "o_" then
                                 end
                             end
                         end
-                        if learnedObj.mc then
+                        if learnedObj.mc and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedObj.mc) .. ")|r")
                         end
                     end

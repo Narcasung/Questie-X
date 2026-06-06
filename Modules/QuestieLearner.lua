@@ -4434,6 +4434,9 @@ local _tooltipHookRegistered = false
 ---@param unitToken string WoW unit token (e.g. "mouseover")
 local function _AddLearnedSpawnTooltipLine(unitToken)
     if not Questie or not Questie.dbLearner then return end
+    if not Questie.db.profile or Questie.db.profile.learnerTooltips == false or Questie.db.profile.learnerTooltipShowSpawn == false then
+        return
+    end
     local guid = UnitGUID(unitToken)
     if not guid then return end
 
@@ -4459,8 +4462,15 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
 
     local formattedX = ("%.1f"):format(x)
     local formattedY = ("%.1f"):format(y)
-    GameTooltip:AddDoubleLine("Learned spawn", ("(%s, %s) from %d kill%s"):format(
-        formattedX, formattedY, kills, kills == 1 and "" or "s"))
+    local text = ("(%s, %s)"):format(formattedX, formattedY)
+    if Questie.db.profile.learnerTooltipShowConfidence ~= false then
+        text = text .. (" from %d kill%s"):format(kills, kills == 1 and "" or "s")
+    end
+    GameTooltip:AddDoubleLine("Learned spawn", text)
+    local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+    if QuestieTooltips and QuestieTooltips.ResizeTooltip then
+        QuestieTooltips:ResizeTooltip(GameTooltip)
+    end
 end
 
 --- Registers the GameTooltip OnTooltipSetUnit hook once.
