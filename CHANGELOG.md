@@ -7,6 +7,7 @@
 - **[QuestieLearner - Kill/Pin Refresh Throttling]** Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.
 - **[QuestieLearner - Bystander Kill Suppression]** Changed visible nearby `UNIT_DIED` handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.
 - **[QuestieLearner - PARTY_KILL Event-Order Fix]** Fixed an edge case where a `UNIT_DIED` debounce entry could suppress a later authoritative `PARTY_KILL` for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.
+- **[QuestieLearner - Immediate Spawn Pin Rendering]** Learner kill evidence now becomes spawn coordinates immediately in learner mode so learned NPC kills can spawn map pins without waiting for the later confidence merge path.
 - **[QuestieLearner - Live Performance Options]** Added Advanced-tab controls for learner intensity, pin refresh delay, maximum pin refresh wait, minimum kills before learned pins, and live NPC update delay so users can tune the system for low-end PCs or heavy-activity zones.
 - **[QuestieComms - User-Controlled Intensity]** Added Advanced-tab QuestieComms controls, including a full disable switch and live throttles for queue processing, quest-state broadcasts, and bulk sync pacing.
 - **[QuestieComms - Disable Gate Fix]** Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.
@@ -17,11 +18,12 @@
 
 - **[Error Suppression - Debug Modes]** Moved missing quest and other non-fatal database/error spam out of normal chat output and into Questie debug-critical/developer output. Fatal startup failures remain loud.
 - **[Tooltip Data Precedence]** Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.
+- **[QuestieQuest - Unavailable Quest Guard]** Guarded the available-quest draw thread so unresolved quest IDs are skipped safely instead of crashing the thread, and deduped the skip log so the same missing quest does not spam every redraw.
 
 ### Branch / Release Notes
 
 - The most complete performance candidate is not yet a single branch: `questie-learner-comms-improvements` has the latest learner/comms/arrow controls, while `phase3-measured-perf` has the broader measured hot-path changes.
-- Before release, merge into a dedicated integration branch, remove or revalidate the stale `QuestieMap.ProcessQueue` profile-local commit that was reverted on `main`, fix the unrelated Arrow asset test expectation mismatch, and validate in game with minimap open, nearby-player kills, looting, comms toggles, and Arrow throttles.
+- Before release, merge into a dedicated integration branch, remove or revalidate the stale `QuestieMap.ProcessQueue` profile-local commit that was reverted on `main`, fix the unrelated Arrow asset test expectation mismatch, and validate in game with minimap open, nearby-player kills, looting, comms toggles, Arrow throttles, and learner-only/static-only mode switching.
 
 ## [1.6.3]
 
