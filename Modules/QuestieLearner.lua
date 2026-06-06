@@ -2561,6 +2561,29 @@ local GetObjectIdFromGUID = function(guid)
     return nil
 end
 
+local function TraceLearnerEntity(source, guid, unitType, entityId, name)
+    if not Questie or not Questie.Debug then return end
+    local prefix = "n/a"
+    if type(guid) == "string" and guid:sub(1, 2) == "0x" then
+        prefix = string.upper(guid:sub(3, 6))
+    end
+    Questie:Debug(
+        Questie.DEBUG_DEVELOP,
+        "[QuestieLearner:ObjectTrace]",
+        source,
+        "guid=",
+        tostring(guid),
+        "prefix=",
+        tostring(prefix),
+        "unitType=",
+        tostring(unitType),
+        "id=",
+        tostring(entityId),
+        "name=",
+        tostring(name)
+    )
+end
+
 ------------------------------------------------------------------------
 -- Event handlers
 ------------------------------------------------------------------------
@@ -2582,8 +2605,16 @@ function QuestieLearner:OnMouseoverUnit()
     if guid == _Learner._lastMouseoverGuid then return end
     _Learner._lastMouseoverGuid = guid
 
-    local npcId = GetNpcIdFromGUID(guid)
-    if not npcId or npcId <= 0 then return end
+    local entityId, unitType = GetIdAndTypeFromGUID(guid)
+    local name = UnitName("mouseover")
+    TraceLearnerEntity("mouseover", guid, unitType, entityId, name)
+
+    if not entityId or entityId <= 0 then return end
+    if unitType == "GameObject" then
+        self:LearnObject(entityId, name)
+        return
+    end
+    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
 
     -- Only learn this NPC if it carries the questgiver flag OR if it is already
     -- known in the database as a starter/finisher (so we can update its coords).
@@ -2592,7 +2623,7 @@ function QuestieLearner:OnMouseoverUnit()
 
     if not isQuestGiver then
         -- Silently check raw table — do NOT call GetNPC which logs CRITICAL for every miss
-        local rawNpc = QuestieDB and QuestieDB.npcData and QuestieDB.npcData[npcId]
+        local rawNpc = QuestieDB and QuestieDB.npcData and QuestieDB.npcData[entityId]
         if rawNpc and (rawNpc[10] or rawNpc[11]) then
             -- known quest starter (key 10) or quest ender (key 11)
             isQuestGiver = true
@@ -2601,7 +2632,6 @@ function QuestieLearner:OnMouseoverUnit()
 
     if not isQuestGiver then return end
 
-    local name = UnitName("mouseover")
     local level = UnitLevel("mouseover")
     local zoneText = GetRealZoneText()
     local areaId = _Learner.zoneCache[zoneText]
@@ -2630,7 +2660,7 @@ function QuestieLearner:OnMouseoverUnit()
     -- correct areaId (3430 for Sunstrider/Eversong) rather than falling back
     -- to GetZoneId() which may return the same value but via a different path.
     -- GetPlayerCoords() fallback in LearnNPC will provide the coordinates.
-    self:LearnNPC(npcId, name, level, subName, npcFlags, factionString, nil, nil, areaId)
+    self:LearnNPC(entityId, name, level, subName, npcFlags, factionString, nil, nil, areaId)
 end
 
 function QuestieLearner:OnTargetChanged()
@@ -2642,14 +2672,21 @@ function QuestieLearner:OnTargetChanged()
     if guid == _Learner._lastTargetGuid then return end
     _Learner._lastTargetGuid = guid
 
-    local npcId = GetNpcIdFromGUID(guid)
-    if not npcId or npcId <= 0 then return end
-
     local name = UnitName("target")
+    local entityId, unitType = GetIdAndTypeFromGUID(guid)
+    TraceLearnerEntity("target", guid, unitType, entityId, name)
+
+    if not entityId or entityId <= 0 then return end
+    if unitType == "GameObject" then
+        self:LearnObject(entityId, name)
+        return
+    end
+    if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
+
     local level = UnitLevel("target")
 
     _Learner.guidNpcCache = _Learner.guidNpcCache or {}
-    _Learner.guidNpcCache[guid] = { npcId = npcId, name = name, ts = time() }
+    _Learner.guidNpcCache[guid] = { npcId = entityId, name = name, ts = time() }
 end
 
 -- Collects all available quest data from the quest detail/offer screen (before accepting)
@@ -2679,6 +2716,7 @@ function QuestieLearner:OnQuestDetail()
     local npcGuid = UnitGUID("npc")
     if npcGuid then
         local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        TraceLearnerEntity("quest_detail", npcGuid, unitType, entityId, UnitName("npc"))
         if entityId and entityId > 0 then
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
@@ -2711,6 +2749,7 @@ function QuestieLearner:OnQuestComplete()
     local npcGuid = UnitGUID("npc")
     if npcGuid then
         local entityId, unitType = GetIdAndTypeFromGUID(npcGuid)
+        TraceLearnerEntity("quest_complete", npcGuid, unitType, entityId, UnitName("npc"))
         if entityId and entityId > 0 then
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
@@ -2918,14 +2957,18 @@ function QuestieLearner:OnLootOpened()
     if not Questie.dbLearner.global.settings.learnItems then return end
 
     local targetGuid = UnitGUID("target")
-    local npcId = targetGuid and GetNpcIdFromGUID(targetGuid) or nil
-
-    -- Also try to record the object if target is a game object
+    local targetId, targetType = nil, nil
+    local npcId = nil
     if targetGuid then
-        local objId = GetObjectIdFromGUID(targetGuid)
-        if objId and objId > 0 then
-            local objName = UnitName("target")
-            self:LearnObject(objId, objName)
+        targetId, targetType = GetIdAndTypeFromGUID(targetGuid)
+        TraceLearnerEntity("loot_target", targetGuid, targetType, targetId, UnitName("target"))
+        if targetType == "GameObject" and targetId and targetId > 0 then
+            self:LearnObject(targetId, UnitName("target"))
+        end
+        if targetType == "Creature" or targetType == "Vehicle" then
+            npcId = targetId
+        else
+            npcId = GetNpcIdFromGUID(targetGuid)
         end
     end
 
@@ -2962,6 +3005,7 @@ function QuestieLearner:OnGossipShow()
     if not id or id <= 0 then return end
 
     local name = UnitName("npc")
+    TraceLearnerEntity("gossip", npcGuid, unitType, id, name)
     -- Cache the last gossip entity so OnQuestAccepted can associate it after GOSSIP_CLOSED
     _Learner._lastGossipEntity = { id = id, name = name, unitType = unitType, guid = npcGuid }
 

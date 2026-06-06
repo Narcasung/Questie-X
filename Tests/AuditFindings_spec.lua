@@ -366,4 +366,16 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(learner, 'if eventType ~= "PARTY_KILL" or lastEventType == "PARTY_KILL" then'))
         assert.is_true(has(learner, '_Learner.killDebounce[dstGUID] = { ts = now, eventType = eventType }'))
     end)
+
+    it("[L11] object capture traces and gameobject learning are wired into the learner", function()
+        local learner = read("Modules/QuestieLearner.lua")
+
+        assert.is_true(has(learner, 'local function TraceLearnerEntity(source, guid, unitType, entityId, name)'))
+        assert.is_true(has(learner, 'TraceLearnerEntity("mouseover", guid, unitType, entityId, name)'))
+        assert.is_true(has(learner, 'TraceLearnerEntity("target", guid, unitType, entityId, name)'))
+        assert.is_true(has(learner, 'TraceLearnerEntity("loot_target", targetGuid, targetType, targetId, UnitName("target"))'))
+        assert.is_true(has(learner, 'TraceLearnerEntity("gossip", npcGuid, unitType, id, name)'))
+        assert.is_true(has(learner, 'self:LearnObject(entityId, name)'))
+        assert.is_true(has(learner, 'if unitType == "GameObject" then'))
+    end)
 end)
