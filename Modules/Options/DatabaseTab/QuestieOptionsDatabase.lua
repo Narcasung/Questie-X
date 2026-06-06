@@ -285,6 +285,24 @@ function QuestieOptions.tabs.database:Initialize()
                 end,
             },
 
+            data_source_runtime = {
+                type     = "description",
+                order    = 2.07,
+                fontSize = "medium",
+                name     = function()
+                    local selectedMode = GetLearnerSelectedMode()
+                    local runtimeMode = GetLearnerRuntimeMode()
+                    if runtimeMode == selectedMode then
+                        return string.format("|cFF5EBAF3Runtime mode:|r %s", l10n(runtimeMode == "learner" and "Learner" or runtimeMode == "static" and "Static" or runtimeMode == "none" and "Neither" or "Auto"))
+                    end
+                    return string.format(
+                        "|cFF5EBAF3Runtime mode:|r %s  |cFF888888(selected: %s)|r",
+                        l10n(runtimeMode == "learner" and "Learner" or runtimeMode == "static" and "Static" or runtimeMode == "none" and "Neither" or "Auto"),
+                        l10n(selectedMode == "learner" and "Learner" or selectedMode == "static" and "Static" or selectedMode == "none" and "Neither" or "Auto")
+                    )
+                end,
+            },
+
             learn_npcs = {
                 type  = "toggle",
                 order = 2.1,

@@ -19,6 +19,7 @@ describe("QuestieLearner data source mode", function()
         assert.is_true(has(dbOptions, "none    = l10n(\"Neither (base DB only)\")"))
         assert.is_true(has(dbOptions, "local function GetLearnerSelectedMode()"))
         assert.is_true(has(dbOptions, "get   = function() return GetLearnerSelectedMode() end"))
+        assert.is_true(has(dbOptions, "Runtime mode:"))
     end)
 
     it("defaults the learner mode to auto and exposes the live refresh hook", function()
