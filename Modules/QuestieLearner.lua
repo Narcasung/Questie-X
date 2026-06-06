@@ -3072,35 +3072,56 @@ function QuestieLearner:GetNPCIdByName(npcName)
     return index.base[lowerName]
 end
 
+local function ResolveAcceptedQuestId(firstArg, secondArg)
+    local maxLog = GetNumQuestLogEntries and GetNumQuestLogEntries() or 25
+
+    local function resolveFromLogIndex(logIndex)
+        if not logIndex or type(logIndex) ~= "number" or logIndex <= 0 or logIndex > maxLog then
+            return nil
+        end
+
+        local resolvedId = QuestieCompat.GetQuestIDFromLogIndex and QuestieCompat.GetQuestIDFromLogIndex(logIndex)
+        if resolvedId and resolvedId > 0 then
+            return resolvedId
+        end
+    end
+
+    local function resolveFromQuestId(questId)
+        if not questId or type(questId) ~= "number" or questId <= 0 then
+            return nil
+        end
+
+        if QuestieCompat.GetQuestLogIndexByID and QuestieCompat.GetQuestLogIndexByID(questId) then
+            return questId
+        end
+    end
+
+    if secondArg and type(secondArg) == "number" and secondArg > 0 then
+        local resolvedId = resolveFromLogIndex(secondArg) or resolveFromQuestId(secondArg)
+        if resolvedId then
+            return resolvedId
+        end
+    end
+
+    if firstArg and type(firstArg) == "number" and firstArg > 0 then
+        local resolvedId = resolveFromLogIndex(firstArg) or resolveFromQuestId(firstArg)
+        if resolvedId then
+            return resolvedId
+        end
+    end
+
+    local selectedIndex = QuestieCompat.GetQuestLogSelection and QuestieCompat.GetQuestLogSelection()
+    if selectedIndex and selectedIndex > 0 then
+        return resolveFromLogIndex(selectedIndex)
+    end
+
+    return nil
+end
+
 -- Fires when a quest is accepted.
 function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted raw args: first=" .. tostring(firstArg) .. " second=" .. tostring(secondArg))
-    local questId
-
-    -- Try secondArg first (WotLK standard: logIndex, questID)
-    if secondArg and type(secondArg) == "number" and secondArg > 0 then
-        questId = secondArg
-    end
-
-    -- If secondArg was nil/0, firstArg might already be the questID (some 3.3.5 servers),
-    -- or it's the log index — try resolving it from the log.
-    if not questId or questId <= 0 then
-        local maxLog = GetNumQuestLogEntries and GetNumQuestLogEntries() or 25
-        if firstArg and type(firstArg) == "number" and firstArg > 0 then
-            -- If firstArg looks like a log index (small number), look it up
-            if firstArg <= maxLog then
-                local resolvedId = QuestieCompat.GetQuestIDFromLogIndex(firstArg)
-                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted resolved from log index", firstArg, "->", tostring(resolvedId))
-                if resolvedId and resolvedId > 0 then
-                    questId = resolvedId
-                end
-            end
-            -- Still no questId: scan entire log for recently added quests
-            if not questId or questId <= 0 then
-                questId = firstArg  -- last resort, may be wrong
-            end
-        end
-    end
+    local questId = ResolveAcceptedQuestId(firstArg, secondArg)
 
     Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] OnQuestAccepted id=" .. tostring(questId))
     if not questId or questId <= 0 then return end

@@ -109,6 +109,109 @@ describe("QuestieLearner learner mode activation", function()
     end)
 end)
 
+describe("QuestieLearner quest accept resolution", function()
+    local QuestieLearner
+    local originalGetNumQuestLogEntries
+    local originalGetQuestLogSelection
+    local originalGetQuestLogTitle
+    local originalGetQuestIDFromLogIndex
+    local originalGetQuestLogIndexByID
+    local originalLearnQuest
+    local originalUnitGUID
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+
+        originalGetNumQuestLogEntries = _G.GetNumQuestLogEntries
+        originalGetQuestLogSelection = QuestieCompat.GetQuestLogSelection
+        originalGetQuestLogTitle = QuestieCompat.GetQuestLogTitle
+        originalGetQuestIDFromLogIndex = QuestieCompat.GetQuestIDFromLogIndex
+        originalGetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
+        originalUnitGUID = _G.UnitGUID
+
+        _G.GetNumQuestLogEntries = function()
+            return 1
+        end
+        _G.UnitGUID = function()
+            return nil
+        end
+
+        QuestieCompat.GetQuestLogSelection = function()
+            return 1
+        end
+
+        QuestieCompat.GetQuestLogTitle = function(index)
+            if index == 1 then
+                return "Real Quest", 10, nil, false, nil, nil, nil, 4321
+            end
+            return nil
+        end
+
+        QuestieCompat.GetQuestIDFromLogIndex = function(index)
+            if index == 1 then
+                return 4321
+            end
+            return nil
+        end
+
+        QuestieCompat.GetQuestLogIndexByID = function(questId)
+            if questId == 4321 then
+                return 1
+            end
+            return nil
+        end
+
+        QuestieLearner = dofile("Modules/QuestieLearner.lua")
+        originalLearnQuest = QuestieLearner.LearnQuest
+    end)
+
+    after_each(function()
+        QuestieLearner.LearnQuest = originalLearnQuest
+        _G.GetNumQuestLogEntries = originalGetNumQuestLogEntries
+        _G.UnitGUID = originalUnitGUID
+        QuestieCompat.GetQuestLogSelection = originalGetQuestLogSelection
+        QuestieCompat.GetQuestLogTitle = originalGetQuestLogTitle
+        QuestieCompat.GetQuestIDFromLogIndex = originalGetQuestIDFromLogIndex
+        QuestieCompat.GetQuestLogIndexByID = originalGetQuestLogIndexByID
+    end)
+
+    it("uses a real quest log entry instead of raw accepted event args", function()
+        local capturedQuestId = nil
+        QuestieLearner.LearnQuest = function(self, questId, data)
+            capturedQuestId = questId
+        end
+
+        QuestieLearner:OnQuestAccepted(615514513, nil)
+
+        assert.equals(4321, capturedQuestId)
+    end)
+
+    it("refuses impossible quest ids when they do not resolve to the quest log", function()
+        local capturedQuestId = nil
+        QuestieCompat.GetQuestLogSelection = function()
+            return nil
+        end
+        QuestieCompat.GetQuestLogTitle = function()
+            return nil
+        end
+        QuestieCompat.GetQuestIDFromLogIndex = function()
+            return nil
+        end
+        QuestieCompat.GetQuestLogIndexByID = function()
+            return nil
+        end
+        QuestieLearner.LearnQuest = function(self, questId, data)
+            capturedQuestId = questId
+        end
+
+        QuestieLearner:OnQuestAccepted(615514513, nil)
+
+        assert.is_nil(capturedQuestId)
+    end)
+end)
+
 describe("QuestieDB learner source fallback", function()
     before_each(function()
         dofile("Tests/wow_api_mock.lua")
