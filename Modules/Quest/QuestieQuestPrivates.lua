@@ -181,7 +181,7 @@ monster = function(npcId, objective)
 
     local isLearned = false
 
-    if dataSourceMode == "none" or dataSourceMode == "learner" then
+    if dataSourceMode == "none" then
         spawns = {}
     end
 
@@ -276,7 +276,7 @@ object = function(objectId, objective)
     end
 
     local isLearned = false
-    if dataSourceMode == "none" or dataSourceMode == "learner" then
+    if dataSourceMode == "none" then
         spawns = {}
     end
 

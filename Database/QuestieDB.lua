@@ -233,6 +233,43 @@ local function _GetLearnerRecord(storeName, id)
     return store[id] or store[tostring(id)]
 end
 
+local function _BuildSpawnTableFromGuidEvidence(evidence)
+    if type(evidence) ~= "table" then
+        return nil
+    end
+
+    local spawns = {}
+    local hasEntries = false
+    for _, entry in pairs(evidence) do
+        if type(entry) == "table" and entry.zoneId and entry.x and entry.y then
+            local zoneId = tonumber(entry.zoneId)
+            local x = tonumber(entry.x)
+            local y = tonumber(entry.y)
+            if zoneId and x and y then
+                spawns[zoneId] = spawns[zoneId] or {}
+                local zoneSpawns = spawns[zoneId]
+                local exists = false
+                for _, coord in ipairs(zoneSpawns) do
+                    if coord[1] == x and coord[2] == y then
+                        exists = true
+                        break
+                    end
+                end
+                if not exists then
+                    zoneSpawns[#zoneSpawns + 1] = { x, y }
+                    hasEntries = true
+                end
+            end
+        end
+    end
+
+    if not hasEntries then
+        return nil
+    end
+
+    return spawns
+end
+
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieQuestPrivate
@@ -2156,6 +2193,14 @@ function QuestieDB:GetNPC(npcId)
 
     local friendlyToFaction = npc.friendlyToFaction
     npc.friendly = (not friendlyToFaction) and true or factionReactions[friendlyToFaction]
+
+    if (not npc.spawns or next(npc.spawns) == nil) and mode == "learner" then
+        local guidSpawns = rawdata[8]
+        local learnedSpawns = _BuildSpawnTableFromGuidEvidence(guidSpawns)
+        if learnedSpawns then
+            npc.spawns = learnedSpawns
+        end
+    end
 
     _QuestieDB.npcCache[npcId] = npc
     return npc

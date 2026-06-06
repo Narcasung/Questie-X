@@ -36,7 +36,7 @@ describe("QuestieLearner data source mode", function()
         local priv = read("Modules/Quest/QuestieQuestPrivates.lua")
         local tip = read("Modules/Tooltips/Tooltip.lua")
         assert.is_true(has(quest, "dataSourceMode == \"auto\" or dataSourceMode == \"learner\""))
-        assert.is_true(has(priv, "dataSourceMode == \"none\" or dataSourceMode == \"learner\""))
+        assert.is_true(has(priv, "dataSourceMode == \"none\""))
         assert.is_true(has(tip, "mode ~= \"static\" and mode ~= \"none\""))
     end)
 
@@ -165,6 +165,27 @@ describe("QuestieDB learner source fallback", function()
         assert.is_table(npc.spawns)
         assert.is_table(npc.waypoints)
         assert.equals(44, npc.zoneID)
+    end)
+
+    it("turns learner kill evidence into NPC spawn coordinates immediately in learner mode", function()
+        Questie.dbLearner.global.npcs[9003] = {
+            [1] = "Learner Kill",
+            [8] = {
+                [101] = {
+                    zoneId = 44,
+                    x = 18.5,
+                    y = 27.25,
+                },
+            },
+        }
+
+        local npc = QuestieDB:GetNPC(9003)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns)
+        assert.is_table(npc.spawns[44])
+        assert.equals(1, #npc.spawns[44])
+        assert.equals(18.5, npc.spawns[44][1][1])
+        assert.equals(27.25, npc.spawns[44][1][2])
     end)
 
     it("returns learner object data when static queries are unavailable", function()
