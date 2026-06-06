@@ -77,6 +77,7 @@ describe("QuestieLearner kill-path batching", function()
             npcCache = {
                 [1001] = { name = "Cached Boar" },
             },
+            itemCache = {},
         }
         QuestiePlayer.currentQuestlog = {}
 
@@ -141,18 +142,35 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(1, table.getn(Questie.dbLearner.global.npcs[4001][7][44]))
     end)
 
-    it("records item drop sources even when the item class is not available on first pass", function()
+    it("ignores non-quest loot items so they do not pollute learner state", function()
         Questie.dbLearner.global.settings.dataSourceMode = "learner"
-        QuestieDB.private.itemCache = {
-            [2301] = { cached = true },
-        }
+        QuestieDB.private.itemCache = {}
 
-        QuestieLearner:LearnItem(2301, "Quest Shard", 1, 1, 1, 0)
-        QuestieLearner:LearnItemDrop(2301, 7301)
+        local learned = QuestieLearner:LearnItem(2301, "Quest Shard", 1, 1, 1, 0)
 
-        assert.is_table(Questie.dbLearner.global.items[2301][2])
-        assert.equals(7301, Questie.dbLearner.global.items[2301][2][1])
+        assert.is_false(learned)
+        assert.is_nil(Questie.dbLearner.global.items[2301])
         assert.is_nil(QuestieDB.private.itemCache[2301])
+    end)
+
+    it("keeps quest item drop sources when the item is a quest item", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        local learned = QuestieLearner:LearnItem(2302, "Quest Shard", 1, 1, 12, 0)
+        assert.is_true(learned)
+        assert.is_true(Questie.dbLearner.global.items[2302].questRelevant)
+
+        QuestieLearner:LearnItemDrop(2302, 7301)
+
+        assert.is_table(Questie.dbLearner.global.items[2302][2])
+        assert.equals(7301, Questie.dbLearner.global.items[2302][2][1])
+    end)
+
+    it("rejects non-quest item network merges without quest references", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        local changed = QuestieLearner:_ApplyIncomingNetworkMerge("ITEM", 2401, { [1] = "Arcane Sliver" }, "NEW")
+
+        assert.is_false(changed)
+        assert.is_nil(Questie.dbLearner.global.items[2401])
     end)
 
     it("clears cached quest data when learner adds questgiver links", function()

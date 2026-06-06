@@ -1195,12 +1195,21 @@ local function CrossLinkAfterQuest(questId)
     if qData[11] and qData[11] > 0 then
         local iData = learned.items[qData[11]]
         if iData then
+            iData.questRelevant = true
             if not iData[5] then
                 iData[5] = questId
                 if liveEnabled and QuestieDB and QuestieDB.itemDataOverrides then
                     local ovr = QuestieDB.itemDataOverrides[qData[11]] or {}
                     QuestieDB.itemDataOverrides[qData[11]] = ovr
+                    if ovr[1] == nil and iData[1] ~= nil and not IsAscensionProtected("ITEM", qData[11], 1) then
+                        ovr[1] = iData[1]
+                    end
                     if not ovr[5] then ovr[5] = questId end
+                    for k, v in pairs(iData) do
+                        if k ~= 1 and k ~= 5 and k ~= "mc" and ovr[k] == nil and not IsAscensionProtected("ITEM", qData[11], k) then
+                            ovr[k] = v
+                        end
+                    end
                 end
             end
         end
@@ -1212,6 +1221,7 @@ local function CrossLinkAfterQuest(questId)
             local itemId = entry[1]
             local iData = learned.items[itemId]
             if iData and iData[2] then
+                iData.questRelevant = true
                 for _, dropNpcId in ipairs(iData[2]) do
                     _AddToQuestObjective(qData, 1, dropNpcId, nil, qOvr, questId)
                 end
@@ -2097,17 +2107,91 @@ end
 -- Item learning
 ------------------------------------------------------------------------
 
+local function IsQuestRelevantItem(itemId, itemClass)
+    local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not learned or not learned.quests then
+        return false
+    end
+
+    if itemClass == 12 then
+        return true
+    end
+
+    for _, qData in pairs(learned.quests) do
+        if qData[11] == itemId then
+            return true
+        end
+        if qData[10] and qData[10][3] then
+            for _, entry in ipairs(qData[10][3]) do
+                if entry[1] == itemId then
+                    return true
+                end
+            end
+        end
+        if qData[2] and qData[2][3] then
+            for _, entry in ipairs(qData[2][3]) do
+                if entry[1] == itemId then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function HasQuestReferences(itemId)
+    local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not learned or not learned.quests then
+        return false
+    end
+
+    local itemData = learned.items and learned.items[itemId]
+    if itemData and itemData.questRelevant then
+        return true
+    end
+
+    for _, qData in pairs(learned.quests) do
+        if qData[11] == itemId then
+            return true
+        end
+        if qData[10] and qData[10][3] then
+            for _, entry in ipairs(qData[10][3]) do
+                if entry[1] == itemId then
+                    return true
+                end
+            end
+        end
+        if qData[2] and qData[2][3] then
+            for _, entry in ipairs(qData[2][3]) do
+                if entry[1] == itemId then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemClass, itemSubClass)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnItems then return end
     itemId = tonumber(itemId)
     if not itemId or itemId <= 0 then return end
+    if not IsQuestRelevantItem(itemId, itemClass) then
+        return false
+    end
 
     local existing = Questie.dbLearner.global.items[itemId]
     local isNew = existing == nil
     if not existing then
         existing = {}
         Questie.dbLearner.global.items[itemId] = existing
+    end
+
+    if itemClass == 12 or HasQuestReferences(itemId) then
+        existing.questRelevant = true
     end
 
     if name         and not existing[1]  then existing[1]  = name end
@@ -2138,6 +2222,7 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
         CrossLinkAfterItem(itemId)
     end
     _Learner:BroadcastIfCommsAvailable("ITEM", itemId, existing)
+    return true
 end
 
 function QuestieLearner:LearnItemDrop(itemId, npcId)
@@ -2713,9 +2798,11 @@ function QuestieLearner:InjectLearnedData()
         if type(itemId) == "string" and iid then
             itemIdsToFix[itemId] = iid
         end
-        if not QuestieDB.itemDataOverrides[iid or itemId] then
-            QuestieDB.itemDataOverrides[iid or itemId] = data
-            itemCount = itemCount + 1
+        if HasQuestReferences(iid or itemId) then
+            if not QuestieDB.itemDataOverrides[iid or itemId] then
+                QuestieDB.itemDataOverrides[iid or itemId] = data
+                itemCount = itemCount + 1
+            end
         end
     end
     for old, new in pairs(itemIdsToFix) do
@@ -3474,8 +3561,8 @@ function QuestieLearner:OnLootOpened()
                 if itemId and itemId > 0 then
                     local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(link)
                     if itemName then
-                        self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                        if npcId then self:LearnItemDrop(itemId, npcId) end
+                        local learnedItem = self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                        if learnedItem and npcId then self:LearnItemDrop(itemId, npcId) end
                     else
                         -- GetItemInfo returned nil; queue for retry (class check happens on retry)
                         table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId })
@@ -3571,8 +3658,8 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
         if entry.itemId == itemId then
             local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(entry.link)
             if itemName then
-                self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                if entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
+                local learnedItem = self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
+                if learnedItem and entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
             else
                 table.insert(remaining, entry) -- still not cached, keep
             end
@@ -4540,6 +4627,9 @@ function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
         store = Questie.dbLearner.global.quests
     elseif typ == "ITEM" then
         if not Questie.dbLearner.global.settings.learnItems then return false end
+        if not ((type(d) == "table" and d.questRelevant) or HasQuestReferences(id)) then
+            return false
+        end
         store = Questie.dbLearner.global.items
     elseif typ == "OBJECT" then
         if not Questie.dbLearner.global.settings.learnObjects then return false end
