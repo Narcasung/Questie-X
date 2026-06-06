@@ -374,6 +374,8 @@ describe("Audit Pass 10 - additional performance findings (snapshot)", function(
         assert.is_true(has(learner, 'TraceLearnerEntity("mouseover", guid, unitType, entityId, name)'))
         assert.is_true(has(learner, 'TraceLearnerEntity("target", guid, unitType, entityId, name)'))
         assert.is_true(has(learner, 'TraceLearnerEntity("loot_target", targetGuid, targetType, targetId, UnitName("target"))'))
+        assert.is_true(has(learner, 'GetLootSourceInfo then'))
+        assert.is_true(has(learner, 'TraceLearnerEntity("loot_source", sourceGuid, nil, sourceQty, lootName)'))
         assert.is_true(has(learner, 'TraceLearnerEntity("gossip", npcGuid, unitType, id, name)'))
         assert.is_true(has(learner, 'self:LearnObject(entityId, name)'))
         assert.is_true(has(learner, 'if unitType == "GameObject" then'))

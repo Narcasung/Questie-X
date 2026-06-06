@@ -2976,6 +2976,21 @@ function QuestieLearner:OnLootOpened()
     for i = 1, numItems do
         local _, lootName, _, _, lootQuality = GetLootSlotInfo(i)
         if lootName then
+            if GetLootSourceInfo then
+                local sources = { GetLootSourceInfo(i) }
+                local sourceCount = table.getn(sources)
+                for j = 1, sourceCount, 2 do
+                    local sourceGuid = sources[j]
+                    local sourceQty = sources[j + 1]
+                    TraceLearnerEntity("loot_source", sourceGuid, nil, sourceQty, lootName)
+                    if type(sourceGuid) == "string" then
+                        local sourceId, sourceType = GetIdAndTypeFromGUID(sourceGuid)
+                        if sourceType == "GameObject" and sourceId and sourceId > 0 then
+                            self:LearnObject(sourceId, nil)
+                        end
+                    end
+                end
+            end
             local link = GetLootSlotLink(i)
             if link then
                 local itemId = tonumber(string.match(link, "item:(%d+)"))
