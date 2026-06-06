@@ -164,6 +164,28 @@ function l10n:PostBoot()
 end
 
 local format, unpack, tostring = string.format, unpack, tostring
+
+-- Safe wrapper around string.format that never errors.  string.format throws
+-- "invalid option 'X' to 'format'" when the format string contains a stray %
+-- followed by a non-format character, or when the caller's args don't match
+-- the placeholders.  l10n callers pass user-controlled data (quest names,
+-- npc names, error messages from xpcall) that can contain %X edge cases;
+-- crashing the chat with a Lua error for a missing translation is much worse
+-- than showing a slightly ugly fallback string.  See user report: 8x
+-- l10n.lua:181 "invalid option in 'format'" during initial quest log sync.
+local function safeFormat(fmt, args)
+    if not args or #args == 0 then
+        -- No args, so just return the format string as-is (no format parsing
+        -- needed).  This handles trailing-% edge cases too.
+        return fmt
+    end
+    local ok, result = pcall(format, fmt, unpack(args))
+    if ok then return result end
+    -- Fallback: concatenate the format string with the args separated by spaces.
+    -- This loses the original formatting intent but never crashes the user.
+    return fmt .. " " .. table.concat(args, " ")
+end
+
 function _l10n:translate(key, ...)
     if key == nil then
         return ""
@@ -178,30 +200,30 @@ function _l10n:translate(key, ...)
     local translationEntry = l10n.translations[key]
     if not translationEntry then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing completely!") end
-        return format(key, unpack(args))
+        return safeFormat(key, args)
     end
 
     local translationValue = translationEntry[locale]
     if (not translationValue) then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing the entry for language" , locale, "!") end
-        return format(key, unpack(args))
+        return safeFormat(key, args)
     end
 
     if translationValue == true then
         -- Fallback to enUS which is the key
-        return format(key, unpack(args))
+        return safeFormat(key, args)
     end
 
     if type(translationValue) ~= "string" then
         if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translation for '" .. tostring(key) .. "' is not a string!") end
-        return format(key, unpack(args))
+        return safeFormat(key, args)
     end
 
     if #args == 0 then
         return translationValue
     end
 
-    return format(translationValue, unpack(args))
+    return safeFormat(translationValue, args)
 end
 
 setmetatable(l10n, { __call = function(_, ...) return _l10n:translate(...) end})
