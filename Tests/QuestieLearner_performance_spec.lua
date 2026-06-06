@@ -165,12 +165,51 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(7301, Questie.dbLearner.global.items[2302][2][1])
     end)
 
+    it("ignores non-quest objects until they are explicitly quest-related", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+
+        local learned = QuestieLearner:LearnObject(3301, "Random Object", 11.1, 22.2, 44)
+
+        assert.is_false(learned)
+        assert.is_nil(Questie.dbLearner.global.objects[3301])
+    end)
+
+    it("stores quest-related object coordinates when promoted", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        Questie.dbLearner.global.quests[6005] = {
+            [10] = {
+                [2] = {
+                    { 3302, "Quest Object" },
+                },
+            },
+        }
+
+        local learned = QuestieLearner:LearnObject(3302, "Quest Object", 11.1, 22.2, 44, true)
+
+        assert.is_true(learned)
+        assert.is_table(Questie.dbLearner.global.objects[3302])
+        assert.is_true(Questie.dbLearner.global.objects[3302].questRelevant)
+        assert.is_table(Questie.dbLearner.global.objects[3302][4])
+        assert.is_table(Questie.dbLearner.global.objects[3302][4][44])
+        assert.equals(1, table.getn(Questie.dbLearner.global.objects[3302][4][44]))
+        assert.equals(11.1, Questie.dbLearner.global.objects[3302][4][44][1][1])
+        assert.equals(22.2, Questie.dbLearner.global.objects[3302][4][44][1][2])
+    end)
+
     it("rejects non-quest item network merges without quest references", function()
         Questie.dbLearner.global.settings.dataSourceMode = "learner"
         local changed = QuestieLearner:_ApplyIncomingNetworkMerge("ITEM", 2401, { [1] = "Arcane Sliver" }, "NEW")
 
         assert.is_false(changed)
         assert.is_nil(Questie.dbLearner.global.items[2401])
+    end)
+
+    it("rejects non-quest object network merges without quest references", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        local changed = QuestieLearner:_ApplyIncomingNetworkMerge("OBJECT", 3401, { [1] = "Random Object", [4] = { [44] = { { 11.1, 22.2 } } } }, "NEW")
+
+        assert.is_false(changed)
+        assert.is_nil(Questie.dbLearner.global.objects[3401])
     end)
 
     it("clears cached quest data when learner adds questgiver links", function()

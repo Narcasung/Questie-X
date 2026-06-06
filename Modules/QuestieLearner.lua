@@ -2057,6 +2057,13 @@ function QuestieLearner:LearnQuestObjectiveObject(questId, objectId, objText, ob
         table.insert(existing[10][2], { objectId, objText or "" })
     end
 
+    local recent = _Learner.recentObjects and _Learner.recentObjects[objectId]
+    if recent then
+        self:LearnObject(objectId, recent.name or objText, recent.x, recent.y, recent.zoneId, true)
+    else
+        self:LearnObject(objectId, objText, nil, nil, GetZoneId(), true)
+    end
+
     if objectiveIndex then
         existing.objIndex = existing.objIndex or {}
         local entry = existing.objIndex[objectiveIndex]
@@ -2123,14 +2130,16 @@ local function IsQuestRelevantItem(itemId, itemClass)
         end
         if qData[10] and qData[10][3] then
             for _, entry in ipairs(qData[10][3]) do
-                if entry[1] == itemId then
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == itemId then
                     return true
                 end
             end
         end
         if qData[2] and qData[2][3] then
             for _, entry in ipairs(qData[2][3]) do
-                if entry[1] == itemId then
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == itemId then
                     return true
                 end
             end
@@ -2165,6 +2174,51 @@ local function HasQuestReferences(itemId)
         if qData[2] and qData[2][3] then
             for _, entry in ipairs(qData[2][3]) do
                 if entry[1] == itemId then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function HasQuestObjectReferences(objectId)
+    local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not learned then
+        return false
+    end
+
+    local objectData = learned.objects and learned.objects[objectId]
+    if objectData and objectData.questRelevant then
+        return true
+    end
+
+    if not learned.quests then
+        return false
+    end
+
+    for _, qData in pairs(learned.quests) do
+        if qData[2] and qData[2][2] then
+            for _, entry in ipairs(qData[2][2]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == objectId then
+                    return true
+                end
+            end
+        end
+        if qData[3] and qData[3][2] then
+            for _, entry in ipairs(qData[3][2]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == objectId then
+                    return true
+                end
+            end
+        end
+        if qData[10] and qData[10][2] then
+            for _, entry in ipairs(qData[10][2]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == objectId then
                     return true
                 end
             end
@@ -2268,14 +2322,21 @@ end
 -- Object learning
 ------------------------------------------------------------------------
 
-function QuestieLearner:LearnObject(objectId, name)
-    if not self:IsEnabled() then return end
-    if not Questie.dbLearner.global.settings.learnObjects then return end
+function QuestieLearner:LearnObject(objectId, name, spawnX, spawnY, spawnZoneId, questRelevant)
+    if not self:IsEnabled() then return false end
+    if not Questie.dbLearner.global.settings.learnObjects then return false end
     objectId = tonumber(objectId)
-    if not objectId or objectId <= 0 then return end
+    if not objectId or objectId <= 0 then return false end
 
-    local zoneId = GetZoneId()
-    local x, y   = GetPlayerCoords()
+    if not (questRelevant or HasQuestObjectReferences(objectId)) then
+        return false
+    end
+
+    local zoneId = NormalizeSpawnZoneKey(spawnZoneId or GetZoneId())
+    local x, y   = spawnX, spawnY
+    if not x or not y then
+        x, y = GetPlayerCoords()
+    end
 
     local existing = Questie.dbLearner.global.objects[objectId]
     local isNew = existing == nil
@@ -2283,6 +2344,8 @@ function QuestieLearner:LearnObject(objectId, name)
         existing = {}
         Questie.dbLearner.global.objects[objectId] = existing
     end
+
+    existing.questRelevant = true
 
     if name   and not existing[1] then existing[1] = name end
     if zoneId and zoneId > 0 and not existing[5] then existing[5] = zoneId end
@@ -2326,6 +2389,7 @@ function QuestieLearner:LearnObject(objectId, name)
         CrossLinkAfterObject(objectId)
     end
     _Learner:BroadcastIfCommsAvailable("OBJECT", objectId, existing)
+    return true
 end
 
 ------------------------------------------------------------------------
@@ -2818,12 +2882,12 @@ function QuestieLearner:InjectLearnedData()
             objectIdsToFix[objectId] = oid
         end
         self:Sanitize(data)
-        if not QuestieDB.objectDataOverrides[oid or objectId] then
+        if HasQuestObjectReferences(oid or objectId) and not QuestieDB.objectDataOverrides[oid or objectId] then
             QuestieDB.objectDataOverrides[oid or objectId] = data
             objectCount = objectCount + 1
         else
             local existing = QuestieDB.objectDataOverrides[oid or objectId]
-            if data[4] and not IsAscensionProtected("OBJECT", oid or objectId, 4) then
+            if existing and data[4] and not IsAscensionProtected("OBJECT", oid or objectId, 4) then
                 existing[4] = existing[4] or {}
                 for zoneId, coords in pairs(data[4]) do
                     existing[4][zoneId] = existing[4][zoneId] or {}
@@ -2833,9 +2897,11 @@ function QuestieLearner:InjectLearnedData()
                 end
             end
             -- Adopt other fields
-            for k, v in pairs(data) do
-                if k ~= "mc" and k ~= 4 and existing[k] == nil and not IsAscensionProtected("OBJECT", oid or objectId, k) then
-                    existing[k] = v
+            if existing then
+                for k, v in pairs(data) do
+                    if k ~= "mc" and k ~= 4 and existing[k] == nil and not IsAscensionProtected("OBJECT", oid or objectId, k) then
+                        existing[k] = v
+                    end
                 end
             end
         end
@@ -3201,7 +3267,7 @@ function QuestieLearner:OnQuestDetail()
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
                 self:LearnQuestGiver(questId, entityId, 2, true)
-                self:LearnObject(entityId, entityName)
+                self:LearnObject(entityId, entityName, nil, nil, zoneId, true)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, true)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
@@ -3234,7 +3300,7 @@ function QuestieLearner:OnQuestComplete()
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
                 self:LearnQuestGiver(questId, entityId, 2, false)
-                self:LearnObject(entityId, entityName)
+                self:LearnObject(entityId, entityName, nil, nil, zoneId, true)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
@@ -3463,7 +3529,7 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     if giverEntity then
         if giverEntity.unitType == "GameObject" then
             self:LearnQuestGiver(questId, giverEntity.id, 2, true)
-            self:LearnObject(giverEntity.id, giverEntity.name)
+            self:LearnObject(giverEntity.id, giverEntity.name, nil, nil, GetZoneId(), true)
         elseif giverEntity.unitType == "Creature" or giverEntity.unitType == "Vehicle" then
             self:LearnQuestGiver(questId, giverEntity.id, 1, true)
             local npcFlags = (npcGuid and UnitNPCFlags and UnitNPCFlags("npc")) or 1
@@ -3488,7 +3554,7 @@ function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
             local entityName = UnitName("npc")
             if unitType == "GameObject" then
                 self:LearnQuestGiver(questId, entityId, 2, false)
-                self:LearnObject(entityId, entityName)
+                self:LearnObject(entityId, entityName, nil, nil, GetZoneId(), true)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
                 local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
@@ -3507,12 +3573,10 @@ function QuestieLearner:OnLootOpened()
     local targetGuid = UnitGUID("target")
     local targetId, targetType = nil, nil
     local npcId = nil
+    local objectId = nil
     if targetGuid then
         targetId, targetType = self:ResolveNpcIdFromGuidAndName(targetGuid, UnitName("target"))
         TraceLearnerEntity("loot_target", targetGuid, targetType, targetId, UnitName("target"))
-        if targetType == "GameObject" and targetId and targetId > 0 then
-            self:LearnObject(targetId, UnitName("target"))
-        end
         if targetType == "Creature" or targetType == "Vehicle" then
             npcId = targetId
         else
@@ -3524,6 +3588,7 @@ function QuestieLearner:OnLootOpened()
     for i = 1, numItems do
         local _, lootName, _, _, lootQuality = GetLootSlotInfo(i)
         if lootName then
+            local objectId = nil
             if GetLootSourceInfo then
                 local sources = { GetLootSourceInfo(i) }
                 local sourceCount = table.getn(sources)
@@ -3550,7 +3615,7 @@ function QuestieLearner:OnLootOpened()
                         if (sourceType == "Creature" or sourceType == "Vehicle") and sourceId and sourceId > 0 then
                             npcId = sourceId
                         elseif sourceType == "GameObject" and sourceId and sourceId > 0 then
-                            self:LearnObject(sourceId, nil)
+                            objectId = sourceId
                         end
                     end
                 end
@@ -3563,9 +3628,12 @@ function QuestieLearner:OnLootOpened()
                     if itemName then
                         local learnedItem = self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
                         if learnedItem and npcId then self:LearnItemDrop(itemId, npcId) end
+                        if learnedItem and objectId then
+                            self:LearnObject(objectId, nil, nil, nil, GetZoneId(), true)
+                        end
                     else
                         -- GetItemInfo returned nil; queue for retry (class check happens on retry)
-                        table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId })
+                        table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId, objectId = objectId })
                     end
                 end
             end
@@ -3580,6 +3648,8 @@ function QuestieLearner:OnGameObjectUsed(objectId)
     if not objectId or objectId <= 0 then return end
 
     local objectName = ResolveObjectName(objectId)
+    local x, y = GetPlayerCoords()
+    local zoneId = GetZoneId()
     Questie:Debug(
         Questie.DEBUG_DEVELOP,
         "[QuestieLearner:GameObjectUsedTrace]",
@@ -3589,12 +3659,16 @@ function QuestieLearner:OnGameObjectUsed(objectId)
         tostring(objectName)
     )
     TraceLearnerEntity("gameobject_used", nil, "GameObject", objectId, objectName)
-    self:LearnObject(objectId, objectName)
+    if HasQuestObjectReferences(objectId) then
+        self:LearnObject(objectId, objectName, x, y, zoneId, true)
+    end
     _Learner.recentObjects[objectId] = {
         objectId = objectId,
         name = objectName,
         ts = time(),
-        zoneId = GetZoneId(),
+        zoneId = zoneId,
+        x = x,
+        y = y,
     }
 end
 
@@ -3660,6 +3734,9 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
             if itemName then
                 local learnedItem = self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
                 if learnedItem and entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
+                if learnedItem and entry.objectId then
+                    self:LearnObject(entry.objectId, nil, nil, nil, GetZoneId(), true)
+                end
             else
                 table.insert(remaining, entry) -- still not cached, keep
             end
@@ -4633,6 +4710,9 @@ function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
         store = Questie.dbLearner.global.items
     elseif typ == "OBJECT" then
         if not Questie.dbLearner.global.settings.learnObjects then return false end
+        if not ((type(d) == "table" and d.questRelevant) or HasQuestObjectReferences(id)) then
+            return false
+        end
         store = Questie.dbLearner.global.objects
     else
         return false
