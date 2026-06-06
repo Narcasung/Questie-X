@@ -188,11 +188,177 @@ describe("QuestieDB learner source fallback", function()
         assert.equals(27.25, npc.spawns[44][1][2])
     end)
 
+    it("collapses many nearby kills (distinct GUIDs) into one spawn pin", function()
+        -- Five kills of respawns at the same spot: distinct GUID keys, slightly
+        -- drifting player coords. This must render as ONE pin, not five.
+        Questie.dbLearner.global.npcs[9005] = {
+            [1] = "Respawning Boar",
+            [8] = {
+                [201] = { zoneId = 44, x = 50.0, y = 50.0 },
+                [202] = { zoneId = 44, x = 50.4, y = 50.3 },
+                [203] = { zoneId = 44, x = 49.7, y = 50.6 },
+                [204] = { zoneId = 44, x = 50.9, y = 49.8 },
+                [205] = { zoneId = 44, x = 50.2, y = 50.1 },
+            },
+        }
+
+        local npc = QuestieDB:GetNPC(9005)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns[44])
+        assert.equals(1, #npc.spawns[44])
+    end)
+
+    it("keeps genuinely separate spawn locations as distinct pins", function()
+        Questie.dbLearner.global.npcs[9006] = {
+            [1] = "Field Boars",
+            [8] = {
+                [301] = { zoneId = 44, x = 20.0, y = 20.0 },
+                [302] = { zoneId = 44, x = 20.3, y = 20.2 }, -- same spot as 301
+                [303] = { zoneId = 44, x = 70.0, y = 65.0 }, -- far corner
+            },
+        }
+
+        local npc = QuestieDB:GetNPC(9006)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns[44])
+        assert.equals(2, #npc.spawns[44])
+    end)
+
+    it("honors the spawn dedup radius knob (0 disables proximity merge)", function()
+        Questie.dbLearner.global.settings.spawnDedupRadius = 0
+        Questie.dbLearner.global.npcs[9007] = {
+            [1] = "Drifting Kills",
+            [8] = {
+                [401] = { zoneId = 44, x = 50.0, y = 50.0 },
+                [402] = { zoneId = 44, x = 50.4, y = 50.3 },
+                [403] = { zoneId = 44, x = 49.7, y = 50.6 },
+                [404] = { zoneId = 44, x = 50.9, y = 49.8 },
+                [405] = { zoneId = 44, x = 50.2, y = 50.1 },
+            },
+        }
+
+        local npc = QuestieDB:GetNPC(9007)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns[44])
+        -- With merging off, each distinct kill coordinate stays its own pin.
+        assert.equals(5, #npc.spawns[44])
+    end)
+
+    it("widens merging when the dedup radius is increased", function()
+        Questie.dbLearner.global.settings.spawnDedupRadius = 12
+        Questie.dbLearner.global.npcs[9008] = {
+            [1] = "Loose Cluster",
+            [8] = {
+                [501] = { zoneId = 44, x = 40.0, y = 40.0 },
+                [502] = { zoneId = 44, x = 48.0, y = 46.0 }, -- ~10 away: merges at radius 12
+            },
+        }
+
+        local npc = QuestieDB:GetNPC(9008)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns[44])
+        assert.equals(1, #npc.spawns[44])
+    end)
+
     it("returns learner object data when static queries are unavailable", function()
         local obj = QuestieDB:GetObject(9002)
         assert.is_table(obj)
         assert.equals("Learner Cache", obj.name)
         assert.is_table(obj.spawns)
         assert.equals(44, obj.zoneID)
+    end)
+end)
+
+describe("QuestieDB partial base DB missing", function()
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        dofile("Database/QuestieDB.lua")
+    end)
+
+    it("does not report the base DB missing when only one store failed", function()
+        QuestieDB.baseDatabaseMissing = true
+        QuestieDB.baseDatabaseMissingKeys = { itemData = true }
+        assert.is_false(QuestieDB:IsBaseDatabaseMissing())
+        assert.is_true(QuestieDB:IsStoreMissing("itemData"))
+        assert.is_false(QuestieDB:IsStoreMissing("npcData"))
+    end)
+
+    it("reports the base DB missing only when every core store failed", function()
+        QuestieDB.baseDatabaseMissing = true
+        QuestieDB.baseDatabaseMissingKeys = {
+            npcData = true, objectData = true, questData = true, itemData = true,
+        }
+        assert.is_true(QuestieDB:IsBaseDatabaseMissing())
+    end)
+
+    it("honors the static selection for a present store even when another is missing", function()
+        QuestieDB.baseDatabaseMissing = true
+        QuestieDB.baseDatabaseMissingKeys = { itemData = true }
+        Questie.dbLearner.global.settings.dataSourceMode = "static"
+        Questie.dbLearner.global.npcs = {
+            [9100] = { [1] = "Should Not Win", [7] = { [44] = { { 1, 2 } } }, [9] = 44 },
+        }
+        QuestieDB.private.npcCache = {}
+        local queried = false
+        QuestieDB.QueryNPC = function() queried = true; return nil end
+
+        pcall(function() QuestieDB:GetNPC(9100) end)
+        assert.is_true(queried)
+    end)
+end)
+
+describe("QuestieDB mode cohesion", function()
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        dofile("Database/QuestieDB.lua")
+        dofile("Database/npcDB.lua")
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.npcs = {
+            [9200] = { [1] = "Learner Only NPC", [7] = { [44] = { { 5, 6 } } }, [9] = 44 },
+        }
+        QuestieDB.QueryNPC = function() return nil end
+        QuestieDB.baseDatabaseMissing = false
+        QuestieDB.baseDatabaseMissingKeys = {}
+        QuestieDB.private.npcCache = {}
+    end)
+
+    it("does NOT leak learner data into static mode when the store is present", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "static"
+        QuestieDB.private.npcCache = {}
+        assert.is_nil(QuestieDB:GetNPC(9200))
+    end)
+
+    it("does NOT leak learner data into none mode when the store is present", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "none"
+        QuestieDB.private.npcCache = {}
+        assert.is_nil(QuestieDB:GetNPC(9200))
+    end)
+
+    it("DOES overlay learner data in auto mode when the static DB lacks it", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "auto"
+        QuestieDB.private.npcCache = {}
+        local npc = QuestieDB:GetNPC(9200)
+        assert.is_table(npc)
+        assert.equals("Learner Only NPC", npc.name)
+    end)
+
+    it("clears every cache including the zone cache on mode switch", function()
+        QuestieDB.private.questCache[1] = {}
+        QuestieDB.private.zoneCache[1] = {}
+        QuestieDB:ClearModeCaches()
+        assert.is_nil(QuestieDB.private.questCache[1])
+        assert.is_nil(QuestieDB.private.zoneCache[1])
+    end)
+end)
+
+describe("QuestieLearner mode switch redraw wiring", function()
+    it("drives a full real-time refresh via SmoothReset, not the mis-named event handler", function()
+        local function read(path)
+            local f = assert(io.open(path, "r")); local c = f:read("*a"); f:close(); return c
+        end
+        local dbOptions = read("Modules/Options/DatabaseTab/QuestieOptionsDatabase.lua")
+        assert.is_true(string.find(dbOptions, "QuestieQuest:SmoothReset()", 1, true) ~= nil)
+        -- The old import name resolved to nil and silently skipped the redraw.
+        assert.is_nil(string.find(dbOptions, "ImportModule(\"QuestieEventHandler\")", 1, true))
     end)
 end)

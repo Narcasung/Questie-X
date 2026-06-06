@@ -105,6 +105,42 @@ describe("QuestieLearner kill-path batching", function()
         assert.is_true(table.getn(queuedTimers) >= 2)
     end)
 
+    it("force-flushes active quest pins within the NPC live-update flush (no second debounce)", function()
+        local updateCount = 0
+        local originalUpdateQuest = QuestieQuest.UpdateQuest
+        QuestieQuest.UpdateQuest = function(_, questId)
+            updateCount = updateCount + 1
+        end
+
+        QuestiePlayer.currentQuestlog = { [5500] = true }
+        local originalGetQuest = QuestieDB.GetQuest
+        QuestieDB.GetQuest = function(questId)
+            if questId == 5500 then
+                return { Objectives = { [1] = { Id = 7500, spawnList = { [7500] = {} } } } }
+            end
+            return nil
+        end
+
+        QuestieLearner:LearnNPC(7500, "Quest Boar", nil, nil, nil, nil, 41.0, 52.0, 44)
+
+        -- Drain exactly ONE timer round (the NPC live-update flush). The pin refresh
+        -- must happen inside that same flush, not in a later pinRefreshDelay cycle.
+        local firstRound = queuedTimers
+        queuedTimers = {}
+        for i = 1, table.getn(firstRound) do
+            simulatedTime = simulatedTime + 1
+            firstRound[i]()
+        end
+
+        assert.is_true(updateCount >= 1)
+
+        -- And draining the rest must terminate (no infinite self-re-arming timer).
+        drainQueuedTimers()
+
+        QuestieDB.GetQuest = originalGetQuest
+        QuestieQuest.UpdateQuest = originalUpdateQuest
+    end)
+
     it("coalesces repeated quest-pin refreshes into one flush", function()
         local updateCount = 0
         local originalUpdateQuest = QuestieQuest.UpdateQuest

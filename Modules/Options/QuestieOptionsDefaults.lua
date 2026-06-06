@@ -9,6 +9,11 @@ function QuestieOptionsDefaults:Load()
 			ascensionScalingAsked = false,
 			--Ascension
             clusterLevelHotzone = 50,
+            -- How aggressively dense objectives (many pins in one zone) get
+            -- consolidated. 0 = off (every pin shown); higher tightens the
+            -- clustering range for crowded kill objectives. Coincident pins are
+            -- always deduplicated regardless of this value. See QuestieQuest:_DrawObjectiveIcons.
+            clusterDensityAggressiveness = 35,
             enableIconLimit = false,
             iconLimit = 200,
             availableScale = 1.2,

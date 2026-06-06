@@ -409,6 +409,7 @@ local function EnsureLearnedData()
             learnItems   = true,
             learnObjects = true,
             minConfidencePins = 1,
+            spawnDedupRadius = 4.0,
             prioritizeMyData = true,
             dataSourceMode   = "auto",
             staleThreshold   = 90,    -- days
@@ -434,6 +435,7 @@ local function EnsureLearnedData()
         if s.learnItems   == nil then s.learnItems   = true end
         if s.learnObjects == nil then s.learnObjects = true end
         if s.minConfidencePins == nil then s.minConfidencePins = 1 end
+        if s.spawnDedupRadius == nil then s.spawnDedupRadius = 4.0 end
         if s.prioritizeMyData == nil then s.prioritizeMyData = true end
         if s.dataSourceMode == nil then
             if s.prioritizeMyData == false then
@@ -517,11 +519,16 @@ function QuestieLearner:ApplyDataSourceMode()
     CaptureStaticOverrideSnapshot()
     RestoreStaticOverridesForMode()
     self:InjectLearnedData()
-    if QuestieDB and QuestieDB.private then
+    -- Rebuild every per-entity cache (including the per-zone quest cache) so the
+    -- mode switch takes effect immediately for reads, pins, and zone lookups.
+    if QuestieDB and QuestieDB.ClearModeCaches then
+        QuestieDB:ClearModeCaches()
+    elseif QuestieDB and QuestieDB.private then
         QuestieDB.private.questCache = {}
         QuestieDB.private.itemCache = {}
         QuestieDB.private.npcCache = {}
         QuestieDB.private.objectCache = {}
+        QuestieDB.private.zoneCache = {}
     end
     QuestieLearner.data = Questie.dbLearner.global
 end
@@ -618,27 +625,11 @@ local _pendingQuestFrameUnloads = {}
 -- caps the worst-case latency: once that many seconds have elapsed since the first
 -- pending change, the flush fires even if kills are still coming (0 = pure debounce,
 -- never force). Only "batched" mode debounces; "immediate" flushes on first fire.
-local function _FlushActiveQuestPins()
-    if GetTime and GetLearnerSetting("pinRefreshMode", "batched") == "batched" then
-        local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
-        local now = GetTime()
-        local delay = GetLearnerSetting("pinRefreshDelay", 0.75)
-        local maxWait = GetLearnerSetting("pinRefreshMaxWait", 5.0)
-        local quiet = now - (_pendingQuestPinLastActivity or now)
-        local waited = now - (_pendingQuestPinFirstDirty or now)
-        if timer and timer.After and quiet < delay and (maxWait <= 0 or waited < maxWait) then
-            local remaining = delay - quiet
-            if maxWait > 0 then
-                local capRemaining = maxWait - waited
-                if capRemaining < remaining then remaining = capRemaining end
-            end
-            if remaining < 0 then remaining = 0 end
-            -- _pendingQuestPinRefreshTimer stays true so concurrent queues don't double-arm.
-            timer.After(remaining, _FlushActiveQuestPins)
-            return
-        end
-    end
-
+-- Performs the actual pin rebuild for every pending quest. No debounce gate — the
+-- caller is responsible for deciding when to fire (either the trailing-debounce
+-- wrapper below, or an immediate flush from the already-debounced NPC live-update
+-- flush, which makes the redundant second debounce stage unnecessary).
+local function _DoFlushActiveQuestPins()
     local questIdSet = _pendingQuestPinRefreshes
     _pendingQuestPinRefreshes = {}
     _pendingQuestPinRefreshTimer = nil
@@ -664,6 +655,42 @@ local function _FlushActiveQuestPins()
     _pendingQuestFrameUnloads = {}
 end
 
+local function _FlushActiveQuestPins()
+    -- Only defer while there is genuine pending activity. If the timestamps were
+    -- already cleared (e.g. the NPC live-update flush force-flushed the pins via
+    -- _DoFlushActiveQuestPins), a leftover timer must NOT treat the nil timestamp
+    -- as "now" and re-arm forever — it should fall through and flush (a no-op when
+    -- the pending set is empty).
+    if GetTime and GetLearnerSetting("pinRefreshMode", "batched") == "batched"
+            and _pendingQuestPinLastActivity then
+        local timer = (C_Timer) or (QuestieCompat and QuestieCompat.C_Timer)
+        local now = GetTime()
+        local delay = GetLearnerSetting("pinRefreshDelay", 0.75)
+        local maxWait = GetLearnerSetting("pinRefreshMaxWait", 5.0)
+        local quiet = now - _pendingQuestPinLastActivity
+        local waited = now - (_pendingQuestPinFirstDirty or _pendingQuestPinLastActivity)
+        if timer and timer.After and quiet < delay and (maxWait <= 0 or waited < maxWait) then
+            local remaining = delay - quiet
+            if maxWait > 0 then
+                local capRemaining = maxWait - waited
+                if capRemaining < remaining then remaining = capRemaining end
+            end
+            if remaining < 0 then remaining = 0 end
+            -- _pendingQuestPinRefreshTimer stays true so concurrent queues don't double-arm.
+            timer.After(remaining, _FlushActiveQuestPins)
+            return
+        end
+    end
+
+    _DoFlushActiveQuestPins()
+end
+
+-- When true, _RefreshActiveQuestPins only accumulates pending quests and does NOT
+-- arm its own trailing-debounce timer. Set by _FlushNpcLiveUpdates, which already
+-- debounced via liveNpcUpdateDelay and force-flushes the pins itself afterwards —
+-- so the second debounce stage would only add redundant latency.
+local _deferPinRefreshScheduling = false
+
 local function _RefreshActiveQuestPins(questIdSet)
     -- Skip scheduling when the set is empty (avoids no-op timer callbacks)
     if not next(questIdSet) then return end
@@ -682,6 +709,11 @@ local function _RefreshActiveQuestPins(questIdSet)
     _pendingQuestPinLastActivity = now
     if not _pendingQuestPinFirstDirty then
         _pendingQuestPinFirstDirty = now
+    end
+
+    -- Caller (NPC live-update flush) will force-flush; don't arm a redundant timer.
+    if _deferPinRefreshScheduling then
+        return
     end
 
     if _pendingQuestPinRefreshTimer then
@@ -916,11 +948,17 @@ local function _FlushNpcLiveUpdates()
     _Learner.pendingNpcLiveUpdateFirstDirty = nil
     _Learner.pendingNpcLiveUpdateLastActivity = nil
 
+    -- This flush already coalesced kills over liveNpcUpdateDelay. Suppress the
+    -- per-NPC pin-refresh debounce while invalidating, then flush all affected
+    -- quests once, immediately — instead of waiting out a second pinRefreshDelay.
+    _deferPinRefreshScheduling = true
     for npcId in pairs(pending) do
         if _ApplyNpcLiveUpdate(npcId) then
             _InvalidateSpawnListsForNPC(npcId)
         end
     end
+    _deferPinRefreshScheduling = false
+    _DoFlushActiveQuestPins()
 end
 
 local function _QueueNpcLiveUpdate(npcId)
@@ -1496,12 +1534,17 @@ local function _MergeSpawnEvidence(npcId)
                 entry.y = evidenceY
 
                 local rx, ry = NormalizeCoordPair(evidenceX, evidenceY)
-                local key = entry.zoneId .. "|" .. tostring(rx) .. "|" .. tostring(ry)
-                -- DEBUG: log each entry being grouped
-                Questie:Debug(Questie.DEBUG_LEARNER,
-                    "[QuestieLearner] _MergeSpawnEvidence GROUPING: spawnUID=", spawnUID,
-                    "entry.x=", entry.x, "entry.y=", entry.y,
-                    "rx=", rx, "ry=", ry, "key=", key)
+                -- Group kills by a coordinate bucket, not by exact coords. Kill
+                -- evidence is the player's position at kill time, which drifts a
+                -- little every kill, so exact keys would treat each kill as its own
+                -- "location" — producing one pin per kill and never letting any
+                -- single spot accumulate enough evidence to clear the confidence
+                -- threshold. Bucketing collapses repeated kills at the same spawn
+                -- into one location (matching the [7] InsertIfNewBucket behavior).
+                local grid = GetCoordGridForZone(entry.zoneId)
+                local bx = floor(rx / grid)
+                local by = floor(ry / grid)
+                local key = entry.zoneId .. "|" .. bx .. "|" .. by
                 if not evidence[key] then
                     evidence[key] = { zoneId = entry.zoneId, x = rx, y = ry, count = 0 }
                 end

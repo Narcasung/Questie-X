@@ -19,6 +19,8 @@ local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas");
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieCompat
 local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
+---@type QuestieDB
+local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 
 QuestieOptions.tabs.advanced = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
@@ -49,6 +51,9 @@ local function GetLearnerSettings()
     end
     if settings.minConfidencePins == nil then
         settings.minConfidencePins = 1
+    end
+    if settings.spawnDedupRadius == nil then
+        settings.spawnDedupRadius = 4.0
     end
     return settings
 end
@@ -166,6 +171,22 @@ function QuestieOptions.tabs.advanced:Initialize()
                     QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting clustering value, clusterLevelHotzone set to %s : Redrawing!', value))
                     QuestieOptions:SetProfileValue(info, value)
                     QuestieOptionsUtils.DetermineTheme()
+                end,
+            },
+            clusterDensityAggressiveness = {
+                type = "range",
+                order = 1.41,
+                name = function() return l10n('Dense pin clustering aggressiveness'); end,
+                desc = function() return l10n('How aggressively crowded kill objectives are consolidated into fewer pins. 0 shows every pin; higher values tighten clustering where many pins share a zone. Coincident pins are always deduplicated.'); end,
+                width = 1.5,
+                disabled = function() return (not Questie.db.profile.enabled); end,
+                min = 0,
+                max = 100,
+                step = 5,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting dense pin clustering aggressiveness to %s : Redrawing!', value))
                 end,
             },
             quelDanasSpacer1 = QuestieOptionsUtils:Spacer(1.45, (not Questie.IsTBC)),
@@ -321,6 +342,26 @@ function QuestieOptions.tabs.advanced:Initialize()
                     local settings = GetLearnerSettings()
                     settings.minConfidencePins = value
                     settings.performanceMode = "manual"
+                end,
+            },
+            learnerSpawnDedupRadius = {
+                type = "range",
+                order = 2.55,
+                name = function() return l10n('Spawn Pin Dedup Radius'); end,
+                desc = function() return l10n('How close two learned kill positions must be (in map %) to merge into a single pin. Higher values show fewer, tighter pins per spawn; 0 shows every distinct position.'); end,
+                min = 0,
+                max = 15,
+                step = 0.5,
+                width = 1.5,
+                get = function() return GetLearnerSettings().spawnDedupRadius or 4.0 end,
+                set = function(_, value)
+                    GetLearnerSettings().spawnDedupRadius = value
+                    -- Spawn tables are cached per NPC; clear so the new radius is
+                    -- applied on the redraw instead of serving stale merged coords.
+                    if QuestieDB and QuestieDB.ClearModeCaches then
+                        QuestieDB:ClearModeCaches()
+                    end
+                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n('Setting spawn pin dedup radius to %s : Redrawing!', value))
                 end,
             },
             learnerCommsIntensity = {

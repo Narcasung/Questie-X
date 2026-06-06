@@ -6027,3 +6027,129 @@ Learner kill evidence now turns into visible spawn coordinates quickly enough
 to spawn pins in learner mode, and the available quest scanner now fails
 closed when a quest record is missing instead of flooding chat or crashing the
 draw thread.
+
+---
+
+# 2026-06-05 — Data Source Mode Cohesion, Pin Refresh Latency, and Pin Clustering Knob
+
+## Summary
+
+Three related areas were addressed after the immediate-spawn work above:
+
+1. Switching the Data Source Mode (Auto / Learner / Static / Neither) did not
+   reliably take effect — including a case where it could never switch back to
+   the static database even across `/reload`.
+2. Newly learned spawns were slow to redraw pins because two trailing-debounce
+   stages were stacked on the live-learn path.
+3. The density-adaptive pin clustering that was previously commented out needed
+   re-implementing as a user-tunable knob, plus a guaranteed coincident-pin
+   deduplication baseline.
+
+## Root causes
+
+- **Mode lock-in.** `QuestieDB.baseDatabaseMissing` was a single global flag set
+  to `true` when ANY one of the four core stores (`npcData`, `objectData`,
+  `questData`, `itemData`) failed to load. Both the per-read DB functions and
+  `GetDataSourceMode()` force learner mode whenever `IsBaseDatabaseMissing()` is
+  true, so a single missing/format-mismatched sub-table pinned the entire addon
+  to learner data and survived `/reload` (the flag is recomputed identically at
+  load).
+- **Learner leak into Static/Neither.** The per-read fallback
+  (`if not rawdata and learnerRecord then rawdata = learnerRecord`) ran in the
+  `else` branch for every non-learner mode, so Static and Neither silently used
+  learner records when the static DB lacked an entry.
+- **Dead redraw on mode switch.** `ApplyLearnerMode` imported
+  `"QuestieEventHandler"` (the module is registered as `"QuestEventHandler"`) and
+  called `UpdateAllQuests`, which lives on the private table — so the import
+  returned nil and available-quest pins were never redrawn on a mode switch.
+- **Stale zone cache.** `ApplyDataSourceMode` cleared the quest/npc/item/object
+  caches but not `zoneCache`, so per-zone quest results lingered after a switch.
+- **Stacked pin-refresh debounce.** A learned kill flowed through
+  `liveNpcUpdateDelay` (NPC live-update flush) and THEN a separate
+  `pinRefreshDelay` gate before `UpdateQuest`. Because the only caller of the
+  pin-invalidation path is the already-debounced NPC flush, the second stage was
+  pure added latency (~1.5s Balanced, ~4s Low), with two independent
+  `pinRefreshMaxWait` caps under sustained kills.
+
+## What changed
+
+- `Database/QuestieDB.lua`
+  - `IsBaseDatabaseMissing()` now reports missing only when ALL four core stores
+    failed; added `IsStoreMissing(storeKey)` for per-store checks.
+  - Each read (`GetNPC` / `GetQuest` / `GetItem` / `GetObject`) gates force-learner
+    on its own store and only overlays a learner-record fallback in Auto mode.
+  - Added `ClearModeCaches()` which clears quest/item/npc/object AND zone caches.
+- `Modules/QuestieLearner.lua`
+  - `ApplyDataSourceMode` now calls `ClearModeCaches()`.
+  - Split the active-quest pin flush into a debounce-gate wrapper plus a
+    `_DoFlushActiveQuestPins` body. The NPC live-update flush now suppresses the
+    redundant second debounce and force-flushes pins once, immediately.
+  - Hardened the flush gate so it only defers while there is genuine pending
+    activity (fixes an infinite timer re-arm exposed by the direct flush).
+- `Modules/Options/DatabaseTab/QuestieOptionsDatabase.lua`
+  - Mode switches now refresh through `QuestieQuest:SmoothReset()` (clears notes
+    and tooltips, recalculates and redraws available quests, re-updates active
+    quests, refreshes the tracker).
+- `Modules/Quest/QuestieQuest.lua`
+  - Re-implemented density-adaptive clustering, scaled by a new
+    `clusterDensityAggressiveness` profile knob. The intentional per-zone
+    (Sunstrider Isle, uiMapID 1241, range 0) and object-icon (`range * 0.2`)
+    overrides are preserved and still take precedence.
+- `Modules/Map/QuestieMapUtils.lua`
+  - `CalcHotzones` now always merges coincident pins
+    (within `COINCIDENT_EPSILON`), independent of the clustering range, so two
+    icons never stack on the same spot even when clustering is disabled.
+- `Modules/Options/QuestieOptionsDefaults.lua`,
+  `Modules/Options/AdvancedTab/QuestieOptionsAdvanced.lua`
+  - Added the `clusterDensityAggressiveness` default (35) and a real-time
+    Advanced-tab slider that redraws via `QuestieOptions:ClusterRedraw`.
+- Tests
+  - `Tests/QuestieLearnerDataSourceMode_spec.lua`: partial-missing store handling,
+    Static/Neither no-leak, Auto overlay, full cache clear, SmoothReset wiring.
+  - `Tests/QuestieLearner_performance_spec.lua`: pins force-flush within a single
+    NPC live-update round and draining terminates (infinite-loop guard).
+  - `Tests/QuestiePinClustering_spec.lua` (new): coincident dedup, distinct-pin
+    preservation at range 0, range-based clustering, cross-map isolation, and
+    knob wiring.
+
+## Verification
+
+- `luac5.1 -p` on every changed Lua file.
+- `busted` full suite: 100 successes / 4 failures (the 4 failures are the
+  pre-existing, unrelated `QuestieArrowAssets_spec` asset checks).
+
+## Result
+
+All four data-source modes now switch live and cohesively (and partial static
+DB failures no longer trap the addon in learner mode). Newly learned spawns
+redraw within a single debounce window. Dense kill objectives can be
+consolidated to taste via the new aggressiveness knob, while coincident pins are
+always deduplicated and the curated per-zone/object overrides remain intact.
+
+### Follow-up — learner pin-per-kill fix
+
+Learner kill evidence was rendering one pin per kill. Kill coordinates come from
+the player's position at kill time and respawns carry fresh GUIDs, so repeated
+kills at the same spawn drifted just enough to defeat the exact-match dedup in
+`_BuildSpawnTableFromGuidEvidence` (`Database/QuestieDB.lua`) and the
+full-precision grouping key in `_MergeSpawnEvidence` (`Modules/QuestieLearner.lua`).
+
+- `_BuildSpawnTableFromGuidEvidence` now merges evidence coords within a small
+  radius (distance test, not a grid bucket — avoids the cell-boundary split where
+  two near-identical coords land in different buckets) into one pin per spawn.
+- `_MergeSpawnEvidence` now groups kills by a per-zone coordinate bucket
+  (`GetCoordGridForZone`) instead of exact coords, so one location accumulates
+  enough evidence to clear the >60% confidence threshold instead of every kill
+  registering as its own single-count "location".
+- The `[7]` spawn path already deduped via `InsertIfNewBucket`; only the GUID
+  evidence (`[8]`) consumers needed the fix.
+- The merge radius is user-tunable via the new `spawnDedupRadius` learner setting
+  (default 4.0, map-percent) and a "Spawn Pin Dedup Radius" slider on the
+  Advanced tab. `_BuildSpawnTableFromGuidEvidence` reads it through
+  `_GetSpawnDedupRadius` (0 = exact-match only / every distinct position shown);
+  changing it clears the NPC spawn cache and triggers a live redraw.
+- Regressions added in `Tests/QuestieLearnerDataSourceMode_spec.lua`: many nearby
+  kills collapse to one pin, genuinely separate spawns stay distinct, radius 0
+  disables proximity merge, and a larger radius widens merging.
+  `Tests/QuestiePinClustering_spec.lua` asserts the knob wiring (default + UI +
+  cache-clear redraw).

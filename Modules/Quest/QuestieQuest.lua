@@ -1847,18 +1847,30 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
 
     local iconCount, orderedList = _GetIconsSortedByDistance(iconsToDraw)
 
-    -- Dense kill objectives (like Sunstrider Isle mana wyrms) previously used
-    -- a lower clustering hotzone here. Leave the old behavior commented so we
-    -- can restore it quickly if we need to revisit consolidation again.
-    --[[
-    if iconCount >= 20 then
-        range = math.max(6, math.floor(range * 0.25))
-    elseif iconCount >= 12 then
-        range = math.max(10, math.floor(range * 0.4))
-    elseif iconCount >= 6 then
-        range = math.max(16, math.floor(range * 0.65))
+    -- Dense kill objectives (like Sunstrider Isle mana wyrms) consolidate more
+    -- aggressively the more pins share a zone. This is now user-tunable via the
+    -- clusterDensityAggressiveness knob (0 = off / show every pin, 100 = the
+    -- original aggressive consolidation). The per-zone and object overrides below
+    -- still take precedence, and coincident pins are always deduped in CalcHotzones.
+    local densityAggression = Questie.db.profile.clusterDensityAggressiveness or 0
+    if densityAggression > 0 then
+        local factor = densityAggression / 100
+        if factor > 1 then factor = 1 end
+        local baseMult
+        if iconCount >= 20 then
+            baseMult = 0.25
+        elseif iconCount >= 12 then
+            baseMult = 0.4
+        elseif iconCount >= 6 then
+            baseMult = 0.65
+        end
+        if baseMult then
+            -- Interpolate between no reduction (factor 0) and the full base
+            -- multiplier (factor 1) so the knob scales smoothly.
+            local mult = 1 - (1 - baseMult) * factor
+            range = math.max(1, math.floor(range * mult))
+        end
     end
-    --]]
 
     if orderedList[1] and orderedList[1].Icon == Questie.ICON_TYPE_OBJECT then -- new clustering / limit code should prevent problems, always show all object notes
         range = range * 0.2;                                                   -- Only use 20% of the default range.

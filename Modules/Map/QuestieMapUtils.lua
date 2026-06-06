@@ -10,6 +10,11 @@ local HBD = QuestieCompat.HBD or LibStub("HereBeDragonsQuestie-2.0")
 
 local ZOOM_MODIFIER = 1;
 
+-- Pins whose world-coordinate distance is within this epsilon are treated as the
+-- same physical spot and always merged, independent of the clustering range. This
+-- is the baseline pin deduplication that runs even when clustering is turned off.
+QuestieMap.utils.COINCIDENT_EPSILON = 0.2;
+
 -- All the speed we can get is worth it.
 local tinsert = table.insert
 local next = next
@@ -146,7 +151,11 @@ function QuestieMap.utils:CalcHotzones(points, rangeR, count)
                     -- Do not cluster icons if they have no coordinates
                     and aX ~= 0 and aY ~= 0 and point2.worldX ~= 0 and point2.worldY ~= 0 then
                     local distance = QuestieLib:Euclid(aX, aY, point2.worldX, point2.worldY)
-                    if (distance < movingRange) then
+                    -- Always deduplicate pins that sit on (essentially) the same spot,
+                    -- even when clustering is disabled (movingRange == 0). This keeps two
+                    -- icons from stacking on an identical coordinate regardless of the
+                    -- clusterDensityAggressiveness / clusterLevelHotzone settings.
+                    if (distance < movingRange) or (distance <= QuestieMap.utils.COINCIDENT_EPSILON) then
                         point2.touched = true
                         tinsert(notes, point2)
                     end

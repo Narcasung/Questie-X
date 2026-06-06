@@ -52,14 +52,18 @@ local function ApplyLearnerMode()
         QuestieLearner:ApplyDataSourceMode()
     end
 
-    local QuestieEventHandler = QuestieLoader:ImportModule("QuestieEventHandler")
-    if QuestieEventHandler and QuestieEventHandler.UpdateAllQuests then
-        QuestieEventHandler:UpdateAllQuests()
-    end
-
-    local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
-    if QuestieTracker and QuestieTracker.Update then
-        QuestieTracker:Update()
+    -- SmoothReset is the canonical full refresh: it clears all map/minimap notes
+    -- and tooltips, recalculates and redraws available quests, re-updates every
+    -- active quest, and refreshes the tracker. This makes a data-source-mode
+    -- switch (auto/learner/static/none) take effect everywhere in real time.
+    local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+    if QuestieQuest and QuestieQuest.SmoothReset then
+        QuestieQuest:SmoothReset()
+    else
+        local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+        if QuestieTracker and QuestieTracker.Update then
+            QuestieTracker:Update()
+        end
     end
 end
 
