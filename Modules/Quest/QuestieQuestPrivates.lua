@@ -4,6 +4,7 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 QuestieQuest.private = QuestieQuest.private or {}
 ---@class QuestieQuestPrivate
 local _QuestieQuest = QuestieQuest.private
+_QuestieQuest.objectiveFallbackLogged = _QuestieQuest.objectiveFallbackLogged or {}
 
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
@@ -154,7 +155,8 @@ monster = function(npcId, objective)
                 if not name then
                     name = desc:gsub("%d+/%d+", ""):gsub("[:!?,.%(%)%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", "")
                 end
-                if name and name ~= "" then
+                if name and name ~= "" and not _QuestieQuest.objectiveFallbackLogged[npcId] then
+                    _QuestieQuest.objectiveFallbackLogged[npcId] = true
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Using objective description as name fallback for NPC:", npcId, name)
                 end
             end
