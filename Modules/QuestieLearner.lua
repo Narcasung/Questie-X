@@ -3438,7 +3438,9 @@ function QuestieLearner:OnLootOpened()
                     TraceLearnerEntity("loot_source", sourceGuid, nil, sourceQty, lootName)
                     if type(sourceGuid) == "string" then
                         local sourceId, sourceType = GetIdAndTypeFromGUID(sourceGuid)
-                        if sourceType == "GameObject" and sourceId and sourceId > 0 then
+                        if (sourceType == "Creature" or sourceType == "Vehicle") and sourceId and sourceId > 0 then
+                            npcId = sourceId
+                        elseif sourceType == "GameObject" and sourceId and sourceId > 0 then
                             self:LearnObject(sourceId, nil)
                         end
                     end

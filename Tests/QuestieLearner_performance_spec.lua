@@ -132,20 +132,13 @@ describe("QuestieLearner kill-path batching", function()
 
     it("keeps quest-tied fallback questgiver spawns from being stripped", function()
         Questie.dbLearner.global.settings.dataSourceMode = "learner"
-        local originalGetPlayerCoords = _G.GetPlayerCoords
-        _G.GetPlayerCoords = function()
-            return 10.0, 20.0
-        end
-
-        QuestieLearner:LearnNPC(4001, "Quest Giver", nil, nil, nil, nil, nil, nil, 44)
+        QuestieLearner:LearnNPC(4001, "Quest Giver", nil, nil, nil, nil, 10.0, 20.0, 44)
         QuestieLearner:LearnQuestGiver(6004, 4001, 1, true)
 
-        assert.equals("fallback", Questie.dbLearner.global.npcs[4001].spawnSource)
+        assert.equals("explicit", Questie.dbLearner.global.npcs[4001].spawnSource)
         assert.is_table(Questie.dbLearner.global.npcs[4001][7])
         assert.is_table(Questie.dbLearner.global.npcs[4001][7][44])
-        assert.is_true(table.getn(Questie.dbLearner.global.npcs[4001][7][44]) >= 1)
-
-        _G.GetPlayerCoords = originalGetPlayerCoords
+        assert.equals(1, table.getn(Questie.dbLearner.global.npcs[4001][7][44]))
     end)
 
     it("records item drop sources even when the item class is not available on first pass", function()

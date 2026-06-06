@@ -218,6 +218,10 @@ describe("QuestieLearner GUID and loot learning", function()
     local originalGetItemInfo
     local originalLearnItem
     local originalLearnItemDrop
+    local originalGetLootSourceInfo
+    local originalGetNumLootItems
+    local originalGetLootSlotInfo
+    local originalGetLootSlotLink
 
     before_each(function()
         dofile("Tests/wow_api_mock.lua")
@@ -240,9 +244,25 @@ describe("QuestieLearner GUID and loot learning", function()
         originalGetItemInfo = _G.GetItemInfo
         _G.GetItemInfo = function(link)
             if link == "item:20470" then
-                return "Quest Token", nil, nil, 1, 1, 3, 1, nil, nil, nil, nil, 3, 1
+                return "Quest Token", nil, nil, 1, 1, 3, 1, nil, nil, nil, nil, 1, 0
             end
             return nil
+        end
+        originalGetLootSourceInfo = _G.GetLootSourceInfo
+        _G.GetLootSourceInfo = function()
+            return "Creature-0-0-0-0-15297-0000000000", 1
+        end
+        originalGetNumLootItems = _G.GetNumLootItems
+        _G.GetNumLootItems = function()
+            return 1
+        end
+        originalGetLootSlotInfo = _G.GetLootSlotInfo
+        _G.GetLootSlotInfo = function()
+            return nil, "Quest Token", nil, nil, 1
+        end
+        originalGetLootSlotLink = _G.GetLootSlotLink
+        _G.GetLootSlotLink = function()
+            return "item:20470"
         end
         dofile("Modules/QuestieLearner.lua")
         QuestieLearner = _G.QuestieLearner
@@ -253,6 +273,10 @@ describe("QuestieLearner GUID and loot learning", function()
     after_each(function()
         QuestieDB.GetNPC = originalGetNPC
         _G.GetItemInfo = originalGetItemInfo
+        _G.GetLootSourceInfo = originalGetLootSourceInfo
+        _G.GetNumLootItems = originalGetNumLootItems
+        _G.GetLootSlotInfo = originalGetLootSlotInfo
+        _G.GetLootSlotLink = originalGetLootSlotLink
         if QuestieLearner then
             QuestieLearner.LearnItem = originalLearnItem
             QuestieLearner.LearnItemDrop = originalLearnItemDrop
@@ -278,8 +302,7 @@ describe("QuestieLearner GUID and loot learning", function()
             dropNpcId = npcId
         end
 
-        QuestieLearner:LearnItem(20470, "Quest Token", 1, 1, 1, 0)
-        QuestieLearner:LearnItemDrop(20470, 15297)
+        QuestieLearner:OnLootOpened()
 
         assert.equals(20470, learnedItemId)
         assert.equals(20470, dropItemId)
