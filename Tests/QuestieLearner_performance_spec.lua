@@ -215,6 +215,47 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(2, table.getn(queuedTimers))
     end)
 
+    it("only announces combat-log learning once per unique NPC id", function()
+        local debugMessages = {}
+        local originalDebug = Questie.Debug
+        Questie.Debug = function(self, level, ...)
+            local parts = { ... }
+            for i = 1, table.getn(parts) do
+                if parts[i] == "[QuestieLearner] Combat-log learned NPC:" then
+                    debugMessages[table.getn(debugMessages) + 1] = level
+                    break
+                end
+            end
+        end
+
+        QuestieLearner:OnCombatLogEvent(
+            1234,
+            "PARTY_KILL",
+            UnitGUID("player"),
+            UnitName("player"),
+            nil,
+            "Creature-0-0-0-0-7010-0000000001",
+            "Unique Boar",
+            nil
+        )
+
+        QuestieLearner:OnCombatLogEvent(
+            1235,
+            "PARTY_KILL",
+            UnitGUID("player"),
+            UnitName("player"),
+            nil,
+            "Creature-0-0-0-0-7010-0000000002",
+            "Unique Boar",
+            nil
+        )
+
+        assert.is_table(Questie.dbLearner.global.npcs[7010])
+        assert.equals(1, table.getn(debugMessages))
+
+        Questie.Debug = originalDebug
+    end)
+
     it("still learns credited UNIT_DIED combat-log events when PARTY_KILL is absent", function()
         QuestieLearner:OnCombatLogEvent(
             1234,

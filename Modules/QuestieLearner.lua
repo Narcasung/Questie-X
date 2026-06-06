@@ -1406,6 +1406,8 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         CrossLinkAfterNPC(npcId)
     end
     _Learner:BroadcastIfCommsAvailable("NPC", npcId, existing)
+
+    return isNew
 end
 
 ------------------------------------------------------------------------
@@ -3728,9 +3730,14 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
     end
 
-    -- Unconditionally map the spawn position for Ascension DB building
+    -- Unconditionally map the spawn position for Ascension DB building.
+    -- Only announce the first time we learn a unique NPC ID; repeated kills
+    -- still update evidence but should not spam "learned" debug output.
+    local npcWasKnown = Questie.dbLearner.global.npcs[npcId] ~= nil
     self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
-    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Combat-log learned NPC:", eventType, npcId, name or "?")
+    if not npcWasKnown then
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Combat-log learned NPC:", eventType, npcId, name or "?")
+    end
 
     -- Phase 2: store per-GUID spawn evidence for weighted merge
     self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
