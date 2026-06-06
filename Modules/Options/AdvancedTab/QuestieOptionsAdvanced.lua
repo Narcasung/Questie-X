@@ -19,10 +19,76 @@ local IsleOfQuelDanas = QuestieLoader:ImportModule("IsleOfQuelDanas");
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type QuestieCompat
 local QuestieCompat = QuestieLoader:ImportModule("QuestieCompat")
+---@type QuestieDB
+local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 
 QuestieOptions.tabs.advanced = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 local _GetLanguages
+
+local function GetLearnerSettings()
+    Questie.dbLearner = Questie.dbLearner or {}
+    Questie.dbLearner.global = Questie.dbLearner.global or {}
+    Questie.dbLearner.global.settings = Questie.dbLearner.global.settings or {}
+    local settings = Questie.dbLearner.global.settings
+    if settings.performanceMode == nil then
+        settings.performanceMode = "balanced"
+    end
+    if settings.pinRefreshDelay == nil then
+        settings.pinRefreshDelay = 0.75
+    end
+    if settings.pinRefreshMode == nil then
+        settings.pinRefreshMode = "batched"
+    end
+    if settings.pinRefreshMaxWait == nil then
+        settings.pinRefreshMaxWait = 5.0
+    end
+    if settings.liveNpcUpdateDelay == nil then
+        settings.liveNpcUpdateDelay = 0.75
+    end
+    if settings.learnerCommsIntensity == nil then
+        settings.learnerCommsIntensity = "normal"
+    end
+    if settings.minConfidencePins == nil then
+        settings.minConfidencePins = 1
+    end
+    if settings.spawnDedupRadius == nil then
+        settings.spawnDedupRadius = 4.0
+    end
+    return settings
+end
+
+local function ApplyLearnerPerformancePreset(mode)
+    local settings = GetLearnerSettings()
+    settings.performanceMode = mode
+
+    if mode == "realtime" then
+        settings.pinRefreshDelay = 0.1
+        settings.pinRefreshMode = "immediate"
+        settings.pinRefreshMaxWait = 2.0
+        settings.liveNpcUpdateDelay = 0.25
+        settings.learnerCommsIntensity = "fast"
+        settings.minConfidencePins = 1
+    elseif mode == "low" then
+        settings.pinRefreshDelay = 2.0
+        settings.pinRefreshMode = "batched"
+        settings.pinRefreshMaxWait = 10.0
+        settings.liveNpcUpdateDelay = 2.0
+        settings.learnerCommsIntensity = "low"
+        settings.minConfidencePins = 3
+    elseif mode == "balanced" then
+        settings.pinRefreshDelay = 0.75
+        settings.pinRefreshMode = "batched"
+        settings.pinRefreshMaxWait = 5.0
+        settings.liveNpcUpdateDelay = 0.75
+        settings.learnerCommsIntensity = "normal"
+        settings.minConfidencePins = 1
+    end
+
+    if mode == "realtime" or mode == "balanced" or mode == "low" then
+        Questie.db.profile.learnerBroadcast = true
+    end
+end
 
 function QuestieOptions.tabs.advanced:Initialize()
     -- This needs to be called inside of the Init process for l10n to be fully loaded
@@ -107,6 +173,22 @@ function QuestieOptions.tabs.advanced:Initialize()
                     QuestieOptionsUtils.DetermineTheme()
                 end,
             },
+            clusterDensityAggressiveness = {
+                type = "range",
+                order = 1.41,
+                name = function() return l10n('Dense pin clustering aggressiveness'); end,
+                desc = function() return l10n('How aggressively crowded kill objectives are consolidated into fewer pins. 0 shows every pin; higher values tighten clustering where many pins share a zone. Coincident pins are always deduplicated.'); end,
+                width = 1.5,
+                disabled = function() return (not Questie.db.profile.enabled); end,
+                min = 0,
+                max = 100,
+                step = 5,
+                get = function(info) return QuestieOptions:GetProfileValue(info); end,
+                set = function(info, value)
+                    QuestieOptions:SetProfileValue(info, value)
+                    QuestieOptionsUtils:Delay(0.5, QuestieOptions.ClusterRedraw, l10n('Setting dense pin clustering aggressiveness to %s : Redrawing!', value))
+                end,
+            },
             quelDanasSpacer1 = QuestieOptionsUtils:Spacer(1.45, (not Questie.IsTBC)),
             npcrules_group = {
                 type = "group",
@@ -155,6 +237,272 @@ function QuestieOptions.tabs.advanced:Initialize()
                         end,
                     },
                 },
+            },
+
+            learnerPerformanceSpacer = QuestieOptionsUtils:Spacer(1.9),
+            learnerPerformanceHeader = {
+                type = "header",
+                order = 2,
+                name = function() return l10n('QuestieLearner Performance'); end,
+            },
+            learnerPerformanceMode = {
+                type = "select",
+                order = 2.1,
+                values = {
+                    realtime = l10n("Realtime"),
+                    balanced = l10n("Balanced"),
+                    low = l10n("Low Impact"),
+                    manual = l10n("Manual"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Performance Mode'); end,
+                desc = function() return l10n('Controls how aggressively QuestieLearner updates learned pins, live data, and learner comms. Low Impact is recommended for heavy activity zones or low-end computers.'); end,
+                get = function() return GetLearnerSettings().performanceMode or "balanced" end,
+                set = function(_, value)
+                    ApplyLearnerPerformancePreset(value)
+                end,
+            },
+            learnerPinRefreshMode = {
+                type = "select",
+                order = 2.2,
+                values = {
+                    immediate = l10n("Immediate"),
+                    batched = l10n("Batched"),
+                    manual = l10n("Manual / Reload"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Pin Refresh Behavior'); end,
+                desc = function() return l10n('Controls when learned pins refresh after QuestieLearner records new data. Manual / Reload records data but avoids live pin redraws until reload or another Questie refresh.'); end,
+                get = function() return GetLearnerSettings().pinRefreshMode or "batched" end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshMode = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerPinRefreshDelay = {
+                type = "range",
+                order = 2.3,
+                name = function() return l10n('Pin Refresh Delay'); end,
+                desc = function() return l10n('Seconds to wait before refreshing learned quest pins after learner activity. Higher values reduce stutter during kill or loot bursts.'); end,
+                min = 0.1,
+                max = 5,
+                step = 0.1,
+                width = 1.5,
+                get = function() return GetLearnerSettings().pinRefreshDelay or 0.5 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshDelay = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerPinRefreshMaxWait = {
+                type = "range",
+                order = 2.35,
+                name = function() return l10n('Pin Refresh Max Wait'); end,
+                desc = function() return l10n('Maximum seconds learned pins will wait during continuous activity (e.g. nearby players killing mobs) before a forced refresh. The refresh delay resets on each kill, so pins only redraw once things go quiet or this cap is hit. Set to 0 to never force a refresh while activity continues.'); end,
+                min = 0,
+                max = 30,
+                step = 0.5,
+                width = 1.5,
+                get = function() return GetLearnerSettings().pinRefreshMaxWait or 5.0 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.pinRefreshMaxWait = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerLiveNpcUpdateDelay = {
+                type = "range",
+                order = 2.4,
+                name = function() return l10n('Live NPC Update Delay'); end,
+                desc = function() return l10n('Seconds to batch learned NPC live database updates. Higher values reduce work during combat and crowded zones.'); end,
+                min = 0.25,
+                max = 5,
+                step = 0.25,
+                width = 1.5,
+                get = function() return GetLearnerSettings().liveNpcUpdateDelay or 0.5 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.liveNpcUpdateDelay = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerMinConfidencePins = {
+                type = "range",
+                order = 2.5,
+                name = function() return l10n('Minimum Kills Before Learned Pins'); end,
+                desc = function() return l10n('How many matching NPC sightings are needed before QuestieLearner shows learned pins. Higher values reduce one-off pin churn.'); end,
+                min = 1,
+                max = 10,
+                step = 1,
+                width = 1.5,
+                get = function() return GetLearnerSettings().minConfidencePins or 1 end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.minConfidencePins = value
+                    settings.performanceMode = "manual"
+                end,
+            },
+            learnerSpawnDedupRadius = {
+                type = "range",
+                order = 2.55,
+                name = function() return l10n('Spawn Pin Dedup Radius'); end,
+                desc = function() return l10n('How close two learned kill positions must be (in map %) to merge into a single pin. Higher values show fewer, tighter pins per spawn; 0 shows every distinct position.'); end,
+                min = 0,
+                max = 15,
+                step = 0.5,
+                width = 1.5,
+                get = function() return GetLearnerSettings().spawnDedupRadius or 4.0 end,
+                set = function(_, value)
+                    GetLearnerSettings().spawnDedupRadius = value
+                    -- Spawn tables are cached per NPC; clear so the new radius is
+                    -- applied on the redraw instead of serving stale merged coords.
+                    if QuestieDB and QuestieDB.ClearModeCaches then
+                        QuestieDB:ClearModeCaches()
+                    end
+                    QuestieOptionsUtils:Delay(0.5, QuestieQuest.SmoothReset, l10n('Setting spawn pin dedup radius to %s : Redrawing!', value))
+                end,
+            },
+            learnerCommsIntensity = {
+                type = "select",
+                order = 2.6,
+                values = {
+                    off = l10n("Off"),
+                    low = l10n("Low"),
+                    normal = l10n("Normal"),
+                    fast = l10n("Fast"),
+                },
+                style = "dropdown",
+                name = function() return l10n('Learner Comms Intensity'); end,
+                desc = function() return l10n('Controls how much learner data Questie processes and sends through learner comms. Lower values reduce CPU and chat-channel work.'); end,
+                get = function() return GetLearnerSettings().learnerCommsIntensity or "normal" end,
+                set = function(_, value)
+                    local settings = GetLearnerSettings()
+                    settings.learnerCommsIntensity = value
+                    settings.performanceMode = "manual"
+                    if value == "off" then
+                        Questie.db.profile.learnerBroadcast = false
+                    elseif Questie.db.profile.learnerBroadcast == false then
+                        Questie.db.profile.learnerBroadcast = true
+                    end
+                end,
+            },
+
+            arrowPerformanceSpacer = QuestieOptionsUtils:Spacer(2.69),
+            arrowPerformanceHeader = {
+                type = "header",
+                order = 2.7,
+                name = function() return l10n('QuestieArrow Performance'); end,
+            },
+            arrowUpdateThrottle = {
+                type = "range",
+                order = 2.71,
+                width = 1.5,
+                name = function() return l10n('Arrow Movement Update Interval'); end,
+                desc = function() return l10n('Seconds between arrow rotation and distance updates. Higher values reduce CPU usage but make the arrow feel less smooth.'); end,
+                min = 0.03,
+                max = 0.5,
+                step = 0.01,
+                get = function() return Questie.db.profile.arrowUpdateThrottle or optionsDefaults.profile.arrowUpdateThrottle end,
+                set = function(_, value)
+                    Questie.db.profile.arrowUpdateThrottle = value
+                end,
+            },
+            arrowRecalcInterval = {
+                type = "range",
+                order = 2.72,
+                width = 1.5,
+                name = function() return l10n('Target Scan Interval'); end,
+                desc = function() return l10n('Seconds between full nearest-objective scans. Higher values reduce HBD and ZoneDB work in large quest logs.'); end,
+                min = 0.5,
+                max = 10,
+                step = 0.5,
+                get = function() return Questie.db.profile.arrowRecalcInterval or optionsDefaults.profile.arrowRecalcInterval end,
+                set = function(_, value)
+                    Questie.db.profile.arrowRecalcInterval = value
+                    local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
+                    if QuestieArrow and QuestieArrow.Refresh then
+                        QuestieArrow:Refresh()
+                    end
+                end,
+            },
+            arrowTrackerRefreshThrottle = {
+                type = "range",
+                order = 2.73,
+                width = 1.5,
+                name = function() return l10n('Tracker Refresh Throttle'); end,
+                desc = function() return l10n('Minimum seconds between arrow refreshes triggered by tracker updates. Higher values reduce refresh bursts during quest progress changes.'); end,
+                min = 0.25,
+                max = 5,
+                step = 0.25,
+                get = function() return Questie.db.profile.arrowTrackerRefreshThrottle or optionsDefaults.profile.arrowTrackerRefreshThrottle end,
+                set = function(_, value)
+                    Questie.db.profile.arrowTrackerRefreshThrottle = value
+                end,
+            },
+
+            questieCommsPerformanceSpacer = QuestieOptionsUtils:Spacer(2.79),
+            questieCommsPerformanceHeader = {
+                type = "header",
+                order = 2.8,
+                name = function() return l10n('QuestieComms Performance'); end,
+            },
+            questieCommsEnabled = {
+                type = "toggle",
+                order = 2.805,
+                name = function() return l10n('Enable QuestieComms'); end,
+                desc = function() return l10n('Enable Questie group quest-progress communication. Disabling this stops outgoing QuestieComms and ignores incoming QuestieComms immediately.'); end,
+                width = 1.5,
+                get = function() return Questie.db.profile.questieCommsEnabled ~= false end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsEnabled = value
+                end,
+            },
+            questieCommsQuestListPacketSize = {
+                type = "range",
+                order = 2.81,
+                name = function() return l10n('Quest List Packet Size'); end,
+                desc = function() return l10n('Maximum serialized payload size per full quest-list block. Lower values create smaller packets but may send more blocks.'); end,
+                min = 100,
+                max = 500,
+                step = 25,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListPacketSize or optionsDefaults.profile.questieCommsQuestListPacketSize end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListPacketSize = value
+                end,
+            },
+            questieCommsQuestListInitialJitter = {
+                type = "range",
+                order = 2.82,
+                name = function() return l10n('Quest List Initial Jitter'); end,
+                desc = function() return l10n('Maximum random delay before responding with a full quest list. Higher values spread group responses out to reduce bursts.'); end,
+                min = 0,
+                max = 10,
+                step = 0.5,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListInitialJitter or optionsDefaults.profile.questieCommsQuestListInitialJitter end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListInitialJitter = value
+                end,
+            },
+            questieCommsQuestListBlockInterval = {
+                type = "range",
+                order = 2.83,
+                name = function() return l10n('Quest List Block Interval'); end,
+                desc = function() return l10n('Seconds between full quest-list blocks. Higher values reduce comms bursts on slower systems and crowded groups.'); end,
+                min = 0.5,
+                max = 10,
+                step = 0.5,
+                width = 1.5,
+                disabled = function() return Questie.db.profile.questieCommsEnabled == false end,
+                get = function() return Questie.db.profile.questieCommsQuestListBlockInterval or optionsDefaults.profile.questieCommsQuestListBlockInterval end,
+                set = function(_, value)
+                    Questie.db.profile.questieCommsQuestListBlockInterval = value
+                end,
             },
 
             Spacer_A = QuestieOptionsUtils:Spacer(2.9),

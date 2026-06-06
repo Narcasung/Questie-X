@@ -47,6 +47,7 @@ local suggestUpdate = true;
 
 -- forward declaration
 local _DoYell
+local IsQuestieCommsEnabled
 
 --Not used, contains a list of hashes for quest, used to compare change.
 --_QuestieComms.questHashes = {};
@@ -189,6 +190,7 @@ end
 -- Local Functions --
 
 function _QuestieComms:BroadcastQuestUpdate(questId) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieComms:BroadcastQuestUpdate] Questid", questId)
     if(questId) then
         local partyType = QuestiePlayer:GetGroupType()
@@ -220,6 +222,7 @@ end
 
 -- Removes the quest from everyones external quest-log
 function _QuestieComms:BroadcastQuestRemove(questId) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     local partyType = QuestiePlayer:GetGroupType()
     Questie:Debug(Questie.DEBUG_COMMS, "[QuestieComms:BroadcastQuestRemove] QuestId:", questId, "partyType:", tostring(partyType))
     if partyType then
@@ -254,6 +257,106 @@ local _classToIndex = {
 local _indexToClass = {}
 for class, index in pairs(_classToIndex) do
     _indexToClass[index] = class
+end
+
+local DEFAULT_QUEST_LIST_PACKET_SIZE_LIMIT = 200
+local DEFAULT_QUEST_LIST_INITIAL_JITTER = 3
+local DEFAULT_QUEST_LIST_BLOCK_INTERVAL = 3
+
+local function GetProfileNumber(key, defaultValue, minValue, maxValue)
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return defaultValue
+    end
+
+    local value = Questie.db.profile[key]
+    if type(value) ~= "number" then
+        return defaultValue
+    end
+    if value < minValue then
+        return minValue
+    end
+    if value > maxValue then
+        return maxValue
+    end
+    return value
+end
+
+local function GetQuestListPacketSizeLimit()
+    return GetProfileNumber("questieCommsQuestListPacketSize", DEFAULT_QUEST_LIST_PACKET_SIZE_LIMIT, 100, 500)
+end
+
+local function GetQuestListInitialJitter()
+    return GetProfileNumber("questieCommsQuestListInitialJitter", DEFAULT_QUEST_LIST_INITIAL_JITTER, 0, 10)
+end
+
+local function GetQuestListBlockInterval()
+    return GetProfileNumber("questieCommsQuestListBlockInterval", DEFAULT_QUEST_LIST_BLOCK_INTERVAL, 0.5, 10)
+end
+
+IsQuestieCommsEnabled = function()
+    if not Questie or not Questie.db or not Questie.db.profile then
+        return true
+    end
+    return Questie.db.profile.questieCommsEnabled ~= false
+end
+
+local function GetSerializedPacketSize(packet)
+    return string.len(QuestieSerializer:Serialize(packet))
+end
+
+local function QueuePush(queue, queueState, value)
+    queueState.tail = queueState.tail + 1
+    queue[queueState.tail] = value
+end
+
+local function QueuePop(queue, queueState)
+    if queueState.head > queueState.tail then
+        queueState.head = 1
+        queueState.tail = 0
+        return nil
+    end
+
+    local value = queue[queueState.head]
+    queue[queueState.head] = nil
+    queueState.head = queueState.head + 1
+
+    if queueState.head > queueState.tail then
+        queueState.head = 1
+        queueState.tail = 0
+    end
+
+    return value
+end
+
+local function GetQuestDataPacketV2Size(questId)
+    local questObject = QuestieDB.GetQuest(questId)
+    local rawObjectives = QuestLogCache.GetQuestObjectives(questId) -- DO NOT MODIFY THE RETURNED TABLE
+    if (not rawObjectives) or (not questObject) or (not questObject.Objectives) or (not next(questObject.Objectives)) then
+        return 0
+    end
+
+    local questPacket = {}
+    local offset = 1
+    local count = 0
+
+    questPacket[offset] = questId
+    local countOffset = offset + 1
+    offset = offset + 2
+
+    for objectiveIndex, objective in pairs(rawObjectives) do -- DO NOT MODIFY THE RETURNED TABLE
+        local objectiveData = questObject.Objectives[objectiveIndex]
+        if objectiveData then
+            questPacket[offset] = objectiveData.Id
+            questPacket[offset + 1] = string.byte(string.sub(objective.type, 1, 1))
+            questPacket[offset + 2] = objective.numFulfilled
+            questPacket[offset + 3] = objective.numRequired
+            offset = offset + 4
+            count = count + 1
+        end
+    end
+
+    questPacket[countOffset] = count
+    return GetSerializedPacketSize(questPacket)
 end
 
 
@@ -472,6 +575,7 @@ QuestieComms._yellQueue = {}
 QuestieComms._isYelling = false
 
 function QuestieComms:YellProgress(questId)
+    if not IsQuestieCommsEnabled() then return end
     if Questie.db.profile.disableYellComms or badYellLocations[C_Map.GetBestMapForUnit("player")] or QuestiePlayer.numberOfGroupMembers > 4 then
         return
     end
@@ -489,10 +593,12 @@ end
 _QuestieComms._isBroadcasting = false
 _QuestieComms._needsNewBroadcast = false
 _QuestieComms._nextBroadcastData = {}
+_QuestieComms._nextBroadcastDataState = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     if _QuestieComms._isBroadcasting then
-        tinsert(_QuestieComms._nextBroadcastData, {eventName, sendMode, targetPlayer})
+        QueuePush(_QuestieComms._nextBroadcastData, _QuestieComms._nextBroadcastDataState, {eventName, sendMode, targetPlayer})
         return
     end
     local partyType = QuestiePlayer:GetGroupType()
@@ -543,33 +649,37 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
             end
         end)
 
+        local questListPacketSizeLimit = GetQuestListPacketSizeLimit()
         local rawQuestList = {}
         local blocks = {}
+        local blockState = { head = 1, tail = 0 }
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
+        local blockSerializedSize = 2
         for _, entry in pairs(sorted) do
             local quest = QuestieComms:CreateQuestDataPacket(entry.questId);
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
-            entryCount = entryCount + 1
-            rawQuestList[quest.id] = quest;
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
-                rawQuestList[quest.id] = nil
-                tinsert(blocks, rawQuestList)
-                rawQuestList = {
-                    [quest.id] = quest
-                }
-                entryCount = 1
+            local questPacketSize = GetSerializedPacketSize(quest)
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > questListPacketSizeLimit then
+                QueuePush(blocks, blockState, rawQuestList)
+                rawQuestList = {}
+                entryCount = 0
+                blockSerializedSize = 2
                 blockCount = blockCount + 1
             end
+
+            entryCount = entryCount + 1
+            rawQuestList[quest.id] = quest;
+            blockSerializedSize = blockSerializedSize + questPacketSize
         end
 
         if entryCount ~= 0 then
-            tinsert(blocks, rawQuestList) -- add the last block
+            QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcasting = true
             -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
+            C_Timer.After(random() * GetQuestListInitialJitter(), function()
+                C_Timer.NewTicker(GetQuestListBlockInterval(), function()
+                    local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
                         local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLIST);
@@ -593,7 +703,7 @@ function _QuestieComms:BroadcastQuestLog(eventName, sendMode, targetPlayer) -- b
                         questPacket:write();
                     else
                         _QuestieComms._isBroadcasting = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastData, 1)
+                        local nextBroadcast = QueuePop(_QuestieComms._nextBroadcastData, _QuestieComms._nextBroadcastDataState)
                         if nextBroadcast then
                             _QuestieComms:BroadcastQuestLog(unpack(nextBroadcast))
                         end
@@ -606,10 +716,12 @@ end
 
 _QuestieComms._isBroadcastingV2 = false
 _QuestieComms._nextBroadcastDataV2 = {}
+_QuestieComms._nextBroadcastDataV2State = { head = 1, tail = 0 }
 
 function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     if _QuestieComms._isBroadcastingV2 then
-        tinsert(_QuestieComms._nextBroadcastDataV2, {eventName, sendMode, targetPlayer})
+        QueuePush(_QuestieComms._nextBroadcastDataV2, _QuestieComms._nextBroadcastDataV2State, {eventName, sendMode, targetPlayer})
         return
     end
     local partyType = QuestiePlayer:GetGroupType()
@@ -660,36 +772,41 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
             end
         end)
 
+        local questListPacketSizeLimit = GetQuestListPacketSizeLimit()
         local rawQuestList = {}
         local blocks = {}
+        local blockState = { head = 1, tail = 0 }
         local entryCount = 0
         local blockCount = 2 -- the extra tick allows checking tremove() == nil to set _isBroadcasting=false
+        local blockSerializedSize = 2
         local offset = 2
 
         for _, entry in pairs(sorted) do
             --print("[CommsSendOrder][Block " .. (blockCount - 1) .. "] " .. QuestieDB.QueryQuestSingle(entry.questId, "name"))
-            entryCount = entryCount + 1
-
-            offset = QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(entry.questId, rawQuestList, offset)
-
-            if string.len(QuestieSerializer:Serialize(rawQuestList)) > 200 then--extra space for packet metadata and CTL stuff
+            local questPacketSize = GetQuestDataPacketV2Size(entry.questId)
+            if entryCount ~= 0 and (blockSerializedSize + questPacketSize) > questListPacketSizeLimit then
                 rawQuestList[1] = entryCount
-                tinsert(blocks, rawQuestList)
+                QueuePush(blocks, blockState, rawQuestList)
                 rawQuestList = {}
                 entryCount = 0
+                blockSerializedSize = 2
                 blockCount = blockCount + 1
                 offset = 2
             end
+
+            entryCount = entryCount + 1
+            offset = QuestieComms:PopulateQuestDataPacketV2_noclass_renameme(entry.questId, rawQuestList, offset)
+            blockSerializedSize = blockSerializedSize + questPacketSize
         end
 
         if entryCount ~= 0 or blockCount ~= 2 then
             rawQuestList[1] = entryCount
-            tinsert(blocks, rawQuestList) -- add the last block
+            QueuePush(blocks, blockState, rawQuestList) -- add the last block
             _QuestieComms._isBroadcastingV2 = true
             -- hopefully reduce server load by staggering responses
-            C_Timer.After(random() * 3, function()
-                C_Timer.NewTicker(3, function()
-                    local block = tremove(blocks, 1)
+            C_Timer.After(random() * GetQuestListInitialJitter(), function()
+                C_Timer.NewTicker(GetQuestListBlockInterval(), function()
+                    local block = QueuePop(blocks, blockState)
                     if block then
                         -- send the block
                         local questPacket = _QuestieComms:CreatePacket(_QuestieComms.QC_ID_BROADCAST_FULL_QUESTLISTV2);
@@ -713,7 +830,7 @@ function _QuestieComms:BroadcastQuestLogV2(eventName, sendMode, targetPlayer) --
                         questPacket:write();
                     else
                         _QuestieComms._isBroadcastingV2 = false
-                        local nextBroadcast = tremove(_QuestieComms._nextBroadcastDataV2, 1)
+                        local nextBroadcast = QueuePop(_QuestieComms._nextBroadcastDataV2, _QuestieComms._nextBroadcastDataV2State)
                         if nextBroadcast then
                             _QuestieComms:BroadcastQuestLogV2(unpack(nextBroadcast))
                         end
@@ -726,6 +843,7 @@ end
 
 -- The "Hi" of questie, request others to send their questlog.
 function _QuestieComms:RequestQuestLog(eventName) -- broadcast quest update to group or raid
+    if not IsQuestieCommsEnabled() then return end
     local partyType = QuestiePlayer:GetGroupType()
     Questie:Debug(Questie.DEBUG_COMMS, "[QuestieComms] Message", eventName, "partyType:", tostring(partyType))
     if partyType then
@@ -942,6 +1060,7 @@ _QuestieComms.packets = {
 
 -- Renamed Write function
 function _QuestieComms:Broadcast(packet)
+    if not IsQuestieCommsEnabled() then return end
     -- If the priority is not set, it must not be very important
     if packet.writeMode ~= _QuestieComms.QC_WRITE_WHISPER and (QuestiePlayer.numberOfGroupMembers > 15 or UnitInBattleground("Player")) then
         -- dont broadcast to large raids
@@ -981,6 +1100,7 @@ function _QuestieComms:Broadcast(packet)
 end
 
 function _QuestieComms:OnCommReceived(message, distribution, sender)
+    if not IsQuestieCommsEnabled() then return end
     pcall(_QuestieComms.OnCommReceived_unsafe, _QuestieComms, message, distribution, sender)
 end
 

@@ -21,7 +21,7 @@ function QuestiePluginAPI:HasPendingPlugins()
     return self.pendingPluginsCount > 0
 end
 
---- Returns the flavor key of the loaded DB plugin ("WotLK", "Classic", "TBC", "Turtle", "Ascension", etc.)
+--- Returns the flavor key of the loaded DB plugin ("WotLK", "Classic", "TBC", "Ascension", etc.)
 ---@return string|nil
 function QuestiePluginAPI:GetLoadedFlavor()
     return self.loadedDBFlavor
@@ -276,7 +276,7 @@ function QuestiePlugin:InjectUiMapData(customUiMapData)
 end
 
 --- Signals that the plugin has finished loading. This automatically cleans up necessary caches.
----@param flavorKey string|nil  Optional flavor label e.g. "WotLK", "Classic", "Turtle"
+---@param flavorKey string|nil  Optional flavor label e.g. "WotLK", "Classic", "Ascension"
 function QuestiePlugin:FinishLoading(flavorKey)
     local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
     if not QuestieDB then

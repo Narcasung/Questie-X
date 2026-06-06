@@ -39,7 +39,6 @@ end
 local function GetServerKey()
     if QuestieServer then
         if Questie.IsAscension  then return "Ascension" end
-        if Questie.IsTurtle     then return "Turtle"    end
         if Questie.IsEbonhold   then return "Ebonhold"  end
         if Questie.IsEra        then return "Era"       end
         if Questie.Is335        then return "WotLK"     end

@@ -1,0 +1,41 @@
+# Questie-X v1.6.3
+
+Questie-X v1.6.3 is the release that lands the arrow redesign, the minimap pin drift fix, the configurable minimap range cutoff, and the Sunstrider / tooltip stability pass.
+
+## Active Performance Refactor Notice
+
+After v1.6.3, the active repository branches contain a major performance refactor that is not yet published as a stable release asset. Users helping test performance should use the repository version until the next stable release is cut.
+
+Current branch work includes:
+
+- QuestieLearner kill/pin refresh debouncing with a maximum wait cap.
+- Bystander `UNIT_DIED` suppression so nearby players killing mobs do not force local learner pin redraws.
+- A `PARTY_KILL` event-order fix so legitimate local/group kills are not skipped after an earlier `UNIT_DIED`.
+- Immediate learner spawn pin rendering so kill evidence can become map pins right away in learner mode.
+- Learner-aware DB reads that can fall back to `Questie.dbLearner.global.*` when static data is missing.
+- Advanced-tab performance controls for QuestieLearner, QuestieComms, and Arrow throttles.
+- A full QuestieComms disable switch with live queue/broadcast/sync throttles.
+- Non-fatal missing quest/database messages routed to Questie debug output instead of normal chat spam.
+- Available quest draw-thread guarding so missing quest IDs skip safely instead of crashing redraws.
+- A measured phase 3 branch with additional localization, quest eligibility, tooltip/map, cache, and allocation hot-path reductions.
+
+Remaining before stable release: integrate the learner/comms branch with the measured phase 3 branch, remove or revalidate the stale reverted `QuestieMap.ProcessQueue` profile-local commit, fix unrelated Arrow asset test expectations, and validate in-game in heavy kill/loot zones with the minimap open, learner-only/static-only switching, and repeated loot/object objective testing.
+
+## Highlights
+
+- Arrow system rebuilt around `Arrow1`-`Arrow4` plus the legacy `arrowold` sheet style.
+- Bundled non-sheet arrows now ship as uncompressed 32-bit TGA runtime assets, with preview TGAs reserved for the dropdown swatches.
+- The dropdown now detects sprite sheets by texture format and alpha bounds, which keeps sheet-cell logic isolated to `arrowold` and explicitly custom sheet uploads.
+- `Arrow2` was rotated 180 degrees so the pointed tip is the top-facing point of the icon instead of the base.
+- Arrow dropdown now uses preview swatches and supports detached / attached objective text workflows.
+- Minimap pins no longer drift; the fix uses the live view-radius API plus corrected pixel math.
+- Minimap icons now have a user-adjustable range cutoff so they can be hidden or shown based on distance in real time.
+- Sunstrider Isle coordinates, map pins, and arrow distance handling are normalized for the child map / parent map split.
+- Learned tooltip reconstruction now matches the actual QuestieLearner data shape.
+- Learner kill evidence now spawns pins immediately in learner mode, instead of waiting for the later evidence merge path.
+- The in-game version badge and documentation are synced to `v1.6.3`.
+
+## Notes
+
+- The bundled release archive excludes developer-only docs, handoff notes, and workspace artifacts.
+- This release is intended to be the clean published base for the current Questie-X branch.

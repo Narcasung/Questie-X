@@ -4,6 +4,7 @@ local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 QuestieQuest.private = QuestieQuest.private or {}
 ---@class QuestieQuestPrivate
 local _QuestieQuest = QuestieQuest.private
+_QuestieQuest.objectiveFallbackLogged = _QuestieQuest.objectiveFallbackLogged or {}
 
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
@@ -143,10 +144,16 @@ monster = function(npcId, objective)
         return nil
     end
 
-    local name = QuestieDB.QueryNPCSingle(npcId, "name")
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+    local npcData = QuestieDB:GetNPC(npcId)
+    local name = npcData and npcData.name or nil
     if not name or name == "" then
         -- Last resort: extract NPC name from objective description text.
-        -- This mirrors the name-parsing logic in the killcredit function.
+        -- This mirrors the name-parsing logic in the killcredit function and
+        -- only runs when learner-only mode still needs a display label.
         if objective then
             local desc = objective.Description or objective.text
             if desc then
@@ -154,7 +161,8 @@ monster = function(npcId, objective)
                 if not name then
                     name = desc:gsub("%d+/%d+", ""):gsub("[:!?,.%(%)%[%]]", ""):gsub("^%s+", ""):gsub("%s+$", "")
                 end
-                if name and name ~= "" then
+                if name and name ~= "" and not _QuestieQuest.objectiveFallbackLogged[npcId] then
+                    _QuestieQuest.objectiveFallbackLogged[npcId] = true
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Using objective description as name fallback for NPC:", npcId, name)
                 end
             end
@@ -165,7 +173,7 @@ monster = function(npcId, objective)
         return nil
     end
 
-    local spawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
+    local spawns = npcData and npcData.spawns or {}
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
         spawns = {}
@@ -173,13 +181,18 @@ monster = function(npcId, objective)
 
     local isLearned = false
 
+    if dataSourceMode == "none" then
+        spawns = {}
+    end
+
     -- Learner safety net: when prioritizeMyData is enabled and the Learner has
     -- verified spawn data for this NPC, prefer it over compiled DB spawns.
     -- This catches edge cases where the npcDataOverrides chain doesn't fully
     -- replace retail positions (e.g. format migration gaps, timing issues).
-    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global then
+    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global
+            and (dataSourceMode == "auto" or dataSourceMode == "learner") then
         local ld = Questie.dbLearner.global
-        if ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData then
+        if ld.settings and ld.settings.enabled then
             local learnedNpc = ld.npcs and ld.npcs[npcId]
             if learnedNpc then
                 local learnedSpawns = learnedNpc[7]
@@ -193,8 +206,12 @@ monster = function(npcId, objective)
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
                 local hasReliableLearnedSpawns = _CountUniqueSpawnPositions(learnedSpawns) > 1
+                local staticHasSpawns = spawns and next(spawns) ~= nil
+                local canUseLearnerSpawns = dataSourceMode == "learner"
+                    or hasReliableLearnedSpawns
+                    or not staticHasSpawns
                 if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold
-                        and hasReliableLearnedSpawns and not ascProtected then
+                        and canUseLearnerSpawns and not ascProtected then
                     Questie:Debug(Questie.DEBUG_DEVELOP, "[monster] Preferring learned spawns for NPC:", npcId, "(mc=" .. tostring(learnedNpc.mc) .. ")")
                     spawns = learnedSpawns
                     isLearned = true
@@ -203,7 +220,7 @@ monster = function(npcId, objective)
         end
     end
 
-    local rank = QuestieDB.QueryNPCSingle(npcId, "rank")
+    local rank = npcData and npcData.rank
 
     local enableSpawns = not QuestieCorrections.questNPCBlacklist[npcId]
     local enableWaypoints = enableSpawns and 2 ~= rank -- a rare mob spawn. todo: option for this
@@ -213,7 +230,7 @@ monster = function(npcId, objective)
         Id = npcId,
         Name = name,
         Spawns = enableSpawns and spawns or {},
-        Waypoints = enableWaypoints and QuestieDB.QueryNPCSingle(npcId, "waypoints") or {},
+        Waypoints = enableWaypoints and (npcData and npcData.waypoints or {}) or {},
         Hostile = true,
         Icon = Questie.ICON_TYPE_SLAY,
         GetIconScale = _GetIconScaleForMonster,
@@ -241,16 +258,45 @@ object = function(objectId, objective)
         return nil
     end
 
-    local name = QuestieDB.QueryObjectSingle(objectId, "name")
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+    local objectData = QuestieDB:GetObject(objectId)
+    local name = objectData and objectData.name or nil
     if (not name) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for object:", objectId)
         return nil
     end
 
-    local spawns = QuestieDB.QueryObjectSingle(objectId, "spawns")
+    local spawns = objectData and objectData.spawns or {}
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for object:", objectId)
         spawns = {}
+    end
+
+    local isLearned = false
+    if dataSourceMode == "none" then
+        spawns = {}
+    end
+
+    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global
+            and (dataSourceMode == "auto" or dataSourceMode == "learner") then
+        local ld = Questie.dbLearner.global
+        if ld.settings and ld.settings.enabled then
+            local learnedObj = ld.objects and ld.objects[objectId]
+            if learnedObj and learnedObj[4] and next(learnedObj[4]) then
+                local threshold = ld.settings.minConfidencePins or 1
+                local staticHasSpawns = spawns and next(spawns) ~= nil
+                local canUseLearnerSpawns = dataSourceMode == "learner"
+                    or _CountUniqueSpawnPositions(learnedObj[4]) > 1
+                    or not staticHasSpawns
+                if learnedObj.mc and learnedObj.mc >= threshold and canUseLearnerSpawns then
+                    spawns = learnedObj[4]
+                    isLearned = true
+                end
+            end
+        end
     end
 
 
@@ -263,6 +309,7 @@ object = function(objectId, objective)
         GetIconScale = _GetIconScaleForObject,
         IconScale = _GetIconScaleForObject(),
         TooltipKey = "o_" .. objectId,
+        isLearned = isLearned,
     }
 
     return {

@@ -176,6 +176,29 @@
     </div>
 
     <div class="container">
+        <h2 id="unreleased-performance-refactor">[Unreleased] &mdash; Performance Refactor Branches</h2>
+        <ul>
+            <li><strong>[QuestieLearner &mdash; Kill/Pin Refresh Throttling]</strong> Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.</li>
+            <li><strong>[QuestieLearner &mdash; Bystander Kill Suppression]</strong> Changed visible nearby <code>UNIT_DIED</code> handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.</li>
+            <li><strong>[QuestieLearner &mdash; PARTY_KILL Event-Order Fix]</strong> Fixed an edge case where a <code>UNIT_DIED</code> debounce entry could suppress a later authoritative <code>PARTY_KILL</code> for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.</li>
+            <li><strong>[QuestieLearner &mdash; Immediate Spawn Pin Rendering]</strong> Learner kill evidence now becomes spawn coordinates immediately in learner mode so learned NPC kills can spawn map pins without waiting for the later confidence merge path.</li>
+            <li><strong>[QuestieLearner &mdash; Live Performance Options]</strong> Added Advanced-tab controls for learner intensity, pin refresh delay, maximum pin refresh wait, minimum kills before learned pins, and live NPC update delay so users can tune the system for low-end PCs or heavy-activity zones.</li>
+            <li><strong>[QuestieComms &mdash; User-Controlled Intensity]</strong> Added Advanced-tab QuestieComms controls, including a full disable switch and live throttles for queue processing, quest-state broadcasts, and bulk sync pacing.</li>
+            <li><strong>[QuestieComms &mdash; Disable Gate Fix]</strong> Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.</li>
+            <li><strong>[Arrow &mdash; Low-End Performance Controls]</strong> Added live Arrow update throttles to reduce repeated nearest-target and coordinate work while preserving existing arrow behavior.</li>
+            <li><strong>[Measured Hot Paths &mdash; Phase 3]</strong> Landed measured optimizations on the phase 3 branch for literal localization caching, available quest redraw batching, <code>QuestieDB.IsDoable</code> batch reads, hot profile aliases, <code>GetTime()</code> hoists, NPC fallback lookup caching, and validate-cache allocation cleanup.</li>
+            <li><strong>[QuestieQuest &mdash; Unavailable Quest Guard]</strong> Guarded the available-quest draw thread so unresolved quest IDs are skipped safely instead of crashing the thread, and deduped the skip log so the same missing quest does not spam every redraw.</li>
+            <li><strong>[QuestieLearner &mdash; Data Source Mode Cohesion]</strong> Reworked the Auto / Learner / Static / Neither data-source modes so switching between them applies live and consistently. A single missing static sub-table (npc/object/quest/item) no longer locks the whole addon into learner mode &mdash; only the genuinely-missing store falls back. Static and Neither no longer silently fall back to learner records, switching modes now clears the per-zone quest cache, and the mode switch drives a full pin/tracker redraw through <code>QuestieQuest:SmoothReset()</code> (the previous redraw call imported a mis-named module and silently did nothing).</li>
+            <li><strong>[QuestieLearner &mdash; Pin Refresh Latency]</strong> Collapsed a redundant second debounce stage on the live-learn pin-refresh path. Newly learned spawns now redraw within a single debounce window instead of waiting out both the NPC live-update delay and a separate pin-refresh delay, roughly halving perceived pin-update latency in the Balanced and Low presets. Also fixed a latent infinite timer re-arm that could occur once the pin flush was triggered directly.</li>
+            <li><strong>[Map &mdash; Dense Pin Clustering Aggressiveness Knob]</strong> Re-implemented density-adaptive clustering for crowded kill objectives, now controlled by a new <em>Dense pin clustering aggressiveness</em> slider on the Advanced tab (0 = show every pin, higher = tighter consolidation where many pins share a zone). Coincident pins are always deduplicated regardless of the clustering settings, and the intentional per-zone (Sunstrider Isle) and object-icon range overrides are preserved.</li>
+            <li><strong>[QuestieLearner &mdash; One Pin Per Spawn, Not Per Kill]</strong> Fixed learner kill evidence rendering a separate pin for every kill. Because kill coordinates are the player's position at kill time (and respawns carry fresh GUIDs), repeated kills at the same spot drifted just enough to dodge the exact-match dedup. The immediate learner-mode spawn builder now merges evidence within a small radius into one pin per physical spawn, and the weighted spawn-evidence merge groups kills by coordinate bucket so a single spot can actually accumulate enough evidence to clear the confidence threshold. The merge distance is exposed as a new <em>Spawn Pin Dedup Radius</em> slider on the Advanced tab (0 = show every distinct position, higher = fewer/tighter pins per spawn) which redraws live.</li>
+            <li><strong>[Error Suppression &mdash; Debug Modes]</strong> Moved missing quest and other non-fatal database/error spam out of normal chat output and into Questie debug-critical/developer output. Fatal startup failures remain loud.</li>
+            <li><strong>[Tooltip Data Precedence]</strong> Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.</li>
+        </ul>
+        <div class="important">
+            <strong>Release status:</strong> The most complete performance candidate is not yet a single branch. Merge <code>questie-learner-comms-improvements</code> with <code>phase3-measured-perf</code>, remove or revalidate the stale reverted <code>QuestieMap.ProcessQueue</code> profile-local commit, fix the unrelated Arrow asset test mismatch, and validate in game before stable release. Test learner-only/static-only switching, immediate spawn pin rendering, and available-quest scanning during real kill/loot gameplay.
+        </div>
+
         <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>
             <li><strong>[Docs &mdash; Release Metadata Sync]</strong> Updated the README badge, documentation version badges, and in-game addon version to <code>v1.6.3</code>, then tightened the release filters so handoff notes, local dev settings, and other workspace-only artifacts stay out of the exported release archive.</li>
@@ -278,9 +301,9 @@
 
         <hr>
 
-        <h2 id="session-34">Session 34 &mdash; Turtle WoW Cleanup (2026-05-04)</h2>
+        <h2 id="session-34">Session 34 &mdash; Unsupported Legacy Server Cleanup (2026-05-04)</h2>
         <ul>
-            <li><strong>[Maintenance]</strong> Removed Turtle WoW references &mdash; Deleted Turtle WoW row from the server compatibility table and removed Turtle WoW load tip from installation instructions in README.md. Turtle WoW is shutting down and no longer has a supported plugin.</li>
+            <li><strong>[Maintenance]</strong> Removed unsupported legacy server references &mdash; Deleted an unsupported legacy server row from the server compatibility table and removed its load tip from installation instructions in README.md.</li>
             <li><strong>[Documentation]</strong> Clarified two-addon installation requirement &mdash; Updated README.md installation instructions to explicitly state that Questie-X requires BOTH the core addon AND a server-specific database plugin to function.</li>
         </ul>
 
@@ -426,7 +449,7 @@
             <li><strong>[Fix &mdash; Ascension Zone Mapping]</strong> Fixed a regression in <code>QuestieCompat</code> where <code>uiMapData</code> for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.</li>
             <li><strong>[Fix &mdash; QuestieLearner]</strong> Centralized zone/area ID lookup in <code>l10n</code> module to prevent <code>GetAreaIdByLocalName</code> nil errors (Fixes Project Ebonhold runtime crash).</li>
             <li><strong>[Feature &mdash; Session Export]</strong> Added <code>session_export</code> skill for standardized documentation and session artifact exports.</li>
-            <li><strong>[Fix &mdash; Custom Server Compilation]</strong> Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.</li>
+            <li><strong>[Fix &mdash; Custom Server Compilation]</strong> Fixed database compilation not running on custom servers (Ascension, Ebonhold, etc.) where plugins inject data after initial load.</li>
             <li><strong>[Fix &mdash; Zone Mapping Bug]</strong> Fixed incorrect key assignment in <code>QuestiePluginAPI:InjectZoneTables()</code>. This caused zone lookups to fail, resulting in "No UiMapID or fitting parentAreaId" errors for custom zone IDs.</li>
         </ul>
 
@@ -450,7 +473,7 @@
         <h2 id="v148">v1.4.8 &mdash; Plugin Synchronization &amp; Lua 5.0 Refactor</h2>
         <ul>
             <li><strong>[Plugin Synchronization]</strong> Overhauled the Questie-X plugin loading architecture. Introduced <code>QuestiePluginAPI:FinishLoading()</code> and a registration handshake to resolve race conditions during addon initialization. By ensuring that database plugins report their data-injection status before <code>QuestieInit</code> Stage 3 completes, we eliminated "ghost maps" where pins and statistics would fail to render until a manual <code>/reload</code>.</li>
-            <li><strong>[Universal Lua 5.0 Refactor]</strong> Executed a codebase-wide transition from <code>pairs()</code> and <code>ipairs()</code> to <code>next()</code> and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients (e.g., Turtle WoW), which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across all WoW versions from 1.12 to 3.3.5+.</li>
+            <li><strong>[Universal Lua 5.0 Refactor]</strong> Executed a codebase-wide transition from <code>pairs()</code> and <code>ipairs()</code> to <code>next()</code> and numeric loops. This refactor targets the Lua 5.0 engine used by legacy clients, which can exhibit inconsistent behavior or performance degradation when using standard iterators in high-frequency database sweeps. This change guarantees stable, universal performance across supported WoW versions.</li>
             <li><strong>[Fix &mdash; MapIconTooltip]</strong> Fixed a critical syntax error in <code>MapIconTooltip.lua</code> at line 239. A malformed <code>if</code> statement was trapping execution, preventing tooltips from updating when hovering over Quest objectives on the World Map.</li>
             <li><strong>[Fix &mdash; AscensionDB]</strong> Enhanced realm-specific logic in <code>AscensionLoader.lua</code>. The loader now utilizes an pattern-matching check against <code>GetRealmName()</code> to correctly identify and apply custom database overrides for all Project Ascension realms, including seasonal and specialized rule-set servers.</li>
             <li><strong>[Performance]</strong> Refined the background loading throttler in <code>QuestieInit</code>. The initialization sequence now yields more efficiently to the main UI thread during massive database injections, reducing "frame-stutter" during the initial login sequence while strictly maintaining loading priority for essential UI modules.</li>
@@ -594,7 +617,7 @@
 
         <h3>Core &amp; Stability</h3>
         <ul>
-            <li><strong>[Fix]</strong> Resolved <code>attempt to call local 'l10n' (a table value)</code> in <code>GameVersionError.lua</code> and implemented a <code>tocVersion</code> guard to prevent the "unsupported client" error on Classic-era private servers (e.g., Turtle WoW).</li>
+            <li><strong>[Fix]</strong> Resolved <code>attempt to call local 'l10n' (a table value)</code> in <code>GameVersionError.lua</code> and implemented a <code>tocVersion</code> guard to prevent the "unsupported client" error on Classic-era private servers.</li>
             <li><strong>[Fix]</strong> Updated <code>GameVersionError.lua</code> strings to correctly identify Questie-X as supporting Classic and private servers.</li>
             <li><strong>[Taint Analysis]</strong> Completed a full audit of <code>Questie-X-WotLKDB</code>. No direct taint vectors or secure function overrides were found.</li>
             <li><strong>[Version Sync]</strong> Synchronized versions to v1.3.4 across all components.</li>
@@ -935,7 +958,7 @@
 
         <h3>Core & Compatibility</h3>
         <ul>
-            <li><strong>[Lua 5.0]</strong> Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).</li>
+            <li><strong>[Lua 5.0]</strong> Globally polyfilled <code>string.match</code> and <code>string.gmatch</code> using <code>string.find</code> and <code>string.gfind</code> to ensure universal compatibility with legacy WoW clients.</li>
             <li><strong>[AceTimer]</strong> Patched embedded <code>AceTimer-3.0</code> instances in ElvUI and OG-RaidHelper to resolve <code>math.mod</code> errors on Lua 5.0 clients.</li>
             <li><strong>[Colors]</strong> Updated <code>CreateColor</code> polyfill with <code>SetRGB</code>, <code>SetRGBA</code>, <code>SetColor</code>, and <code>GetColor</code> methods.</li>
             <li><strong>[Comm]</strong> Improved cross-client data sharing stability.</li>

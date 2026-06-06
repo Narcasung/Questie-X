@@ -10,6 +10,7 @@ local unpack_limit = 4096 -- wow api limits unpack to somewhere between 7000-800
 local band = bit.band
 local lshift = bit.lshift
 local rshift = bit.rshift
+local mod = math.mod
 local stringchar = string.char
 local stringbyte = string.byte
 local stringsub = string.sub
@@ -128,7 +129,7 @@ end
 function QuestieStreamLib:_writeByte(val)
     local p = self._pointer
     local chunkId = math.floor((p - 1) / 100000) + 1
-    local localIdx = ((p - 1) % 100000) + 1
+    local localIdx = mod(p - 1, 100000) + 1
     
     if not self._bin[chunkId] then
         self._bin[chunkId] = {}
@@ -152,7 +153,7 @@ function QuestieStreamLib:_readByte()
         return stringbyte(self._bin, p)
     else
         local chunkId = math.floor((p - 1) / 100000) + 1
-        local localIdx = ((p - 1) % 100000) + 1
+        local localIdx = mod(p - 1, 100000) + 1
         if self._bin[chunkId] then
             return stringbyte(self._bin[chunkId][localIdx] or "\0")
         end
@@ -184,7 +185,7 @@ function QuestieStreamLib:_WriteByte_b89(e)
         self._level = level
         self:_writeByte(QSL_ltab[level])
     end
-    local chr = (e % 86) + 33
+    local chr = mod(e, 86) + 33
     if QSL_ttab[chr] then
         self:_writeByte(QSL_ttab[chr])
     else
@@ -267,7 +268,7 @@ function QuestieStreamLib:_ReadInt12Pair_raw()
     local p = self._pointer
     self._pointer = p + 3
     local a,b,c = stringbyte(self._bin, p, p+2)
-    local low4bit = a % 16
+    local low4bit = mod(a, 16)
     return low4bit * 256 + b, (a - low4bit) * 16 + c
 end
 
@@ -372,8 +373,8 @@ end
 
 function QuestieStreamLib:_WriteShort(val)
     --print("wshort: " .. val);
-    self:WriteByte(rshift(val, 8) % 256);
-    self:WriteByte(val % 256);
+    self:WriteByte(mod(rshift(val, 8), 256));
+    self:WriteByte(mod(val, 256));
 end
 
 function QuestieStreamLib:_WriteShort_assert(val)
@@ -384,10 +385,10 @@ function QuestieStreamLib:_WriteShort_assert(val)
 end
 
 function QuestieStreamLib:_WriteInt(val)
-    self:WriteByte(rshift(val, 24) % 256);
-    self:WriteByte(rshift(val, 16) % 256);
-    self:WriteByte(rshift(val, 8) % 256);
-    self:WriteByte(val % 256);
+    self:WriteByte(mod(rshift(val, 24), 256));
+    self:WriteByte(mod(rshift(val, 16), 256));
+    self:WriteByte(mod(rshift(val, 8), 256));
+    self:WriteByte(mod(val, 256));
 end
 
 function QuestieStreamLib:_WriteInt_assert(val)
@@ -399,9 +400,9 @@ end
 
 function QuestieStreamLib:_WriteInt24(val)
     --print("wi24: " .. val);
-    self:WriteByte(rshift(val, 16) % 256);
-    self:WriteByte(rshift(val, 8) % 256);
-    self:WriteByte(val % 256);
+    self:WriteByte(mod(rshift(val, 16), 256));
+    self:WriteByte(mod(rshift(val, 8), 256));
+    self:WriteByte(mod(val, 256));
 end
 
 function QuestieStreamLib:_WriteInt24_assert(val)
@@ -413,8 +414,8 @@ end
 
 function QuestieStreamLib:_WriteInt12Pair(val1, val2)
     self:WriteByte(band(rshift(val1, 8), 15) + lshift(band(rshift(val2, 8), 15), 4))
-    self:WriteByte(val1 % 256)
-    self:WriteByte(val2 % 256)
+    self:WriteByte(mod(val1, 256))
+    self:WriteByte(mod(val2, 256))
 end
 
 function QuestieStreamLib:_WriteInt12Pair_assert(val1, val2)
@@ -430,14 +431,14 @@ function QuestieStreamLib:_WriteInt12Pair_assert(val1, val2)
 end
 
 function QuestieStreamLib:_WriteLong(val)
-    self:WriteByte(rshift(val, 56) % 256);
-    self:WriteByte(rshift(val, 48) % 256);
-    self:WriteByte(rshift(val, 40) % 256);
-    self:WriteByte(rshift(val, 32) % 256);
-    self:WriteByte(rshift(val, 24) % 256);
-    self:WriteByte(rshift(val, 16) % 256);
-    self:WriteByte(rshift(val, 8) % 256);
-    self:WriteByte(val % 256);
+    self:WriteByte(mod(rshift(val, 56), 256));
+    self:WriteByte(mod(rshift(val, 48), 256));
+    self:WriteByte(mod(rshift(val, 40), 256));
+    self:WriteByte(mod(rshift(val, 32), 256));
+    self:WriteByte(mod(rshift(val, 24), 256));
+    self:WriteByte(mod(rshift(val, 16), 256));
+    self:WriteByte(mod(rshift(val, 8), 256));
+    self:WriteByte(mod(val, 256));
 end
 
 function QuestieStreamLib:_WriteLong_assert(val)
@@ -476,7 +477,7 @@ end
 
 function QuestieStreamLib:Save()
     local chunks = {}
-    for i=1, #self._bin do
+    for i=1, table.getn(self._bin) do
         table.insert(chunks, table.concat(self._bin[i]))
     end
     return table.concat(chunks)

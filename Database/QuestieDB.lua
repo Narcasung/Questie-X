@@ -204,6 +204,132 @@ QuestieDB.NPCPointers = _dummyHandle.pointers
 QuestieDB.ObjectPointers = _dummyHandle.pointers
 QuestieDB.ItemPointers = _dummyHandle.pointers
 
+-- Set by QuestieInit when the compiled/static base DB fails to load.
+-- When this is true, learner should force itself on so the addon still works
+-- even if the static database is unavailable or partially missing.
+QuestieDB.baseDatabaseMissing = false
+QuestieDB.baseDatabaseMissingKeys = {}
+
+-- The four core static stores. The base DB is only considered fully "missing"
+-- (which forces learner mode) when EVERY one of these failed to load.
+QuestieDB._baseDatabaseStores = { "npcData", "objectData", "questData", "itemData" }
+
+-- True only when a specific static store failed to load. Reads use this so a
+-- single missing/mismatched store falls back to learner data for that store
+-- alone, instead of locking the whole addon into learner mode.
+function QuestieDB:IsStoreMissing(storeKey)
+    return QuestieDB.baseDatabaseMissingKeys and QuestieDB.baseDatabaseMissingKeys[storeKey] == true
+end
+
+-- Clears every per-entity cache. Used when the data source mode changes so that
+-- quest/npc/item/object AND per-zone results are rebuilt against the new mode.
+function QuestieDB:ClearModeCaches()
+    _QuestieDB.questCache = {}
+    _QuestieDB.itemCache = {}
+    _QuestieDB.npcCache = {}
+    _QuestieDB.objectCache = {}
+    _QuestieDB.zoneCache = {}
+end
+
+function QuestieDB:IsBaseDatabaseMissing()
+    if QuestieDB.baseDatabaseMissing ~= true then
+        return false
+    end
+    -- Only report the base DB as missing when EVERY core store failed. A partial
+    -- failure (e.g. itemData missing but npcData present) must not override the
+    -- user's Data Source Mode selection — per-read fallback handles the gaps.
+    local keys = QuestieDB.baseDatabaseMissingKeys
+    if not keys then
+        return false
+    end
+    local stores = QuestieDB._baseDatabaseStores
+    for i = 1, 4 do
+        if not keys[stores[i]] then
+            return false
+        end
+    end
+    return true
+end
+
+local function _GetLearnerSettings()
+    local ld = Questie and Questie.dbLearner and Questie.dbLearner.global
+    return ld and ld.settings or nil
+end
+
+local function _GetLearnerRecord(storeName, id)
+    local ld = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not ld then
+        return nil
+    end
+
+    local store = ld[storeName]
+    if not store then
+        return nil
+    end
+
+    return store[id] or store[tostring(id)]
+end
+
+-- Map-percent radius used to collapse per-GUID kill evidence into one pin per
+-- physical spawn. Kill coordinates are the player's position at kill time, so
+-- repeated kills (and respawns, which carry fresh GUIDs) land on slightly
+-- different coords. Without this merge, every kill would render its own pin.
+-- A distance test (rather than a grid bucket) avoids the boundary artifact where
+-- two near-identical coords straddle a cell edge and split into separate pins.
+-- The radius is user-tunable via the learner "Spawn Pin Dedup Radius" knob; 0
+-- disables merging (every distinct coord shown).
+local GUID_SPAWN_DEDUP_RADIUS = 4.0
+
+local function _GetSpawnDedupRadius()
+    local settings = _GetLearnerSettings()
+    local r = settings and tonumber(settings.spawnDedupRadius)
+    if r and r >= 0 then
+        return r
+    end
+    return GUID_SPAWN_DEDUP_RADIUS
+end
+
+local function _BuildSpawnTableFromGuidEvidence(evidence)
+    if type(evidence) ~= "table" then
+        return nil
+    end
+
+    local radius = _GetSpawnDedupRadius()
+    local radiusSq = radius * radius
+    local spawns = {}
+    local hasEntries = false
+    for _, entry in pairs(evidence) do
+        if type(entry) == "table" and entry.zoneId and entry.x and entry.y then
+            local zoneId = tonumber(entry.zoneId)
+            local x = tonumber(entry.x)
+            local y = tonumber(entry.y)
+            if zoneId and x and y then
+                spawns[zoneId] = spawns[zoneId] or {}
+                local zoneSpawns = spawns[zoneId]
+                local exists = false
+                for _, coord in ipairs(zoneSpawns) do
+                    local dx = coord[1] - x
+                    local dy = coord[2] - y
+                    if (dx * dx + dy * dy) <= radiusSq then
+                        exists = true
+                        break
+                    end
+                end
+                if not exists then
+                    zoneSpawns[#zoneSpawns + 1] = { x, y }
+                    hasEntries = true
+                end
+            end
+        end
+    end
+
+    if not hasEntries then
+        return nil
+    end
+
+    return spawns
+end
+
 ---@type QuestieQuest
 local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
 ---@type QuestieQuestPrivate
@@ -321,6 +447,19 @@ if not Item then
 end
 
 if not Item.CreateFromItemID then
+    local function SafeGetItemName(itemID)
+        local numericItemID = tonumber(itemID)
+        if not numericItemID or numericItemID == 0 then
+            return "item:" .. tostring(itemID)
+        end
+
+        local ok, name = pcall(GetItemInfo, numericItemID)
+        if not ok then
+            return "item:" .. tostring(numericItemID)
+        end
+        return name or ("item:" .. tostring(numericItemID))
+    end
+
     function Item:CreateFromItemID(itemID)
         local obj = {}
 
@@ -332,8 +471,7 @@ if not Item.CreateFromItemID then
         end
 
         function obj:GetItemName()
-            local name = GetItemInfo(itemID)
-            return name or ("item:" .. tostring(itemID))
+            return SafeGetItemName(itemID)
         end
 
         return obj
@@ -520,11 +658,24 @@ function QuestieDB:GetObject(objectId)
         return _QuestieDB.objectCache[objectId];
     end
 
-    -- Try to get from compiled DB first
-    local rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("objects", objectId)
 
-    -- Check for overrides
-    local override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsStoreMissing("objectData") then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
+        if not rawdata and learnerRecord and mode == "auto" then
+            -- Only "auto" overlays learner data on top of the static DB. "static"
+            -- and "none" must never silently fall back to learner records.
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] data not found for objectID:", objectId)
@@ -566,8 +717,23 @@ function QuestieDB:GetItem(itemId)
         return _QuestieDB.itemCache[itemId];
     end
 
-    local rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
-    local override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("items", itemId)
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsStoreMissing("itemData") then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
+        if not rawdata and learnerRecord and mode == "auto" then
+            -- Only "auto" overlays learner data on top of the static DB. "static"
+            -- and "none" must never silently fall back to learner records.
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] data not found for itemID:", itemId)
@@ -807,7 +973,9 @@ end
 function QuestieDB.GetSuppressedNPCs(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.npcs then
+    local mode = ld and ld.settings and ld.settings.dataSourceMode or "auto"
+    if mode == "auto" or mode == "learner" then
+        if ld and ld.settings and ld.settings.enabled and ld.npcs then
         local threshold = ld.settings.minConfidencePins or 2
         local npcId, entry = next(ld.npcs)
         while npcId do
@@ -816,6 +984,7 @@ function QuestieDB.GetSuppressedNPCs(zoneId)
                 suppressed[npcId] = true
             end
             npcId, entry = next(ld.npcs, npcId)
+        end
         end
     end
     return suppressed
@@ -828,7 +997,9 @@ end
 function QuestieDB.GetSuppressedObjects(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.objects then
+    local mode = ld and ld.settings and ld.settings.dataSourceMode or "auto"
+    if mode == "auto" or mode == "learner" then
+        if ld and ld.settings and ld.settings.enabled and ld.objects then
         local threshold = ld.settings.minConfidencePins or 2
         local objId, entry = next(ld.objects)
         while objId do
@@ -837,6 +1008,7 @@ function QuestieDB.GetSuppressedObjects(zoneId)
                 suppressed[objId] = true
             end
             objId, entry = next(ld.objects, objId)
+        end
         end
     end
     return suppressed
@@ -1429,8 +1601,23 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
         return _QuestieDB.questCache[questId];
     end
 
-    local rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
-    local overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("quests", questId)
+    local rawdata
+    local overrideData
+    if mode == "learner" or QuestieDB:IsStoreMissing("questData") then
+        rawdata = learnerRecord
+        overrideData = nil
+    else
+        rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
+        if not rawdata and learnerRecord and mode == "auto" then
+            -- Only "auto" overlays learner data on top of the static DB. "static"
+            -- and "none" must never silently fall back to learner records.
+            rawdata = learnerRecord
+        end
+        overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
+    end
 
     if (not rawdata) then
         rawdata = overrideData
@@ -2029,8 +2216,23 @@ function QuestieDB:GetNPC(npcId)
         return _QuestieDB.npcCache[npcId]
     end
 
-    local rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
-    local override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+    local learnerRecord = _GetLearnerRecord("npcs", npcId)
+    local rawdata
+    local override
+    if mode == "learner" or QuestieDB:IsStoreMissing("npcData") then
+        rawdata = learnerRecord
+        override = nil
+    else
+        rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
+        if not rawdata and learnerRecord and mode == "auto" then
+            -- Only "auto" overlays learner data on top of the static DB. "static"
+            -- and "none" must never silently fall back to learner records.
+            rawdata = learnerRecord
+        end
+        override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
+    end
 
     if not rawdata and not override then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] data not found for npcID:", npcId)
@@ -2059,6 +2261,14 @@ function QuestieDB:GetNPC(npcId)
 
     local friendlyToFaction = npc.friendlyToFaction
     npc.friendly = (not friendlyToFaction) and true or factionReactions[friendlyToFaction]
+
+    if (not npc.spawns or next(npc.spawns) == nil) and mode == "learner" then
+        local guidSpawns = rawdata[8]
+        local learnedSpawns = _BuildSpawnTableFromGuidEvidence(guidSpawns)
+        if learnedSpawns then
+            npc.spawns = learnedSpawns
+        end
+    end
 
     _QuestieDB.npcCache[npcId] = npc
     return npc

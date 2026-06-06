@@ -1581,8 +1581,13 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
             objectiveCenter = { x = x, y = y }
         end
 
-        -- Filter static spawns if prioritizeMyData is enabled and we have high-confidence learned data
-        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled and Questie.dbLearner.global.settings.prioritizeMyData then
+        -- Filter static spawns only when the learner is allowed to influence display.
+        local dataSourceMode = Questie.dbLearner
+            and Questie.dbLearner.global
+            and Questie.dbLearner.global.settings
+            and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled
+                and (dataSourceMode == "auto" or dataSourceMode == "learner") then
             local zone, _ = next(zones)
             while zone do
                 local suppressed = (objectiveData.Type == "monster" and QuestieDB.GetSuppressedNPCs(zone)) or (objectiveData.Type == "object" and QuestieDB.GetSuppressedObjects(zone))
@@ -1646,13 +1651,49 @@ _RegisterObjectiveTooltips = function(objective, questId, blockItemTooltips)
             objective.hasRegisteredTooltips = true
         end
     else
-        -- No spawnList and no Id means there is nothing Questie can draw for this objective.
-        -- This covers server-tracked trigger objectives (e.g. "complete N quests in zone" for
-        -- quest 50150) which may have any objectiveType from the server, not just "event".
         if not objective.Id or objective.Id == 0 then
+            -- No spawnList and no Id means there is nothing Questie can draw for this objective.
+            -- This covers server-tracked trigger objectives (e.g. "complete N quests in zone" for
+            -- quest 50150) which may have any objectiveType from the server, not just "event".
             objective.hasRegisteredTooltips = true
             return
         end
+
+        if objective.Type == "monster" or objective.Type == "object" or objective.Type == "item" then
+            local tooltipKey = nil
+            if objective.Type == "monster" then
+                tooltipKey = "m_" .. objective.Id
+            elseif objective.Type == "object" then
+                tooltipKey = "o_" .. objective.Id
+            elseif objective.Type == "item" then
+                tooltipKey = "i_" .. objective.Id
+            end
+
+            if tooltipKey and not objective.hasRegisteredTooltips then
+                QuestieTooltips:RegisterObjectiveTooltip(questId, tooltipKey, objective)
+                objective.hasRegisteredTooltips = true
+            end
+
+            if objective.Type == "item" then
+                objective.registeredItemTooltips = true
+            end
+            return
+        elseif objective.Type == "killcredit" then
+            local ids = objective.IdList
+            if type(ids) ~= "table" then
+                ids = { objective.Id }
+            end
+
+            for _, id in ipairs(ids) do
+                if id then
+                    QuestieTooltips:RegisterObjectiveTooltip(questId, "m_" .. id, objective)
+                end
+            end
+
+            objective.hasRegisteredTooltips = true
+            return
+        end
+
         Questie:Error("[QuestieQuest]: [Tooltips] " ..
         l10n("There was an error populating objectives for %s %s %s %s", objective.Description or "No objective text",
             questId or "No quest id", 0 or "No objective", "No error"))
@@ -1806,18 +1847,30 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
 
     local iconCount, orderedList = _GetIconsSortedByDistance(iconsToDraw)
 
-    -- Dense kill objectives (like Sunstrider Isle mana wyrms) previously used
-    -- a lower clustering hotzone here. Leave the old behavior commented so we
-    -- can restore it quickly if we need to revisit consolidation again.
-    --[[
-    if iconCount >= 20 then
-        range = math.max(6, math.floor(range * 0.25))
-    elseif iconCount >= 12 then
-        range = math.max(10, math.floor(range * 0.4))
-    elseif iconCount >= 6 then
-        range = math.max(16, math.floor(range * 0.65))
+    -- Dense kill objectives (like Sunstrider Isle mana wyrms) consolidate more
+    -- aggressively the more pins share a zone. This is now user-tunable via the
+    -- clusterDensityAggressiveness knob (0 = off / show every pin, 100 = the
+    -- original aggressive consolidation). The per-zone and object overrides below
+    -- still take precedence, and coincident pins are always deduped in CalcHotzones.
+    local densityAggression = Questie.db.profile.clusterDensityAggressiveness or 0
+    if densityAggression > 0 then
+        local factor = densityAggression / 100
+        if factor > 1 then factor = 1 end
+        local baseMult
+        if iconCount >= 20 then
+            baseMult = 0.25
+        elseif iconCount >= 12 then
+            baseMult = 0.4
+        elseif iconCount >= 6 then
+            baseMult = 0.65
+        end
+        if baseMult then
+            -- Interpolate between no reduction (factor 0) and the full base
+            -- multiplier (factor 1) so the knob scales smoothly.
+            local mult = 1 - (1 - baseMult) * factor
+            range = math.max(1, math.floor(range * mult))
+        end
     end
-    --]]
 
     if orderedList[1] and orderedList[1].Icon == Questie.ICON_TYPE_OBJECT then -- new clustering / limit code should prevent problems, always show all object notes
         range = range * 0.2;                                                   -- Only use 20% of the default range.

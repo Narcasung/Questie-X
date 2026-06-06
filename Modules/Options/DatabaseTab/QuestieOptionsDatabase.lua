@@ -20,7 +20,6 @@ end
 
 local function GetServer()
     if Questie.IsAscension  then return "Ascension" end
-    if Questie.IsTurtle     then return "Turtle"    end
     if Questie.IsEbonhold   then return "Ebonhold"  end
     if Questie.IsEra        then return "Era"       end
     if Questie.Is335        then return "WotLK"     end
@@ -45,6 +44,47 @@ local function GetLearnedCounts()
     }
     s.total = s.npcs + s.quests + s.items + s.objects
     return s
+end
+
+local function ApplyLearnerMode()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.ApplyDataSourceMode then
+        QuestieLearner:ApplyDataSourceMode()
+    end
+
+    -- SmoothReset is the canonical full refresh: it clears all map/minimap notes
+    -- and tooltips, recalculates and redraws available quests, re-updates every
+    -- active quest, and refreshes the tracker. This makes a data-source-mode
+    -- switch (auto/learner/static/none) take effect everywhere in real time.
+    local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+    if QuestieQuest and QuestieQuest.SmoothReset then
+        QuestieQuest:SmoothReset()
+    else
+        local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+        if QuestieTracker and QuestieTracker.Update then
+            QuestieTracker:Update()
+        end
+    end
+end
+
+local function GetLearnerRuntimeMode()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.GetDataSourceMode then
+        return QuestieLearner:GetDataSourceMode()
+    end
+    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
+end
+
+local function GetLearnerSelectedMode()
+    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
+end
+
+local function IsLearnerRuntimeEnabled()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.IsEnabled then
+        return QuestieLearner:IsEnabled()
+    end
+    return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled
 end
 
 -----------------------------------------------------------------------
@@ -203,6 +243,68 @@ function QuestieOptions.tabs.database:Initialize()
                 type  = "header",
                 order = 2,
                 name  = function() return l10n("What To Learn") end,
+            },
+
+            learner_enabled = {
+                type  = "toggle",
+                order = 2.05,
+                name  = function() return l10n("Enable Learner Recording") end,
+                desc  = function() return l10n("Record live learner data. Disable this to stop recording and live learner injection. Learner will still auto-enable if the static DB is missing.") end,
+                get   = function() return IsLearnerRuntimeEnabled() end,
+                set   = function(_, v)
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.enabled = v
+                        ApplyLearnerMode()
+                    end
+                end,
+            },
+
+            data_source_mode = {
+                type  = "select",
+                order = 2.06,
+                name  = function() return l10n("Data Source Mode") end,
+                desc  = function()
+                    local runtimeMode = GetLearnerRuntimeMode()
+                    if runtimeMode == "learner" and GetLearnerSelectedMode() ~= "learner" then
+                        return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently. The runtime may still force learner if the static DB is unavailable.")
+                    end
+                    return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently.")
+                end,
+                values = {
+                    auto    = l10n("Auto (current behavior)"),
+                    learner = l10n("Learner Only"),
+                    static  = l10n("Static Only"),
+                    none    = l10n("Neither (base DB only)"),
+                },
+                get   = function() return GetLearnerSelectedMode() end,
+                set   = function(_, v)
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.dataSourceMode = v
+                        Questie.dbLearner.global.settings.prioritizeMyData = (v ~= "static" and v ~= "none")
+                        if v == "learner" then
+                            Questie.dbLearner.global.settings.enabled = true
+                        end
+                        ApplyLearnerMode()
+                    end
+                end,
+            },
+
+            data_source_runtime = {
+                type     = "description",
+                order    = 2.07,
+                fontSize = "medium",
+                name     = function()
+                    local selectedMode = GetLearnerSelectedMode()
+                    local runtimeMode = GetLearnerRuntimeMode()
+                    if runtimeMode == selectedMode then
+                        return string.format("|cFF5EBAF3Runtime mode:|r %s", l10n(runtimeMode == "learner" and "Learner" or runtimeMode == "static" and "Static" or runtimeMode == "none" and "Neither" or "Auto"))
+                    end
+                    return string.format(
+                        "|cFF5EBAF3Runtime mode:|r %s  |cFF888888(selected: %s)|r",
+                        l10n(runtimeMode == "learner" and "Learner" or runtimeMode == "static" and "Static" or runtimeMode == "none" and "Neither" or "Auto"),
+                        l10n(selectedMode == "learner" and "Learner" or selectedMode == "static" and "Static" or selectedMode == "none" and "Neither" or "Auto")
+                    )
+                end,
             },
 
             learn_npcs = {
@@ -434,9 +536,9 @@ function QuestieOptions.tabs.database:Initialize()
                 confirm = true,
                 confirmText = "Are you sure? This cannot be undone.",
                 func  = function()
-                    if Questie.db and Questie.db.global then
-                        Questie.dbLearner.global = nil
-                        Questie:Print("|cFFFF4444[Questie-X]|r All learned data has been reset.")
+                    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+                    if QuestieLearner and QuestieLearner.ClearAllData then
+                        QuestieLearner:ClearAllData()
                     end
                 end,
             },

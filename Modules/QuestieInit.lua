@@ -128,14 +128,18 @@ local function loadFullDatabase()
     print("\124cFF4DDBFF [1/9] " .. l10n("Loading database") .. "...")
 
     QuestieInit:LoadBaseDB()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After LoadBaseDB  - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag]                     obj:"  .. _dbStats(QuestieDB.objectData) .. " item:" .. _dbStats(QuestieDB.itemData))
+    if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After LoadBaseDB  - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag]                     obj:"  .. _dbStats(QuestieDB.objectData) .. " item:" .. _dbStats(QuestieDB.itemData))
+    end
 
     print("\124cFF4DDBFF [2/9] " .. l10n("Applying database corrections") .. "...")
 
     coYield()
     QuestieCorrections:Initialize()
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After Corrections - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+    if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After Corrections - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+    end
 
     print("\124cFF4DDBFF [3/9] " .. l10n("Initializing townfolks") .. "...")
     coYield()
@@ -279,7 +283,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     needsCompilation = (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID)
 
     -- Custom servers or presence of DB plugins: always defer to Stage3 to wait for plugin data injection
-    if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled() then
+    if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled() then
         compilationDeferred = true
         l10n:Initialize()
         coYield()
@@ -289,7 +293,9 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         l10n("Questie DB has updated!") ..
         "|r|cFFFF6F22 " .. l10n("Data is being processed, this may take a few moments and cause some lag..."))
         loadFullDatabase()
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        if Questie.db and Questie.db.profile and Questie.db.profile.debugEnabled then
+            Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] Before Compile - quest:" .. _dbStats(QuestieDB.questData) .. " npc:" .. _dbStats(QuestieDB.npcData))
+        end
         QuestieDBCompiler:Compile()
         Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] After  Compile - quest:type=" .. type(QuestieDB.questData) .. " npc:type=" .. type(QuestieDB.npcData))
         dbCompiled = true
@@ -390,7 +396,7 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
 
     -- Always re-compile on custom servers to pick up QuestieLearner changes from SavedVariables,
     -- or if compilation was explicitly deferred/needed.
-    local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or Questie.IsTurtle or QuestieServer:IsAnyDBPluginEnabled()
+    local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled()
     if isCustomServer or needsCompilation or (not Questie.db.global.dbIsCompiled) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Starting compilation (Server=" .. tostring(isCustomServer) .. ", Needed=" .. tostring(needsCompilation) .. ")")
         if not QuestieDB.questData then
@@ -502,6 +508,12 @@ end
 
 
 function QuestieInit:LoadDatabase(key)
+    local function MarkBaseDatabaseMissing()
+        QuestieDB.baseDatabaseMissing = true
+        QuestieDB.baseDatabaseMissingKeys = QuestieDB.baseDatabaseMissingKeys or {}
+        QuestieDB.baseDatabaseMissingKeys[key] = true
+    end
+
     if type(QuestieDB[key]) == "string" then
         -- Fix #6: `loadstring` at LOAD TIME is safe, but calling it here during
         -- event-driven runtime taints any tables produced on WotLK/Era clients.
@@ -524,6 +536,7 @@ function QuestieInit:LoadDatabase(key)
                 "[DBDiag] LEGACY DB ('" .. key .. "' is string) on modern client. "
                 .. "Runtime loadstring() would taint this data. "
                 .. "Please reinstall the Questie-X-WotLKDB addon in split-file format.")
+            MarkBaseDatabaseMissing()
             QuestieDB[key] = {}
             return
         end
@@ -537,16 +550,19 @@ function QuestieInit:LoadDatabase(key)
                 QuestieDB[key] = result
             else
                 Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR executing('" .. key .. "'): " .. tostring(result))
+                MarkBaseDatabaseMissing()
                 QuestieDB[key] = nil
             end
         else
             Questie:Debug(Questie.DEBUG_DEVELOP, "[DBDiag] ERROR loadstring('" .. key .. "'): " .. tostring(loadErr) .. " | len=" .. string.len(QuestieDB[key] or ""))
+            MarkBaseDatabaseMissing()
             QuestieDB[key] = nil
         end
     elseif type(QuestieDB[key]) == "table" then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[LoadDatabase] '" .. key .. "' already a table (split-file format), skipping loadstring")
     else
         Questie:Debug(Questie.DEBUG_DEVELOP, "Database is missing, this is likely do to era vs tbc: ", key)
+        MarkBaseDatabaseMissing()
     end
     if not QuestieDB[key] then
         QuestieDB[key] = {}
@@ -559,6 +575,9 @@ end
 function QuestieInit:LoadBaseDB()
     -- Pointer compilation will look at npcDataOverrides etc, which are populated by plugins.
     -- Base tables (Classic) are loaded here.
+
+    QuestieDB.baseDatabaseMissing = false
+    QuestieDB.baseDatabaseMissingKeys = {}
 
     QuestieInit:LoadDatabase("npcData")
     QuestieInit:LoadDatabase("objectData")

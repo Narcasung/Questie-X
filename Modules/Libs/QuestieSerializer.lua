@@ -6,6 +6,8 @@ local QuestieSerializer = QuestieLoader:CreateModule("QuestieSerializer");
 ---@type QuestieStreamLib
 local QuestieStreamLib = QuestieLoader:ImportModule("QuestieStreamLib");
 
+local mod = math.mod
+
 
 function QuestieSerializer:Hash(value)
     if not value or type(value) ~= "string" or (string.len(value) <= 0) then
@@ -70,14 +72,14 @@ local function floatBitsToInt(n)
     else
         expo = expo + 0x7E
         mant = floor((mant * 2.0 - 1.0) * ldexp(0.5, 24))
-        return _pack(sign + floor(expo / 0x2), (expo % 0x2) * 0x80 + floor(mant / 0x10000), floor(mant / 0x100) % 0x100, mant % 0x100)
+        return _pack(sign + floor(expo / 0x2), mod(expo, 0x2) * 0x80 + floor(mant / 0x10000), mod(floor(mant / 0x100), 0x100), mod(mant, 0x100))
     end
 end
 local function intBitsToFloat(int)
     local b1, b2, b3, b4 = _unpack(int)
     local sign = b1 > 0x7F
-    local expo = (b1 % 0x80) * 0x2 + floor(b2 / 0x80)
-    local mant = ((b2 % 0x80) * 0x100 + b3) * 0x100 + b4
+    local expo = mod(b1, 0x80) * 0x2 + floor(b2 / 0x80)
+    local mant = ((mod(b2, 0x80)) * 0x100 + b3) * 0x100 + b4
     if sign then
         sign = -1
     else

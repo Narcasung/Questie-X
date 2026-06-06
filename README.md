@@ -1,4 +1,6 @@
 > **Notice:** I am actively working on a major performance refactor. Until I publish a stable release that I am satisfied with, please use the repository version instead of the release asset.
+>
+> Current refactor focus: reducing QuestieLearner pin redraws during heavy kill activity, adding live Advanced performance controls for QuestieLearner and QuestieComms, adding Arrow throttles for low-end systems, and suppressing non-fatal error spam outside Questie debug modes. These changes are being staged on feature branches first and still need in-game validation before they become the next stable release.
 
 <div align="center">
 
@@ -24,6 +26,22 @@
 ## About
 
 Questie-X is a fork of the original [Questie](https://github.com/Questie/Questie) addon, rebuilt to run reliably on any private server regardless of realm type or custom content. It fixes longstanding Lua errors, corrects API incompatibilities introduced by custom server emulators, and introduces a plugin system so server-specific quest databases can be distributed and maintained separately from the core addon.
+
+---
+
+## Current Performance Refactor Status
+
+The active performance work is split across review branches so each phase can be reverted independently if needed.
+
+| Area | Current Status |
+|------|----------------|
+| QuestieLearner | Kill-triggered map-pin refreshes are now debounced with a maximum wait cap, bystander `UNIT_DIED` events no longer force learner pin redraws, and `PARTY_KILL` events are protected from being suppressed by earlier `UNIT_DIED` debounce entries. |
+| QuestieComms | Advanced options include a full comms disable switch plus throttles for processing, quest-state broadcasts, and bulk sync behavior. |
+| Arrow | Advanced options include update throttles that apply live and are intended to reduce repeated target/coordinate work on lower-end PCs. |
+| Error noise | Missing quest and non-fatal database messages are being routed to Questie debug-critical/developer output instead of normal chat spam. |
+| Phase 3 hot paths | A measured branch contains additional localization, tooltip/map, quest eligibility, and cache-allocation improvements that still need integration with the learner/comms branch. |
+
+Before the next stable release, the combined branch needs in-game testing in heavy kill zones with the minimap open, nearby players killing mobs, comms disabled/low/normal/fast, and Arrow throttles adjusted live from the options menu.
 
 ---
 

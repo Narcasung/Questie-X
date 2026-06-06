@@ -17,11 +17,6 @@ Questie.IsWotlk     = (WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC)
 Questie.IsTBC       = (WOW_PROJECT_ID == WOW_PROJECT_BURNING_CRUSADE_CLASSIC)
 Questie.IsClassicEra = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC)
 
--- Try GetBuildInfo for Turtle WoW (Interface: 11200, no WOW_PROJECT globals)
-local _, _, _, tocVersion = GetBuildInfo()
-Questie.IsTurtle    = (not Questie.IsRetail and not Questie.IsWotlk and not Questie.IsTBC and
-                       not Questie.IsClassicEra and tocVersion and tocVersion < 20000)
-
 -- Custom server detection
 Questie.IsEbonhold  = false
 Questie.IsAscension = false
@@ -41,7 +36,6 @@ local function GetExpectedPluginFlavor()
     if Questie.IsAscension  then return "AscensionDB",  "Questie-X-AscensionDB"  end
     if Questie.IsEbonhold   then return "EbonholdDB",   "Questie-X-EbonholdDB"   end
     if Questie.IsValanior   then return "ValaniorDB",   "Questie-X-ValaniorDB"   end
-    if Questie.IsTurtle     then return "TurtleDB",     "Questie-X-TurtleDB"     end
     if Questie.IsWotlk      then return "WotLKDB",      "Questie-X-WotLKDB"      end
     if Questie.IsTBC        then return "TBCDB",        "Questie-X-TBCDB"        end
     if Questie.IsClassicEra then return "ClassicDB",    "Questie-X-ClassicDB"    end
@@ -53,7 +47,7 @@ function QuestieServer:Init()
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] Realm:", realmName)
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] WOW_PROJECT_ID:", tostring(WOW_PROJECT_ID))
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieServer] IsWotlk:", tostring(Questie.IsWotlk), "IsTBC:", tostring(Questie.IsTBC),
-        "IsClassicEra:", tostring(Questie.IsClassicEra), "IsTurtle:", tostring(Questie.IsTurtle),
+        "IsClassicEra:", tostring(Questie.IsClassicEra),
         "IsAscension:", tostring(Questie.IsAscension), "IsEbonhold:", tostring(Questie.IsEbonhold))
 end
 
@@ -64,7 +58,6 @@ function QuestieServer:IsAnyDBPluginEnabled()
         "Questie-X-WotLKDB",
         "Questie-X-ClassicDB",
         "Questie-X-TBCDB",
-        "Questie-X-TurtleDB",
         "Questie-X-AscensionDB",
         "Questie-X-EbonholdDB",
         "Questie-X-ValaniorDB",

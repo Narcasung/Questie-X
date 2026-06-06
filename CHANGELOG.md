@@ -1,5 +1,34 @@
 # Changelog
 
+## [Unreleased] - Performance Refactor Branches
+
+### Performance
+
+- **[QuestieLearner - Kill/Pin Refresh Throttling]** Debounced learner-triggered map-pin refreshes so heavy kill streaks do not redraw pins on every event. Added a maximum wait cap so batched updates still flush predictably instead of being pushed out forever by constant activity.
+- **[QuestieLearner - Bystander Kill Suppression]** Changed visible nearby `UNIT_DIED` handling so kills from other players can update short-lived correlation evidence without immediately running full learner injection or pin refresh work.
+- **[QuestieLearner - PARTY_KILL Event-Order Fix]** Fixed an edge case where a `UNIT_DIED` debounce entry could suppress a later authoritative `PARTY_KILL` for the same GUID. The debounce now tracks event type and allows the player's/group's kill event through while still suppressing true duplicates.
+- **[QuestieLearner - Immediate Spawn Pin Rendering]** Learner kill evidence now becomes spawn coordinates immediately in learner mode so learned NPC kills can spawn map pins without waiting for the later confidence merge path.
+- **[QuestieLearner - Live Performance Options]** Added Advanced-tab controls for learner intensity, pin refresh delay, maximum pin refresh wait, minimum kills before learned pins, and live NPC update delay so users can tune the system for low-end PCs or heavy-activity zones.
+- **[QuestieComms - User-Controlled Intensity]** Added Advanced-tab QuestieComms controls, including a full disable switch and live throttles for queue processing, quest-state broadcasts, and bulk sync pacing.
+- **[QuestieComms - Disable Gate Fix]** Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.
+- **[Arrow - Low-End Performance Controls]** Added live Arrow update throttles to reduce repeated nearest-target and coordinate work while preserving existing arrow behavior.
+- **[Measured Hot Paths - Phase 3]** Landed measured optimizations on the phase 3 branch for literal localization caching, available quest redraw batching, `QuestieDB.IsDoable` batch reads, hot profile aliases, `GetTime()` hoists, NPC fallback lookup caching, and validate-cache allocation cleanup.
+
+### Bug Fixes
+
+- **[Error Suppression - Debug Modes]** Moved missing quest and other non-fatal database/error spam out of normal chat output and into Questie debug-critical/developer output. Fatal startup failures remain loud.
+- **[Tooltip Data Precedence]** Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.
+- **[QuestieQuest - Unavailable Quest Guard]** Guarded the available-quest draw thread so unresolved quest IDs are skipped safely instead of crashing the thread, and deduped the skip log so the same missing quest does not spam every redraw.
+- **[QuestieLearner - Data Source Mode Cohesion]** Reworked the Auto / Learner / Static / Neither data-source modes so switching between them applies live and consistently. A single missing static sub-table (npc/object/quest/item) no longer locks the whole addon into learner mode — only the genuinely-missing store falls back. Static and Neither no longer silently fall back to learner records, switching modes now clears the per-zone quest cache, and the mode switch drives a full pin/tracker redraw through `QuestieQuest:SmoothReset()` (the previous redraw call imported a mis-named module and silently did nothing).
+- **[QuestieLearner - Pin Refresh Latency]** Collapsed a redundant second debounce stage on the live-learn pin-refresh path. Newly learned spawns now redraw within a single debounce window instead of waiting out both the NPC live-update delay and a separate pin-refresh delay, roughly halving perceived pin-update latency in the Balanced and Low presets. Also fixed a latent infinite timer re-arm that could occur once the pin flush was triggered directly.
+- **[Map - Dense Pin Clustering Aggressiveness Knob]** Re-implemented density-adaptive clustering for crowded kill objectives, now controlled by a new "Dense pin clustering aggressiveness" slider on the Advanced tab (0 = show every pin, higher = tighter consolidation where many pins share a zone). Coincident pins are always deduplicated regardless of the clustering settings, and the intentional per-zone (Sunstrider Isle) and object-icon range overrides are preserved.
+- **[QuestieLearner - One Pin Per Spawn, Not Per Kill]** Fixed learner kill evidence rendering a separate pin for every kill. Because kill coordinates are the player's position at kill time (and respawns carry fresh GUIDs), repeated kills at the same spot drifted just enough to dodge the exact-match dedup. The immediate learner-mode spawn builder now merges evidence within a small radius into one pin per physical spawn, and the weighted spawn-evidence merge groups kills by coordinate bucket so a single spot can actually accumulate enough evidence to clear the confidence threshold. The merge distance is exposed as a new "Spawn Pin Dedup Radius" slider on the Advanced tab (0 = show every distinct position, higher = fewer/tighter pins per spawn) which redraws live.
+
+### Branch / Release Notes
+
+- The most complete performance candidate is not yet a single branch: `questie-learner-comms-improvements` has the latest learner/comms/arrow controls, while `phase3-measured-perf` has the broader measured hot-path changes.
+- Before release, merge into a dedicated integration branch, remove or revalidate the stale `QuestieMap.ProcessQueue` profile-local commit that was reverted on `main`, fix the unrelated Arrow asset test expectation mismatch, and validate in game with minimap open, nearby-player kills, looting, comms toggles, Arrow throttles, and learner-only/static-only mode switching.
+
 ## [1.6.3]
 
 ### Bug Fixes
@@ -109,7 +138,7 @@
 
 ### Maintenance
 
-- **Removed Turtle WoW references** — Deleted Turtle WoW row from the server compatibility table and removed Turtle WoW load tip from installation instructions in README.md. Turtle WoW is shutting down and no longer has a supported plugin.
+- **Removed unsupported legacy server references** — Deleted an unsupported legacy server row from the server compatibility table and removed its load tip from installation instructions in README.md.
 
 ### Documentation
 
@@ -282,7 +311,7 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 - **[Feature — Enhanced Logging]** Improved Stage 3 initialization logging to provide detailed reporting on custom data injection. Developers can now verify the exact number of NPCs, Objects, and Items injected by plugins directly from the `DEVELOP` log.
 - **[Fix — Ascension Zone Mapping]** Fixed a regression in `QuestieCompat` where `uiMapData` for Ascension-specific zones was not correctly propagating to the global mapping table, restoring map pin functionality for seasonal and custom zones.
 - **[Fix — QuestieLearner]** Centralized zone/area ID lookup in `l10n` module to prevent `GetAreaIdByLocalName` nil errors (Fixes Project Ebonhold runtime crash).
-- **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, Turtle WoW, etc.) where plugins inject data after initial load.
+- **[Fix — Custom Server Compilation]** Fixed database compilation not running on custom servers (Ascension, Ebonhold, etc.) where plugins inject data after initial load.
   - Modified `Modules/QuestieInit.lua` Stage1 to defer compilation to Stage3 for custom servers, ensuring plugins finish injecting data before compilation runs.
   - Added `l10n:Initialize()` and `QuestieCorrections:MinimalInit()` calls when deferring to Stage3, as Stage2 (`QuestieJourney:Initialize()`) requires `hiddenQuests` to be populated.
   - Added "Bronzebeard" and "Warcraft Reborn" to Ascension realm detection patterns in `Modules/QuestieServer.lua`.
@@ -593,7 +622,7 @@ Addressed micro-stutters and FPS drops (190 → sub-100) reported during high-fr
 
 ### Core & Stability (v1.3.5)
 
-- **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients (e.g., Turtle WoW).
+- **[Lua 5.0]** Globally polyfilled `string.match` and `string.gmatch` using `string.find` and `string.gfind` to ensure universal compatibility with legacy WoW clients.
 - **[AceTimer]** Patched embedded `AceTimer-3.0` instances in ElvUI and OG-RaidHelper to resolve `math.mod` errors on Lua 5.0 clients.
 - **[Colors]** Updated `CreateColor` polyfill with `SetRGB`, `SetRGBA`, `SetColor`, and `GetColor` methods.
 - **[Comm]** Improved cross-client data sharing stability.
