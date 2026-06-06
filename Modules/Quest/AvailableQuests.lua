@@ -35,6 +35,7 @@ local timer
 
 -- Keep track of all available quests to unload undoable when abandoning a quest
 local availableQuests = {}
+local unavailableQuestLogged = {}
 
 local dungeons = ZoneDB:GetDungeons()
 
@@ -283,7 +284,10 @@ _DrawAvailableQuest = function(questId)
     NewThread(function()
         local quest = QuestieDB.GetQuest(questId)
         if not quest then
-            Questie:Debug(Questie.DEBUG_LEARNER, "[AvailableQuests] Skipping unavailable quest during draw:", questId)
+            if not unavailableQuestLogged[questId] then
+                unavailableQuestLogged[questId] = true
+                Questie:Debug(Questie.DEBUG_LEARNER, "[AvailableQuests] Skipping unavailable quest during draw:", questId)
+            end
             return
         end
         if (not quest.tagInfoWasCached) then
@@ -291,6 +295,8 @@ _DrawAvailableQuest = function(questId)
 
             quest.tagInfoWasCached = true
         end
+
+        unavailableQuestLogged[questId] = nil
 
         AvailableQuests.DrawAvailableQuest(quest)
     end, 0)
