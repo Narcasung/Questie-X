@@ -142,6 +142,22 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(1, table.getn(Questie.dbLearner.global.npcs[4001][7][44]))
     end)
 
+    it("keeps quest-related protected npc spawns available for turn-in arrows", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "auto"
+        QuestieDB.ascensionOverrideKeys = QuestieDB.ascensionOverrideKeys or {}
+        QuestieDB.ascensionOverrideKeys.NPC = QuestieDB.ascensionOverrideKeys.NPC or {}
+        QuestieDB.ascensionOverrideKeys.NPC[5001] = { [7] = true }
+
+        QuestieLearner:LearnQuestGiver(6007, 5001, 1, false)
+        QuestieLearner:LearnNPC(5001, "Protected Turn-In", nil, nil, nil, nil, 15.5, 25.5, 44)
+        drainQueuedTimers()
+
+        assert.is_table(QuestieDB.npcDataOverrides[5001])
+        assert.is_table(QuestieDB.npcDataOverrides[5001][7])
+        assert.is_table(QuestieDB.npcDataOverrides[5001][7][44])
+        assert.equals(1, table.getn(QuestieDB.npcDataOverrides[5001][7][44]))
+    end)
+
     it("ignores non-quest loot items so they do not pollute learner state", function()
         Questie.dbLearner.global.settings.dataSourceMode = "learner"
         QuestieDB.private.itemCache = {}
@@ -194,6 +210,22 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(1, table.getn(Questie.dbLearner.global.objects[3302][4][44]))
         assert.equals(11.1, Questie.dbLearner.global.objects[3302][4][44][1][1])
         assert.equals(22.2, Questie.dbLearner.global.objects[3302][4][44][1][2])
+    end)
+
+    it("keeps quest-related protected object spawns available for turn-in arrows", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "auto"
+        QuestieDB.ascensionOverrideKeys = QuestieDB.ascensionOverrideKeys or {}
+        QuestieDB.ascensionOverrideKeys.OBJECT = QuestieDB.ascensionOverrideKeys.OBJECT or {}
+        QuestieDB.ascensionOverrideKeys.OBJECT[5002] = { [4] = true }
+
+        QuestieLearner:LearnQuestGiver(6008, 5002, 2, false)
+        local learned = QuestieLearner:LearnObject(5002, "Protected Object", 21.5, 31.5, 44, true)
+
+        assert.is_true(learned)
+        assert.is_table(QuestieDB.objectDataOverrides[5002])
+        assert.is_table(QuestieDB.objectDataOverrides[5002][4])
+        assert.is_table(QuestieDB.objectDataOverrides[5002][4][44])
+        assert.equals(1, table.getn(QuestieDB.objectDataOverrides[5002][4][44]))
     end)
 
     it("rejects non-quest item network merges without quest references", function()
