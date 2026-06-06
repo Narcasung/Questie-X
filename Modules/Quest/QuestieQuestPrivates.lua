@@ -144,10 +144,25 @@ monster = function(npcId, objective)
         return nil
     end
 
-    local name = QuestieDB.QueryNPCSingle(npcId, "name")
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+    local strictLearnerOnly = dataSourceMode == "learner"
+
+    local name = strictLearnerOnly and nil or QuestieDB.QueryNPCSingle(npcId, "name")
+    if not name or name == "" then
+        if strictLearnerOnly then
+            local learnedNpc = Questie.dbLearner and Questie.dbLearner.global
+                and Questie.dbLearner.global.npcs
+                and Questie.dbLearner.global.npcs[npcId]
+            name = learnedNpc and learnedNpc[1] or nil
+        end
+    end
     if not name or name == "" then
         -- Last resort: extract NPC name from objective description text.
-        -- This mirrors the name-parsing logic in the killcredit function.
+        -- This mirrors the name-parsing logic in the killcredit function and
+        -- only runs when learner-only mode still needs a display label.
         if objective then
             local desc = objective.Description or objective.text
             if desc then
@@ -167,17 +182,13 @@ monster = function(npcId, objective)
         return nil
     end
 
-    local spawns = QuestieDB.QueryNPCSingle(npcId, "spawns")
+    local spawns = strictLearnerOnly and {} or QuestieDB.QueryNPCSingle(npcId, "spawns")
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for NPC:", npcId)
         spawns = {}
     end
 
     local isLearned = false
-    local dataSourceMode = Questie.dbLearner
-        and Questie.dbLearner.global
-        and Questie.dbLearner.global.settings
-        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
 
     if dataSourceMode == "none" or dataSourceMode == "learner" then
         spawns = {}
@@ -256,22 +267,32 @@ object = function(objectId, objective)
         return nil
     end
 
-    local name = QuestieDB.QueryObjectSingle(objectId, "name")
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+    local strictLearnerOnly = dataSourceMode == "learner"
+
+    local name = strictLearnerOnly and nil or QuestieDB.QueryObjectSingle(objectId, "name")
+    if not name or name == "" then
+        if strictLearnerOnly then
+            local learnedObj = Questie.dbLearner and Questie.dbLearner.global
+                and Questie.dbLearner.global.objects
+                and Questie.dbLearner.global.objects[objectId]
+            name = learnedObj and learnedObj[1] or nil
+        end
+    end
     if (not name) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Name missing for object:", objectId)
         return nil
     end
 
-    local spawns = QuestieDB.QueryObjectSingle(objectId, "spawns")
+    local spawns = strictLearnerOnly and {} or QuestieDB.QueryObjectSingle(objectId, "spawns")
     if (not spawns) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "Spawn data missing for object:", objectId)
         spawns = {}
     end
 
-    local dataSourceMode = Questie.dbLearner
-        and Questie.dbLearner.global
-        and Questie.dbLearner.global.settings
-        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
     local isLearned = false
     if dataSourceMode == "none" or dataSourceMode == "learner" then
         spawns = {}
