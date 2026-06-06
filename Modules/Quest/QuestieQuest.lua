@@ -1878,8 +1878,13 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
 
     -- Sunstrider Isle (uiMapID 1241) is a tiny starting area where AscensionDB
     -- places individual spawn coords that should each show as a distinct pin.
-    -- Disable clustering entirely for this zone so all pins are visible.
-    if orderedList[1] and orderedList[1].zone == 1241 then
+    -- In learner mode we keep clustering enabled so newly learned coordinates
+    -- can still consolidate; static/auto keeps the old "show every pin" path.
+    local learnerMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode == "learner"
+    if orderedList[1] and orderedList[1].zone == 1241 and not learnerMode then
         range = 0
     end
 
