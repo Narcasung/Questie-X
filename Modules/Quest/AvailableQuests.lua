@@ -282,6 +282,10 @@ end
 _DrawAvailableQuest = function(questId)
     NewThread(function()
         local quest = QuestieDB.GetQuest(questId)
+        if not quest then
+            Questie:Debug(Questie.DEBUG_LEARNER, "[AvailableQuests] Skipping unavailable quest during draw:", questId)
+            return
+        end
         if (not quest.tagInfoWasCached) then
             QuestieDB.GetQuestTagInfo(questId) -- cache to load in the tooltip
 
