@@ -2083,14 +2083,14 @@ function QuestieLearner:InjectLearnedData()
     if not EnsureLearnedData() then return end
     if not self:IsEnabled() then
         QuestieLearner.data = Questie.dbLearner.global
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
         return
     end
 
     local mode = self:GetDataSourceMode()
     if mode == "static" or mode == "none" then
         QuestieLearner.data = Questie.dbLearner.global
-        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] InjectLearnedData skipped because data source mode is", mode)
+        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] InjectLearnedData skipped because data source mode is", mode)
         return
     end
 
@@ -2255,7 +2255,7 @@ function QuestieLearner:InjectLearnedData()
             local normalizedZone = NormalizeSpawnZoneKey(data[9])
             local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[9] then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
+                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
                 data[9] = maybeAreaId
                 fieldsFixed = fieldsFixed + 1
             end
@@ -2266,7 +2266,7 @@ function QuestieLearner:InjectLearnedData()
             local normalizedZone = NormalizeSpawnZoneKey(data[5])
             local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
             if maybeAreaId and maybeAreaId ~= data[5] then
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
+                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
                 data[5] = maybeAreaId
                 fieldsFixed = fieldsFixed + 1
             end
@@ -2338,7 +2338,7 @@ function QuestieLearner:InjectLearnedData()
         if learned.npcs[objId] then
             learned.objects[objId] = nil
             dupObjectsRemoved = dupObjectsRemoved + 1
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Removed duplicate Object", objId, "(NPC version exists)")
+            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Removed duplicate Object", objId, "(NPC version exists)")
         end
     end
     if dupObjectsRemoved > 0 then
@@ -2416,7 +2416,7 @@ function QuestieLearner:InjectLearnedData()
         local qid = tonumber(questId)
         if not hasRealData or (qid and OBJECTIVE_TEXT_QUEST_IDS[qid]) then
             local reason = not hasRealData and "garbage" or "objective-text"
-            Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Purged", reason, "quest", questId, data[1] or "?")
+            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Purged", reason, "quest", questId, data[1] or "?")
             learned.quests[questId] = nil
             purgedQuests = purgedQuests + 1
         end
@@ -2455,7 +2455,7 @@ function QuestieLearner:InjectLearnedData()
             if sortKey then
                 data[17] = sortKey
                 sortKeysInferred = sortKeysInferred + 1
-                Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Inferred sortKey", sortKey, "for quest", questId, data[1])
+                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Inferred sortKey", sortKey, "for quest", questId, data[1])
             end
         end
     end
@@ -4046,7 +4046,7 @@ function QuestieLearner:ScanExistingQuestLog()
     if not Questie.dbLearner.global.settings.learnQuests then return end
     if not GetNumQuestLogEntries then return end
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] Scanning existing quest log...")
+    Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Scanning existing quest log...")
     local count = 0
 
     for i = 1, GetNumQuestLogEntries() do
