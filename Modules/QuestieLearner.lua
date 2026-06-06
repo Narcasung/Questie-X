@@ -1396,11 +1396,17 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
     if zoneId        and zoneId > 0 and not existing[9]  then existing[9]  = zoneId end
     if factionString and not existing[13] then existing[13] = factionString end
     if subName       and not existing[14] then existing[14] = subName end
-    if spawnX and spawnY and x and y and zoneId and zoneId > 0 then
+    if x and y and zoneId and zoneId > 0 then
         existing[7] = existing[7] or {}
         existing[7][zoneId] = existing[7][zoneId] or {}
         InsertIfNewBucket(existing[7][zoneId], x, y, GetCoordGridForZone(zoneId))
-        existing.spawnSource = "explicit"
+        if spawnX and spawnY then
+            existing.spawnSource = "explicit"
+        elseif existing.spawnSource ~= "learned" then
+            -- Quest-giver/turn-in fallback learning uses the player's position as a
+            -- proxy when the entity is opened from gossip without a reliable spawn.
+            existing.spawnSource = "fallback"
+        end
     elseif existing.spawnSource ~= "explicit" and existing.spawnSource ~= "learned" then
         -- Quest-giver/turn-in fallback learning uses the player's position as a proxy.
         -- Keep that separate from actual learned spawn evidence so we can safely
@@ -2483,24 +2489,10 @@ function QuestieLearner:InjectLearnedData()
         Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged", purgedNpcs, "invalid NPCs from learned data")
     end
 
-    -- Versioned cleanup: strip spawns from NPCs learned via quest giver/finisher
-    -- fallback (player position stored as spawn by LearnNPC). Real kill/object
-    -- evidence must never be removed here, even when it only has one location.
-    local fallbackSpawnCleanupVersion = 2
-    if (learned._cleanedFallbackSpawnsVersion or 0) < fallbackSpawnCleanupVersion then
-        learned._cleanedFallbackSpawns = true
-        learned._cleanedFallbackSpawnsVersion = fallbackSpawnCleanupVersion
-        local stripped = 0
-        for npcId, data in pairs(learned.npcs) do
-            if data.spawnSource == "fallback" and data[7] and CountUniqueSpawnPositions(data[7]) <= 1 then
-                data[7] = nil
-                stripped = stripped + 1
-            end
-        end
-        if stripped > 0 then
-            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Stripped fallback spawns from", stripped, "NPCs")
-        end
-    end
+    -- Keep fallback questgiver/turn-in spawn evidence intact so learner-only
+    -- mode can still render ? / ! quest icons without depending on static DB
+    -- coordinates. The explicit/learned spawn paths are already isolated by
+    -- spawnSource and the real kill/object evidence now carries its own tag.
 
     -- Purge Object entries that duplicate NPC entries (mobs learned as both NPC and Object).
     -- NPC data is richer (has names, quest IDs), so keep the NPC version and remove the Object.
@@ -3459,7 +3451,7 @@ function QuestieLearner:OnLootOpened()
                     local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(link)
                     if itemName then
                         self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                        if itemClassId == 12 and npcId then self:LearnItemDrop(itemId, npcId) end
+                        if npcId then self:LearnItemDrop(itemId, npcId) end
                     else
                         -- GetItemInfo returned nil; queue for retry (class check happens on retry)
                         table.insert(_Learner.pendingItemLinks, { link = link, itemId = itemId, npcId = npcId })
@@ -3556,7 +3548,7 @@ function QuestieLearner:OnGetItemInfoReceived(itemId)
             local itemName, _, _, itemLevel, requiredLevel, _, _, _, _, _, _, itemClassId, itemSubClassId = GetItemInfo(entry.link)
             if itemName then
                 self:LearnItem(itemId, itemName, itemLevel, requiredLevel, itemClassId, itemSubClassId)
-                if itemClassId == 12 and entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
+                if entry.npcId then self:LearnItemDrop(itemId, entry.npcId) end
             else
                 table.insert(remaining, entry) -- still not cached, keep
             end

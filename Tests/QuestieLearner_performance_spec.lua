@@ -130,6 +130,35 @@ describe("QuestieLearner kill-path batching", function()
         assert.equals(33.20, Questie.dbLearner.global.npcs[3001][7][44][1][2])
     end)
 
+    it("keeps quest-tied fallback questgiver spawns from being stripped", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        local originalGetPlayerCoords = _G.GetPlayerCoords
+        _G.GetPlayerCoords = function()
+            return 10.0, 20.0
+        end
+
+        QuestieLearner:LearnNPC(4001, "Quest Giver", nil, nil, nil, nil, nil, nil, 44)
+        QuestieLearner:LearnQuestGiver(6004, 4001, 1, true)
+
+        assert.equals("fallback", Questie.dbLearner.global.npcs[4001].spawnSource)
+        assert.is_table(Questie.dbLearner.global.npcs[4001][7])
+        assert.is_table(Questie.dbLearner.global.npcs[4001][7][44])
+        assert.is_true(table.getn(Questie.dbLearner.global.npcs[4001][7][44]) >= 1)
+
+        _G.GetPlayerCoords = originalGetPlayerCoords
+    end)
+
+    it("records item drop sources even when the item class is not available on first pass", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+
+        QuestieLearner:LearnItem(2301, "Quest Shard", 1, 1, 1, 0)
+        QuestieLearner:LearnItemDrop(2301, 7301)
+
+        assert.is_table(Questie.dbLearner.global.items[2301][2])
+        assert.equals(7301, Questie.dbLearner.global.items[2301][2][1])
+        assert.equals(7301, QuestieDB.itemDataOverrides[2301][2][1])
+    end)
+
     it("force-flushes active quest pins within the NPC live-update flush (no second debounce)", function()
         local updateCount = 0
         local originalUpdateQuest = QuestieQuest.UpdateQuest

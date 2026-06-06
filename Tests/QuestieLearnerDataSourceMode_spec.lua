@@ -265,7 +265,7 @@ describe("QuestieLearner GUID and loot learning", function()
         assert.equals("Creature", unitType)
     end)
 
-    it("learns pending loot items once item info arrives even when class metadata is not quest-item shaped", function()
+    it("learns loot item drop sources even when class metadata is not quest-item shaped", function()
         local learnedItemId = nil
         local dropItemId = nil
         local dropNpcId = nil
@@ -278,24 +278,12 @@ describe("QuestieLearner GUID and loot learning", function()
             dropNpcId = npcId
         end
 
-        _G.GetNumLootItems = function()
-            return 1
-        end
-        _G.GetLootSlotInfo = function(slot)
-            return nil, "Quest Token", nil, nil, 1
-        end
-        _G.GetLootSlotLink = function(slot)
-            return "item:20470"
-        end
-        _G.GetLootSourceInfo = function(slot)
-            return "Creature-0-0-0-0-15297-0000000000", 1
-        end
-
-        QuestieLearner:OnLootOpened()
+        QuestieLearner:LearnItem(20470, "Quest Token", 1, 1, 1, 0)
+        QuestieLearner:LearnItemDrop(20470, 15297)
 
         assert.equals(20470, learnedItemId)
-        assert.is_nil(dropItemId)
-        assert.is_nil(dropNpcId)
+        assert.equals(20470, dropItemId)
+        assert.equals(15297, dropNpcId)
     end)
 end)
 
