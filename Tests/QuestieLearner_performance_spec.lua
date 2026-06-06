@@ -117,6 +117,19 @@ describe("QuestieLearner kill-path batching", function()
         assert.is_true(math.abs(spawns[1][2] - 40.20) < 0.001)
     end)
 
+    it("keeps explicit learned npc spawns available for learner arrows", function()
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        QuestieLearner:LearnNPC(3001, "Arrow Boar", nil, nil, nil, nil, 22.10, 33.20, 44)
+        QuestieLearner:InjectLearnedData()
+
+        assert.equals("explicit", Questie.dbLearner.global.npcs[3001].spawnSource)
+        assert.is_table(Questie.dbLearner.global.npcs[3001][7])
+        assert.is_table(Questie.dbLearner.global.npcs[3001][7][44])
+        assert.equals(1, table.getn(Questie.dbLearner.global.npcs[3001][7][44]))
+        assert.equals(22.10, Questie.dbLearner.global.npcs[3001][7][44][1][1])
+        assert.equals(33.20, Questie.dbLearner.global.npcs[3001][7][44][1][2])
+    end)
+
     it("force-flushes active quest pins within the NPC live-update flush (no second debounce)", function()
         local updateCount = 0
         local originalUpdateQuest = QuestieQuest.UpdateQuest

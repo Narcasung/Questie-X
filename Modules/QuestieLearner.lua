@@ -1400,6 +1400,12 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
         existing[7] = existing[7] or {}
         existing[7][zoneId] = existing[7][zoneId] or {}
         InsertIfNewBucket(existing[7][zoneId], x, y, GetCoordGridForZone(zoneId))
+        existing.spawnSource = "explicit"
+    elseif existing.spawnSource ~= "explicit" and existing.spawnSource ~= "learned" then
+        -- Quest-giver/turn-in fallback learning uses the player's position as a proxy.
+        -- Keep that separate from actual learned spawn evidence so we can safely
+        -- discard it later without deleting real kill/object-driven coordinates.
+        existing.spawnSource = "fallback"
     end
 
     existing.ls = time() -- Update last seen
@@ -1543,6 +1549,8 @@ function QuestieLearner:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, x, y)
             count = 1,
         }
     end
+
+    learnedNpc.spawnSource = "learned"
 end
 
 ------------------------------------------------------------------------
@@ -2476,16 +2484,15 @@ function QuestieLearner:InjectLearnedData()
     end
 
     -- Versioned cleanup: strip spawns from NPCs learned via quest giver/finisher
-    -- fallback (player position stored as spawn by LearnNPC). These have only
-    -- a single spawn position regardless of confidence — real kill NPCs
-    -- accumulate spawns at multiple distinct locations.
+    -- fallback (player position stored as spawn by LearnNPC). Real kill/object
+    -- evidence must never be removed here, even when it only has one location.
     local fallbackSpawnCleanupVersion = 2
     if (learned._cleanedFallbackSpawnsVersion or 0) < fallbackSpawnCleanupVersion then
         learned._cleanedFallbackSpawns = true
         learned._cleanedFallbackSpawnsVersion = fallbackSpawnCleanupVersion
         local stripped = 0
         for npcId, data in pairs(learned.npcs) do
-            if data[7] and CountUniqueSpawnPositions(data[7]) <= 1 then
+            if data.spawnSource == "fallback" and data[7] and CountUniqueSpawnPositions(data[7]) <= 1 then
                 data[7] = nil
                 stripped = stripped + 1
             end
