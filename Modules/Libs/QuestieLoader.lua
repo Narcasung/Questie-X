@@ -146,6 +146,51 @@ if not string.gmatch then
     string.gmatch = string.gfind
 end
 
+-- Shim for Lua 5.0 / older clients where string.trim is not available.
+-- Supports trimming either whitespace or a custom set of leading/trailing chars.
+if not string.trim then
+    local defaultTrimChars = {
+        [" "] = true,
+        ["\t"] = true,
+        ["\r"] = true,
+        ["\n"] = true,
+    }
+
+    local function buildTrimSet(chars)
+        local set = {}
+        if not chars or chars == "" then
+            for ch in pairs(defaultTrimChars) do
+                set[ch] = true
+            end
+            return set
+        end
+        for i = 1, string.len(chars) do
+            set[string.sub(chars, i, i)] = true
+        end
+        return set
+    end
+
+    string.trim = function(text, chars)
+        if text == nil then return nil end
+        text = tostring(text)
+        local trimSet = buildTrimSet(chars)
+        local startPos = 1
+        local endPos = string.len(text)
+
+        while startPos <= endPos and trimSet[string.sub(text, startPos, startPos)] do
+            startPos = startPos + 1
+        end
+        while endPos >= startPos and trimSet[string.sub(text, endPos, endPos)] do
+            endPos = endPos - 1
+        end
+
+        if startPos > endPos then
+            return ""
+        end
+        return string.sub(text, startPos, endPos)
+    end
+end
+
 -- Shim for Lua 5.0 where select() was not yet implemented.
 -- Fix #7: The original used a `while n > 0` loop that never decremented n,
 -- making the loop body run exactly once before returning.  Use a plain

@@ -30,6 +30,40 @@ local type = type
 local tostring = tostring
 local tonumber = tonumber
 local string_trim = string.trim
+if not string_trim then
+    local whitespace = {
+        [" "] = true,
+        ["\t"] = true,
+        ["\r"] = true,
+        ["\n"] = true,
+    }
+    string_trim = function(text, chars)
+        if text == nil then return nil end
+        text = tostring(text)
+        local trimSet = {}
+        if not chars or chars == "" then
+            for ch in pairs(whitespace) do
+                trimSet[ch] = true
+            end
+        else
+            for i = 1, string.len(chars) do
+                trimSet[string.sub(chars, i, i)] = true
+            end
+        end
+        local startPos = 1
+        local endPos = string.len(text)
+        while startPos <= endPos and trimSet[string.sub(text, startPos, startPos)] do
+            startPos = startPos + 1
+        end
+        while endPos >= startPos and trimSet[string.sub(text, endPos, endPos)] do
+            endPos = endPos - 1
+        end
+        if startPos > endPos then
+            return ""
+        end
+        return string.sub(text, startPos, endPos)
+    end
+end
 local string_sub = string.sub
 local string_len = string.len
 local string_upper = string.upper
@@ -2182,7 +2216,7 @@ function QuestieLearner:Sanitize(data)
 
     -- Trim name/text strings
     if data[1] and type(data[1]) == "string" then
-        data[1] = string.trim(data[1])
+        data[1] = string_trim(data[1])
     end
 
     return data
