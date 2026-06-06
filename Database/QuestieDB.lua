@@ -1957,7 +1957,7 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
             if itemId then
                 -- Make sure requiredSourceItems aren't already an objective
                 local itemObjPresent = false
-                if objectives[3] then
+                if objectives and objectives[3] then
                     local _itemObjective, itemObjective = next(objectives[3])
                     while _itemObjective do
                         if itemObjective then

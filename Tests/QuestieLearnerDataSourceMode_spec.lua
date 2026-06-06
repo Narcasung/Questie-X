@@ -167,6 +167,81 @@ describe("QuestieDB learner mode merges learner overrides", function()
     end)
 end)
 
+describe("QuestieDB quest build guards missing objective tables", function()
+    local originalImport
+    local originalQueryItemSingle
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+
+        local questieLib = {
+            GetTbcLevel = function()
+                return 1, 1
+            end,
+        }
+        local questieCorrections = {
+            hiddenQuests = {},
+            killCreditObjectiveFirst = {},
+        }
+
+        originalImport = QuestieLoader.ImportModule
+        QuestieLoader.ImportModule = function(self, name)
+            if name == "QuestieLib" then
+                return questieLib
+            end
+            if name == "QuestieCorrections" then
+                return questieCorrections
+            end
+            return originalImport(self, name)
+        end
+
+        dofile("Database/QuestieDB.lua")
+        dofile("Database/questDB.lua")
+
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        QuestieDB.private.questCache = {}
+        QuestieDB.questDataOverrides = {}
+
+        originalQueryItemSingle = QuestieDB.QueryItemSingle
+        QuestieDB.QueryItemSingle = function(itemId, field)
+            if field == "name" then
+                return "Test Item " .. tostring(itemId)
+            end
+            return originalQueryItemSingle(itemId, field)
+        end
+    end)
+
+    after_each(function()
+        if originalQueryItemSingle then
+            QuestieDB.QueryItemSingle = originalQueryItemSingle
+        end
+        if originalImport then
+            QuestieLoader.ImportModule = originalImport
+        end
+    end)
+
+    it("does not crash when required source items exist but objectives are missing", function()
+        local questId = 900001
+        QuestieDB.questDataOverrides[questId] = {
+            [1] = "Source Item Quest",
+            [21] = {
+                [1] = 20482,
+            },
+        }
+
+        local ok, quest = pcall(function()
+            return QuestieDB:GetQuest(questId)
+        end)
+
+        assert.is_true(ok)
+        assert.is_table(quest)
+        assert.is_table(quest.SpecialObjectives)
+        assert.is_table(quest.SpecialObjectives[20482])
+        assert.equals("Test Item 20482", quest.SpecialObjectives[20482].Description)
+    end)
+end)
+
 describe("QuestieLearner quest accept resolution", function()
     local QuestieLearner
     local originalGetNumQuestLogEntries
