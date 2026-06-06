@@ -664,9 +664,12 @@ function QuestieDB:GetObject(objectId)
 
     local rawdata
     local override
+    override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("objectData") then
         rawdata = learnerRecord
-        override = nil
+        if not rawdata then
+            rawdata = override
+        end
     else
         rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
@@ -674,7 +677,6 @@ function QuestieDB:GetObject(objectId)
             -- and "none" must never silently fall back to learner records.
             rawdata = learnerRecord
         end
-        override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
     end
 
     if not rawdata and not override then
@@ -722,9 +724,12 @@ function QuestieDB:GetItem(itemId)
     local learnerRecord = _GetLearnerRecord("items", itemId)
     local rawdata
     local override
+    override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("itemData") then
         rawdata = learnerRecord
-        override = nil
+        if not rawdata then
+            rawdata = override
+        end
     else
         rawdata = QuestieDB.QueryItem(itemId, QuestieDB._itemAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
@@ -732,7 +737,6 @@ function QuestieDB:GetItem(itemId)
             -- and "none" must never silently fall back to learner records.
             rawdata = learnerRecord
         end
-        override = QuestieDB.itemDataOverrides and (QuestieDB.itemDataOverrides[itemId] or QuestieDB.itemDataOverrides[tostring(itemId)])
     end
 
     if not rawdata and not override then
@@ -1606,9 +1610,12 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
     local learnerRecord = _GetLearnerRecord("quests", questId)
     local rawdata
     local overrideData
+    overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("questData") then
         rawdata = learnerRecord
-        overrideData = nil
+        if not rawdata then
+            rawdata = overrideData
+        end
     else
         rawdata = QuestieDB.QueryQuest(questId, QuestieDB._questAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
@@ -1616,7 +1623,6 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
             -- and "none" must never silently fall back to learner records.
             rawdata = learnerRecord
         end
-        overrideData = QuestieDB.questDataOverrides and (QuestieDB.questDataOverrides[questId] or QuestieDB.questDataOverrides[tostring(questId)])
     end
 
     if (not rawdata) then
@@ -2221,9 +2227,12 @@ function QuestieDB:GetNPC(npcId)
     local learnerRecord = _GetLearnerRecord("npcs", npcId)
     local rawdata
     local override
+    override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("npcData") then
         rawdata = learnerRecord
-        override = nil
+        if not rawdata then
+            rawdata = override
+        end
     else
         rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
@@ -2231,7 +2240,6 @@ function QuestieDB:GetNPC(npcId)
             -- and "none" must never silently fall back to learner records.
             rawdata = learnerRecord
         end
-        override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
     end
 
     if not rawdata and not override then

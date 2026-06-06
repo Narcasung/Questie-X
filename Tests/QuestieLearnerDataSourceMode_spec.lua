@@ -109,6 +109,43 @@ describe("QuestieLearner learner mode activation", function()
     end)
 end)
 
+describe("QuestieDB learner mode merges learner overrides", function()
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        dofile("Database/QuestieDB.lua")
+        dofile("Database/npcDB.lua")
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        Questie.dbLearner.global.npcs = {
+            [7001] = {
+                [1] = "Learner NPC",
+            },
+        }
+        QuestieDB.npcDataOverrides = {
+            [7001] = {
+                [1] = "Learner NPC",
+                [7] = {
+                    [44] = {
+                        { 12.5, 34.5 },
+                    },
+                },
+            },
+        }
+        QuestieDB.private = QuestieDB.private or {}
+        QuestieDB.private.npcCache = {}
+    end)
+
+    it("prefers the learner override spawn table when raw learner data is incomplete", function()
+        local npc = QuestieDB:GetNPC(7001)
+        assert.is_table(npc)
+        assert.is_table(npc.spawns)
+        assert.is_table(npc.spawns[44])
+        assert.equals(1, table.getn(npc.spawns[44]))
+        assert.equals(12.5, npc.spawns[44][1][1])
+        assert.equals(34.5, npc.spawns[44][1][2])
+    end)
+end)
+
 describe("QuestieLearner quest accept resolution", function()
     local QuestieLearner
     local originalGetNumQuestLogEntries
