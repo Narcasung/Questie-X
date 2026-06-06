@@ -242,6 +242,74 @@ describe("QuestieDB quest build guards missing objective tables", function()
     end)
 end)
 
+describe("QuestieDB missing quest logs are deduplicated", function()
+    local originalImport
+    local originalDebug
+    local originalQueryQuest
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+
+        local questieLib = {
+            GetTbcLevel = function()
+                return 1, 1
+            end,
+        }
+        local questieCorrections = {
+            hiddenQuests = {},
+            killCreditObjectiveFirst = {},
+        }
+
+        originalImport = QuestieLoader.ImportModule
+        QuestieLoader.ImportModule = function(self, name)
+            if name == "QuestieLib" then
+                return questieLib
+            end
+            if name == "QuestieCorrections" then
+                return questieCorrections
+            end
+            return originalImport(self, name)
+        end
+
+        dofile("Database/QuestieDB.lua")
+        dofile("Database/questDB.lua")
+
+        QuestieDB.private.questCache = {}
+        QuestieDB.private.missingQuestLog = {}
+
+        originalDebug = Questie.Debug
+        Questie.Debug = function(self, level, ...)
+            _G._questie_debug_calls = (_G._questie_debug_calls or 0) + 1
+        end
+
+        originalQueryQuest = QuestieDB.QueryQuest
+        QuestieDB.QueryQuest = function()
+            return nil
+        end
+    end)
+
+    after_each(function()
+        if originalQueryQuest then
+            QuestieDB.QueryQuest = originalQueryQuest
+        end
+        if originalDebug then
+            Questie.Debug = originalDebug
+        end
+        if originalImport then
+            QuestieLoader.ImportModule = originalImport
+        end
+        _G._questie_debug_calls = nil
+    end)
+
+    it("logs a missing quest only once per quest id", function()
+        local questId = 900002
+
+        assert.is_nil(QuestieDB:GetQuest(questId))
+        assert.is_nil(QuestieDB:GetQuest(questId))
+        assert.equals(1, _G._questie_debug_calls)
+    end)
+end)
+
 describe("QuestieLearner quest accept resolution", function()
     local QuestieLearner
     local originalGetNumQuestLogEntries

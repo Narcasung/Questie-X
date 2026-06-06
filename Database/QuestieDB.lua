@@ -129,6 +129,10 @@ end
 
 QuestieDB.private.GetLearnerSpawnTable = GetSpawnTable
 QuestieDB.private.NormalizeLearnerSpawnEntry = NormalizeLearnerSpawnEntry
+QuestieDB.private.missingQuestLog = QuestieDB.private.missingQuestLog or {}
+QuestieDB.private.missingNpcLog = QuestieDB.private.missingNpcLog or {}
+QuestieDB.private.missingObjectLog = QuestieDB.private.missingObjectLog or {}
+QuestieDB.private.missingItemLog = QuestieDB.private.missingItemLog or {}
 
 local function _MergeOverride(result, override, rawdata, keyMap)
     for stringKey, intKey in pairs(keyMap) do
@@ -680,7 +684,10 @@ function QuestieDB:GetObject(objectId)
     end
 
     if not rawdata and not override then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetObject] data not found for objectID:", objectId)
+        if not QuestieDB.private.missingObjectLog[objectId] then
+            QuestieDB.private.missingObjectLog[objectId] = true
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieDB:GetObject] data not found for objectID:", objectId)
+        end
         return nil
     end
 
@@ -740,7 +747,10 @@ function QuestieDB:GetItem(itemId)
     end
 
     if not rawdata and not override then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetItem] data not found for itemID:", itemId)
+        if not QuestieDB.private.missingItemLog[itemId] then
+            QuestieDB.private.missingItemLog[itemId] = true
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieDB:GetItem] data not found for itemID:", itemId)
+        end
         return nil
     end
 
@@ -1628,7 +1638,10 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
     if (not rawdata) then
         rawdata = overrideData
         if (not rawdata) then
-            Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+            if not QuestieDB.private.missingQuestLog[questId] then
+                QuestieDB.private.missingQuestLog[questId] = true
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
+            end
             if questId == 0 then
                 Questie:Error("[QuestieDB.GetQuest] rawdata is nil for questID:", questId)
             end
@@ -2243,7 +2256,10 @@ function QuestieDB:GetNPC(npcId)
     end
 
     if not rawdata and not override then
-        Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieDB:GetNPC] data not found for npcID:", npcId)
+        if not QuestieDB.private.missingNpcLog[npcId] then
+            QuestieDB.private.missingNpcLog[npcId] = true
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieDB:GetNPC] data not found for npcID:", npcId)
+        end
         return nil
     end
 
