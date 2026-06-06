@@ -57,3 +57,24 @@ describe("QuestieLearner missing base DB fallback", function()
         assert.is_true(QuestieLearner:IsEnabled())
     end)
 end)
+
+describe("QuestieLearner learner mode activation", function()
+    local QuestieLearner
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+        Questie.dbLearner.global.settings.enabled = false
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+        QuestieDB.baseDatabaseMissing = false
+        QuestieDB.IsBaseDatabaseMissing = function()
+            return false
+        end
+        QuestieLearner = dofile("Modules/QuestieLearner.lua")
+    end)
+
+    it("re-enables learner recording when learner mode is applied", function()
+        QuestieLearner:ApplyDataSourceMode()
+        assert.is_true(Questie.dbLearner.global.settings.enabled)
+        assert.is_true(QuestieLearner:IsEnabled())
+    end)
+end)

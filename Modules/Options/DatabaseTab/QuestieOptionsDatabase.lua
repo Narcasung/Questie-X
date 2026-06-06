@@ -267,6 +267,9 @@ function QuestieOptions.tabs.database:Initialize()
                     if Questie.dbLearner.global and Questie.dbLearner.global.settings then
                         Questie.dbLearner.global.settings.dataSourceMode = v
                         Questie.dbLearner.global.settings.prioritizeMyData = (v ~= "static" and v ~= "none")
+                        if v == "learner" then
+                            Questie.dbLearner.global.settings.enabled = true
+                        end
                         ApplyLearnerMode()
                     end
                 end,

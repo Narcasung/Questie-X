@@ -510,6 +510,10 @@ end
 
 function QuestieLearner:ApplyDataSourceMode()
     if not EnsureLearnedData() then return end
+    local settings = Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings
+    if settings and GetDataSourceMode() == "learner" and settings.enabled == false then
+        settings.enabled = true
+    end
     CaptureStaticOverrideSnapshot()
     RestoreStaticOverridesForMode()
     self:InjectLearnedData()
