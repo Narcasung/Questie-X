@@ -2584,6 +2584,24 @@ local function TraceLearnerEntity(source, guid, unitType, entityId, name)
     )
 end
 
+local function ResolveObjectName(objectId)
+    if not objectId or objectId <= 0 then return nil end
+    local name = QuestieDB and QuestieDB.QueryObjectSingle and QuestieDB.QueryObjectSingle(objectId, "name")
+    if name and name ~= "" then return name end
+    if l10n and l10n.objectNameLookup then
+        for localizedName, ids in pairs(l10n.objectNameLookup) do
+            if ids then
+                for _, id in ipairs(ids) do
+                    if id == objectId then
+                        return localizedName
+                    end
+                end
+            end
+        end
+    end
+    return nil
+end
+
 ------------------------------------------------------------------------
 -- Event handlers
 ------------------------------------------------------------------------
@@ -3010,6 +3028,17 @@ function QuestieLearner:OnLootOpened()
             end
         end
     end
+end
+
+function QuestieLearner:OnGameObjectUsed(objectId)
+    if not self:IsEnabled() then return end
+    if not Questie.dbLearner.global.settings.learnObjects then return end
+    objectId = tonumber(objectId)
+    if not objectId or objectId <= 0 then return end
+
+    local objectName = ResolveObjectName(objectId)
+    TraceLearnerEntity("gameobject_used", nil, "GameObject", objectId, objectName)
+    self:LearnObject(objectId, objectName)
 end
 
 function QuestieLearner:OnGossipShow()
@@ -3745,6 +3774,7 @@ function QuestieLearner:RegisterEvents()
     frame:RegisterEvent("QUEST_ACCEPTED")
     frame:RegisterEvent("LOOT_OPENED")
     frame:RegisterEvent("GOSSIP_SHOW")
+    frame:RegisterEvent("GAMEOBJECT_USED")
     frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
     frame:RegisterEvent("GET_ITEM_INFO_RECEIVED")
     frame:RegisterEvent("UNIT_QUEST_LOG_CHANGED")
@@ -3767,6 +3797,8 @@ function QuestieLearner:RegisterEvents()
             self:OnLootOpened()
         elseif event == "GOSSIP_SHOW" then
             self:OnGossipShow()
+        elseif event == "GAMEOBJECT_USED" then
+            self:OnGameObjectUsed(arg1)
         elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
             -- arg1..arg10 must be captured HERE before any secondary call wipes them (3.3.5 behavior)
             -- arg1=timestamp, arg2=eventType, arg3=srcGUID, arg4=srcName, arg5=srcFlags,
