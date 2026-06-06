@@ -3346,6 +3346,12 @@ function QuestieLearner:OnQuestComplete()
     local questId = GetQuestID and GetQuestID()
     if not questId or questId <= 0 then return end
 
+    _Learner.lastQuestComplete = {
+        id = questId,
+        ts = time(),
+        zoneId = GetZoneId(),
+    }
+
     -- Get current zone for quest giver spawn data
     local zoneId = GetZoneId()
 
@@ -3452,6 +3458,24 @@ local function ResolveAcceptedQuestId(firstArg, secondArg)
     local selectedIndex = QuestieCompat.GetQuestLogSelection and QuestieCompat.GetQuestLogSelection()
     if selectedIndex and selectedIndex > 0 then
         return resolveFromLogIndex(selectedIndex)
+    end
+
+    return nil
+end
+
+local function ResolveTurnedInQuestId(rawQuestId)
+    if rawQuestId and type(rawQuestId) == "number" and rawQuestId > 0 then
+        if QuestieCompat.GetQuestLogIndexByID and QuestieCompat.GetQuestLogIndexByID(rawQuestId) then
+            return rawQuestId
+        end
+        if _Learner.lastQuestComplete and _Learner.lastQuestComplete.id == rawQuestId then
+            return rawQuestId
+        end
+    end
+
+    local last = _Learner.lastQuestComplete
+    if last and last.id and last.ts and (time() - last.ts) <= 10 then
+        return last.id
     end
 
     return nil
@@ -3607,7 +3631,7 @@ end
 function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnQuests then return end
-    questId = tonumber(questId)
+    questId = ResolveTurnedInQuestId(tonumber(questId))
     if not questId or questId <= 0 then return end
 
     local data = {}

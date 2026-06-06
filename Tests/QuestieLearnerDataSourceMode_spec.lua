@@ -270,6 +270,68 @@ describe("QuestieLearner quest accept resolution", function()
     end)
 end)
 
+describe("QuestieLearner quest turn-in resolution", function()
+    local QuestieLearner
+    local originalLearnQuest
+    local originalGetQuestID
+    local originalGetRewardText
+    local originalUnitGUID
+
+    before_each(function()
+        dofile("Tests/wow_api_mock.lua")
+
+        originalGetQuestID = _G.GetQuestID
+        originalGetRewardText = _G.GetRewardText
+        originalUnitGUID = _G.UnitGUID
+
+        Questie.dbLearner.global.settings.enabled = true
+        Questie.dbLearner.global.settings.dataSourceMode = "learner"
+
+        _G.GetQuestID = function()
+            return 4321
+        end
+        _G.GetRewardText = function()
+            return "Reward text"
+        end
+        _G.UnitGUID = function()
+            return nil
+        end
+
+        QuestieLearner = dofile("Modules/QuestieLearner.lua")
+        originalLearnQuest = QuestieLearner.LearnQuest
+    end)
+
+    after_each(function()
+        QuestieLearner.LearnQuest = originalLearnQuest
+        _G.GetQuestID = originalGetQuestID
+        _G.GetRewardText = originalGetRewardText
+        _G.UnitGUID = originalUnitGUID
+    end)
+
+    it("rejects malformed turn-in quest ids unless they resolve to a recent completion", function()
+        local capturedQuestId = nil
+        QuestieLearner.LearnQuest = function(self, questId, data)
+            capturedQuestId = questId
+        end
+
+        QuestieLearner:OnQuestTurnedIn(545915281, nil, nil)
+
+        assert.is_nil(capturedQuestId)
+    end)
+
+    it("uses the recent quest-complete cache when the raw turn-in quest id is malformed", function()
+        local capturedQuestId = nil
+        QuestieLearner.LearnQuest = function(self, questId, data)
+            capturedQuestId = questId
+        end
+
+        QuestieLearner:OnQuestComplete()
+        QuestieLearner:OnQuestTurnedIn(545915281, nil, nil)
+
+        assert.equals(4321, capturedQuestId)
+    end)
+end)
+
 describe("QuestieLearner GUID and loot learning", function()
     local QuestieLearner
     local originalGetNPC
