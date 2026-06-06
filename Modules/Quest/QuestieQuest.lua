@@ -1581,8 +1581,13 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
             objectiveCenter = { x = x, y = y }
         end
 
-        -- Filter static spawns if prioritizeMyData is enabled and we have high-confidence learned data
-        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled and Questie.dbLearner.global.settings.prioritizeMyData then
+        -- Filter static spawns only when the learner is allowed to influence display.
+        local dataSourceMode = Questie.dbLearner
+            and Questie.dbLearner.global
+            and Questie.dbLearner.global.settings
+            and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+        if Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled
+                and (dataSourceMode == "auto" or dataSourceMode == "learner") then
             local zone, _ = next(zones)
             while zone do
                 local suppressed = (objectiveData.Type == "monster" and QuestieDB.GetSuppressedNPCs(zone)) or (objectiveData.Type == "object" and QuestieDB.GetSuppressedObjects(zone))

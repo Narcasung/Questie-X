@@ -819,7 +819,9 @@ end
 function QuestieDB.GetSuppressedNPCs(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.npcs then
+    local mode = ld and ld.settings and ld.settings.dataSourceMode or "auto"
+    if mode == "auto" or mode == "learner" then
+        if ld and ld.settings and ld.settings.enabled and ld.npcs then
         local threshold = ld.settings.minConfidencePins or 2
         local npcId, entry = next(ld.npcs)
         while npcId do
@@ -828,6 +830,7 @@ function QuestieDB.GetSuppressedNPCs(zoneId)
                 suppressed[npcId] = true
             end
             npcId, entry = next(ld.npcs, npcId)
+        end
         end
     end
     return suppressed
@@ -840,7 +843,9 @@ end
 function QuestieDB.GetSuppressedObjects(zoneId)
     local suppressed = {}
     local ld = Questie.dbLearner.global
-    if ld and ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData and ld.objects then
+    local mode = ld and ld.settings and ld.settings.dataSourceMode or "auto"
+    if mode == "auto" or mode == "learner" then
+        if ld and ld.settings and ld.settings.enabled and ld.objects then
         local threshold = ld.settings.minConfidencePins or 2
         local objId, entry = next(ld.objects)
         while objId do
@@ -849,6 +854,7 @@ function QuestieDB.GetSuppressedObjects(zoneId)
                 suppressed[objId] = true
             end
             objId, entry = next(ld.objects, objId)
+        end
         end
     end
     return suppressed

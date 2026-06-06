@@ -16,6 +16,9 @@ local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
 
 local _Learner = QuestieLearner.private or {}
 
+local GetDataSourceMode
+local DeepCopy
+
 local floor = math.floor
 local abs   = math.abs
 local time  = time
@@ -32,6 +35,10 @@ local string_len = string.len
 local string_upper = string.upper
 
 local function IsAscensionProtected(dbType, id, key)
+    local mode = GetDataSourceMode and GetDataSourceMode() or "auto"
+    if mode == "learner" or mode == "none" then
+        return false
+    end
     local protected = QuestieDB
         and QuestieDB.ascensionOverrideKeys
         and QuestieDB.ascensionOverrideKeys[dbType]
@@ -42,6 +49,42 @@ end
 
 local function HasAscensionQuestObjectiveData(questId)
     return IsAscensionProtected("QUEST", questId, 10)
+end
+
+local function GetDataSourceMode()
+    local settings = Questie
+        and Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+    if not settings then
+        return "auto"
+    end
+
+    local mode = settings.dataSourceMode
+    if mode == "auto" or mode == "learner" or mode == "static" or mode == "none" then
+        return mode
+    end
+
+    if settings.prioritizeMyData == false then
+        return "static"
+    end
+
+    return "auto"
+end
+
+local function WipeTable(tbl)
+    if type(tbl) ~= "table" then return end
+    for key in pairs(tbl) do
+        tbl[key] = nil
+    end
+end
+
+local function CopyTable(dst, src)
+    WipeTable(dst)
+    if type(src) ~= "table" then return end
+    for key, value in pairs(src) do
+        dst[key] = DeepCopy(value)
+    end
 end
 
 local function NormalizeSpawnZoneKey(zoneKey)
@@ -226,6 +269,39 @@ local function DeepCopy(value)
     return copy
 end
 
+local function CaptureStaticOverrideSnapshot()
+    if _Learner.staticOverrideSnapshot then
+        return
+    end
+
+    _Learner.staticOverrideSnapshot = {
+        npcs    = DeepCopy(QuestieDB.npcDataOverrides or {}),
+        quests  = DeepCopy(QuestieDB.questDataOverrides or {}),
+        items   = DeepCopy(QuestieDB.itemDataOverrides or {}),
+        objects = DeepCopy(QuestieDB.objectDataOverrides or {}),
+    }
+end
+
+local function RestoreStaticOverridesForMode()
+    local snapshot = _Learner.staticOverrideSnapshot
+    local mode = GetDataSourceMode()
+
+    if mode == "learner" or mode == "none" then
+        WipeTable(QuestieDB.npcDataOverrides)
+        WipeTable(QuestieDB.questDataOverrides)
+        WipeTable(QuestieDB.itemDataOverrides)
+        WipeTable(QuestieDB.objectDataOverrides)
+        return
+    end
+
+    if not snapshot then return end
+
+    CopyTable(QuestieDB.npcDataOverrides, snapshot.npcs)
+    CopyTable(QuestieDB.questDataOverrides, snapshot.quests)
+    CopyTable(QuestieDB.itemDataOverrides, snapshot.items)
+    CopyTable(QuestieDB.objectDataOverrides, snapshot.objects)
+end
+
 -- Returns the grid-bucket key for a coordinate so nearby points share the same slot
 local function CoordBucket(x, y)
     return floor(x / COORD_GRID) * COORD_GRID, floor(y / COORD_GRID) * COORD_GRID
@@ -323,6 +399,7 @@ local function EnsureLearnedData()
             learnObjects = true,
             minConfidencePins = 1,
             prioritizeMyData = true,
+            dataSourceMode   = "auto",
             staleThreshold   = 90,    -- days
             pruneVerified    = false, -- protect verified data by default
             performanceMode  = "balanced",
@@ -347,6 +424,18 @@ local function EnsureLearnedData()
         if s.learnObjects == nil then s.learnObjects = true end
         if s.minConfidencePins == nil then s.minConfidencePins = 1 end
         if s.prioritizeMyData == nil then s.prioritizeMyData = true end
+        if s.dataSourceMode == nil then
+            if s.prioritizeMyData == false then
+                s.dataSourceMode = "static"
+            else
+                s.dataSourceMode = "auto"
+            end
+        end
+        if s.dataSourceMode == "static" or s.dataSourceMode == "none" then
+            s.prioritizeMyData = false
+        else
+            s.prioritizeMyData = true
+        end
         if s.staleThreshold == nil then
             s.staleThreshold = 90
         end
@@ -387,6 +476,30 @@ end
 function QuestieLearner:GetSettings()
     if not EnsureLearnedData() then return {} end
     return Questie.dbLearner.global.settings
+end
+
+function QuestieLearner:GetDataSourceMode()
+    if not EnsureLearnedData() then return "auto" end
+    return GetDataSourceMode()
+end
+
+function QuestieLearner:IsLearnerLiveEnabled()
+    local mode = self:GetDataSourceMode()
+    return mode == "auto" or mode == "learner"
+end
+
+function QuestieLearner:ApplyDataSourceMode()
+    if not EnsureLearnedData() then return end
+    CaptureStaticOverrideSnapshot()
+    RestoreStaticOverridesForMode()
+    self:InjectLearnedData()
+    if QuestieDB and QuestieDB.private then
+        QuestieDB.private.questCache = {}
+        QuestieDB.private.itemCache = {}
+        QuestieDB.private.npcCache = {}
+        QuestieDB.private.objectCache = {}
+    end
+    QuestieLearner.data = Questie.dbLearner.global
 end
 
 local function GetLearnerSetting(key, defaultValue)
@@ -787,6 +900,9 @@ local function _FlushNpcLiveUpdates()
 end
 
 local function _QueueNpcLiveUpdate(npcId)
+    if not (QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()) then
+        return
+    end
     _Learner.pendingNpcLiveUpdates = _Learner.pendingNpcLiveUpdates or {}
     _Learner.pendingNpcLiveUpdates[npcId] = true
 
@@ -861,10 +977,11 @@ local function CrossLinkAfterNPC(npcId)
     local learned = _GetDB()
     local npcData = learned.npcs[npcId]
     if not npcData then return end
-    local npcOvr = QuestieDB and QuestieDB.npcDataOverrides
+    local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
+    local npcOvr = liveEnabled and QuestieDB and QuestieDB.npcDataOverrides or nil
 
     for questId, qData in pairs(learned.quests) do
-        local qOvr = QuestieDB and QuestieDB.questDataOverrides
+        local qOvr = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
 
         -- Quest starters: quest[2][1] lists NPCs that start this quest
         if qData[2] and qData[2][1] then
@@ -931,9 +1048,10 @@ local function CrossLinkAfterQuest(questId)
     local learned = _GetDB()
     local qData = learned.quests[questId]
     if not qData then return end
-    local qOvr   = QuestieDB and QuestieDB.questDataOverrides
-    local npcOvr = QuestieDB and QuestieDB.npcDataOverrides
-    local objOvr = QuestieDB and QuestieDB.objectDataOverrides
+    local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
+    local qOvr   = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
+    local npcOvr = liveEnabled and QuestieDB and QuestieDB.npcDataOverrides or nil
+    local objOvr = liveEnabled and QuestieDB and QuestieDB.objectDataOverrides or nil
 
     -- Starter NPCs: quest[2][1] → npc[10]
     if qData[2] and qData[2][1] then
@@ -973,7 +1091,7 @@ local function CrossLinkAfterQuest(questId)
         if iData then
             if not iData[5] then
                 iData[5] = questId
-                if QuestieDB and QuestieDB.itemDataOverrides then
+                if liveEnabled and QuestieDB and QuestieDB.itemDataOverrides then
                     local ovr = QuestieDB.itemDataOverrides[qData[11]] or {}
                     QuestieDB.itemDataOverrides[qData[11]] = ovr
                     if not ovr[5] then ovr[5] = questId end
@@ -1003,8 +1121,9 @@ local function CrossLinkAfterObject(objectId)
     local learned = _GetDB()
     local objData = learned.objects[objectId]
     if not objData then return end
-    local objOvr = QuestieDB and QuestieDB.objectDataOverrides
-    local qOvr   = QuestieDB and QuestieDB.questDataOverrides
+    local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
+    local objOvr = liveEnabled and QuestieDB and QuestieDB.objectDataOverrides or nil
+    local qOvr   = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
 
     for questId, qData in pairs(learned.quests) do
         -- Object starters: quest[2][2]
@@ -1054,7 +1173,8 @@ local function CrossLinkAfterItem(itemId)
     local learned = _GetDB()
     local iData = learned.items[itemId]
     if not iData then return end
-    local qOvr = QuestieDB and QuestieDB.questDataOverrides
+    local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
+    local qOvr = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
 
     -- If this item starts a quest (item[5]=startQuest), ensure that quest knows
     -- about it via quest[2][3] (starter items slot)
@@ -1062,7 +1182,7 @@ local function CrossLinkAfterItem(itemId)
         if qData[11] == itemId then
             if not iData[5] then
                 iData[5] = questId
-                if QuestieDB and QuestieDB.itemDataOverrides then
+                if liveEnabled and QuestieDB and QuestieDB.itemDataOverrides then
                     local ovr = QuestieDB.itemDataOverrides[itemId] or {}
                     QuestieDB.itemDataOverrides[itemId] = ovr
                     if not ovr[5] then ovr[5] = questId end
@@ -1090,9 +1210,10 @@ end
 local function CrossLinkAfterQuestGiver(questId, entityId, typeSlot, isStart)
     local learned = _GetDB()
     local qData  = learned.quests[questId]
-    local npcOvr = QuestieDB and QuestieDB.npcDataOverrides
-    local objOvr = QuestieDB and QuestieDB.objectDataOverrides
-    local qOvr   = QuestieDB and QuestieDB.questDataOverrides
+    local liveEnabled = QuestieLearner and QuestieLearner.IsLearnerLiveEnabled and QuestieLearner:IsLearnerLiveEnabled()
+    local npcOvr = liveEnabled and QuestieDB and QuestieDB.npcDataOverrides or nil
+    local objOvr = liveEnabled and QuestieDB and QuestieDB.objectDataOverrides or nil
+    local qOvr   = liveEnabled and QuestieDB and QuestieDB.questDataOverrides or nil
 
     if typeSlot == 1 then
         -- NPC ↔ quest
@@ -1180,7 +1301,9 @@ function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionS
 
     -- Live injection is intentionally batched: repeated kill/log/loot events for
     -- the same NPC update saved evidence immediately, then flush QuestieDB once.
-    _QueueNpcLiveUpdate(npcId)
+    if self:IsLearnerLiveEnabled() then
+        _QueueNpcLiveUpdate(npcId)
+    end
 
     if isNew then
         Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] New NPC learned:", npcId, name or "?")
@@ -1589,7 +1712,7 @@ function QuestieLearner:LearnQuest(questId, data)
     existing.mc = (existing.mc or 0) + 1
 
     -- Live injection into questDataOverrides so GetQuest works without reload
-    if QuestieDB and QuestieDB.questDataOverrides then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.questDataOverrides then
         local ovr = QuestieDB.questDataOverrides[questId]
         if not ovr then
             QuestieDB.questDataOverrides[questId] = existing
@@ -1633,7 +1756,7 @@ function QuestieLearner:LearnQuestGiver(questId, entityId, entityType, isStart)
     table.insert(list, entityId)
 
     -- Live injection into questDataOverrides so starters/finishers take effect without reload
-    if QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, field) then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, field) then
         local ovr = QuestieDB.questDataOverrides[questId] or {}
         QuestieDB.questDataOverrides[questId] = ovr
         ovr[field] = ovr[field] or {}
@@ -1699,7 +1822,7 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
     end
 
     -- 2. Apply to live questDataOverrides immediately (no reload needed)
-    if QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, 10) then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.questDataOverrides and not IsAscensionProtected("QUEST", questId, 10) then
         local ovr = QuestieDB.questDataOverrides[questId] or {}
         QuestieDB.questDataOverrides[questId] = ovr
         ovr[10] = ovr[10] or {}
@@ -1720,12 +1843,14 @@ function QuestieLearner:LearnQuestObjectiveNPC(questId, npcId, objText, objectiv
     end
 
     -- 3. Re-process the quest so PopulateObjective registers tooltips & map pins
-    _RefreshActiveQuestPins({ [questId] = true })
+    if self:IsLearnerLiveEnabled() then
+        _RefreshActiveQuestPins({ [questId] = true })
+    end
 
     -- 3. Register with tooltip system immediately. Preserve the objective icon so
     -- nameplates can render the correct learned slay/loot/talk marker.
     local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
-    if QuestieTooltips and QuestieTooltips.RegisterObjectiveTooltip and not HasAscensionQuestObjectiveData(questId) then
+    if self:IsLearnerLiveEnabled() and QuestieTooltips and QuestieTooltips.RegisterObjectiveTooltip and not HasAscensionQuestObjectiveData(questId) then
         local objectiveIcon
         local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
         local objectives = QuestLogCache and QuestLogCache.GetQuestObjectives and QuestLogCache.GetQuestObjectives(questId)
@@ -1776,7 +1901,7 @@ function QuestieLearner:LearnItem(itemId, name, itemLevel, requiredLevel, itemCl
     existing.mc = (existing.mc or 0) + 1
 
     -- Live injection into itemDataOverrides so QueryItemSingle works without reload
-    if QuestieDB and QuestieDB.itemDataOverrides then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.itemDataOverrides then
         local ovr = QuestieDB.itemDataOverrides[itemId]
         if not ovr then
             QuestieDB.itemDataOverrides[itemId] = existing
@@ -1815,7 +1940,7 @@ function QuestieLearner:LearnItemDrop(itemId, npcId)
     table.insert(existing[2], npcId)
 
     -- Live injection: sync drop list to itemDataOverrides
-    if QuestieDB and QuestieDB.itemDataOverrides and not IsAscensionProtected("ITEM", itemId, 2) then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.itemDataOverrides and not IsAscensionProtected("ITEM", itemId, 2) then
         local ovr = QuestieDB.itemDataOverrides[itemId] or {}
         QuestieDB.itemDataOverrides[itemId] = ovr
         ovr[2] = ovr[2] or {}
@@ -1863,7 +1988,7 @@ function QuestieLearner:LearnObject(objectId, name)
     existing.mc = (existing.mc or 0) + 1
 
     -- Live injection into objectDataOverrides so QueryObjectSingle works without reload
-    if QuestieDB and QuestieDB.objectDataOverrides then
+    if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.objectDataOverrides then
         local ovr = QuestieDB.objectDataOverrides[objectId]
         if not ovr then
             QuestieDB.objectDataOverrides[objectId] = existing
@@ -1935,6 +2060,13 @@ function QuestieLearner:InjectLearnedData()
     if not self:IsEnabled() then
         QuestieLearner.data = Questie.dbLearner.global
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] InjectLearnedData skipped because learner is disabled")
+        return
+    end
+
+    local mode = self:GetDataSourceMode()
+    if mode == "static" or mode == "none" then
+        QuestieLearner.data = Questie.dbLearner.global
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieLearner] InjectLearnedData skipped because data source mode is", mode)
         return
     end
 
@@ -2444,6 +2576,7 @@ function QuestieLearner:ClearAllData()
     Questie.dbLearner.global.quests  = {}
     Questie.dbLearner.global.items   = {}
     Questie.dbLearner.global.objects = {}
+    self:ApplyDataSourceMode()
     Questie:Print("Cleared all learned data.")
 end
 
@@ -3000,6 +3133,20 @@ function QuestieLearner:OnLootOpened()
                 for j = 1, sourceCount, 2 do
                     local sourceGuid = sources[j]
                     local sourceQty = sources[j + 1]
+                    Questie:Debug(
+                        Questie.DEBUG_DEVELOP,
+                        "[QuestieLearner:LootSourceTrace]",
+                        "slot=",
+                        i,
+                        "sourceIndex=",
+                        j,
+                        "guid=",
+                        tostring(sourceGuid),
+                        "qty=",
+                        tostring(sourceQty),
+                        "lootName=",
+                        tostring(lootName)
+                    )
                     TraceLearnerEntity("loot_source", sourceGuid, nil, sourceQty, lootName)
                     if type(sourceGuid) == "string" then
                         local sourceId, sourceType = GetIdAndTypeFromGUID(sourceGuid)
@@ -3037,6 +3184,14 @@ function QuestieLearner:OnGameObjectUsed(objectId)
     if not objectId or objectId <= 0 then return end
 
     local objectName = ResolveObjectName(objectId)
+    Questie:Debug(
+        Questie.DEBUG_DEVELOP,
+        "[QuestieLearner:GameObjectUsedTrace]",
+        "id=",
+        tostring(objectId),
+        "name=",
+        tostring(objectName)
+    )
     TraceLearnerEntity("gameobject_used", nil, "GameObject", objectId, objectName)
     self:LearnObject(objectId, objectName)
 end
@@ -3345,7 +3500,7 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     if guidSpawns then
         local count = 0
         for _ in pairs(guidSpawns) do count = count + 1 end
-        if count >= 1 then
+        if self:IsLearnerLiveEnabled() and count >= 1 then
             _MergeSpawnEvidence(npcId)
         end
     end
@@ -3824,7 +3979,7 @@ function QuestieLearner:Initialize()
     EnsureLearnedData()
     QuestieLearner.data = Questie.dbLearner.global
     self:RegisterEvents()
-    self:InjectLearnedData()
+    self:ApplyDataSourceMode()
     _RegisterLearnedSpawnTooltipHook()
 
     local QuestieLearnerComms = QuestieLoader:ImportModule("QuestieLearnerComms")

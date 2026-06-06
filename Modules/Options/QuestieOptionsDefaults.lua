@@ -87,6 +87,9 @@ function QuestieOptionsDefaults:Load()
             learnerBroadcast = true,
             enableMapIcons = true,
             enableMiniMapIcons = true,
+            -- Learner source preference (Database tab)
+            -- auto = current behavior, learner = learner only, static = static only, none = base DB only
+            dataSourceMode = "auto",
             questieShutUp = false,
             bugWorkarounds = true,
             hideIconsOnContinents = false,

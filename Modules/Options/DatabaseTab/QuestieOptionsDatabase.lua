@@ -46,6 +46,23 @@ local function GetLearnedCounts()
     return s
 end
 
+local function ApplyLearnerMode()
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if QuestieLearner and QuestieLearner.ApplyDataSourceMode then
+        QuestieLearner:ApplyDataSourceMode()
+    end
+
+    local QuestieEventHandler = QuestieLoader:ImportModule("QuestieEventHandler")
+    if QuestieEventHandler and QuestieEventHandler.UpdateAllQuests then
+        QuestieEventHandler:UpdateAllQuests()
+    end
+
+    local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker")
+    if QuestieTracker and QuestieTracker.Update then
+        QuestieTracker:Update()
+    end
+end
+
 -----------------------------------------------------------------------
 -- Export Dialog
 -----------------------------------------------------------------------
@@ -202,6 +219,43 @@ function QuestieOptions.tabs.database:Initialize()
                 type  = "header",
                 order = 2,
                 name  = function() return l10n("What To Learn") end,
+            },
+
+            learner_enabled = {
+                type  = "toggle",
+                order = 2.05,
+                name  = function() return l10n("Enable Learner Recording") end,
+                desc  = function() return l10n("Record live learner data. Disable this to stop recording and live learner injection.") end,
+                get   = function() return Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.enabled end,
+                set   = function(_, v)
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.enabled = v
+                        ApplyLearnerMode()
+                    end
+                end,
+            },
+
+            data_source_mode = {
+                type  = "select",
+                order = 2.06,
+                name  = function() return l10n("Data Source Mode") end,
+                desc  = function() return l10n("Choose whether Questie should display learner data, static database data, both, or neither. Learner recording can stay enabled independently.") end,
+                values = {
+                    auto    = l10n("Auto (current behavior)"),
+                    learner = l10n("Learner Only"),
+                    static  = l10n("Static Only"),
+                    none    = l10n("Neither (base DB only)"),
+                },
+                get   = function()
+                    return (Questie.dbLearner.global and Questie.dbLearner.global.settings and Questie.dbLearner.global.settings.dataSourceMode) or "auto"
+                end,
+                set   = function(_, v)
+                    if Questie.dbLearner.global and Questie.dbLearner.global.settings then
+                        Questie.dbLearner.global.settings.dataSourceMode = v
+                        Questie.dbLearner.global.settings.prioritizeMyData = (v ~= "static" and v ~= "none")
+                        ApplyLearnerMode()
+                    end
+                end,
             },
 
             learn_npcs = {

@@ -172,14 +172,23 @@ monster = function(npcId, objective)
     end
 
     local isLearned = false
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+
+    if dataSourceMode == "none" or dataSourceMode == "learner" then
+        spawns = {}
+    end
 
     -- Learner safety net: when prioritizeMyData is enabled and the Learner has
     -- verified spawn data for this NPC, prefer it over compiled DB spawns.
     -- This catches edge cases where the npcDataOverrides chain doesn't fully
     -- replace retail positions (e.g. format migration gaps, timing issues).
-    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global then
+    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global
+            and (dataSourceMode == "auto" or dataSourceMode == "learner") then
         local ld = Questie.dbLearner.global
-        if ld.settings and ld.settings.enabled and ld.settings.prioritizeMyData then
+        if ld.settings and ld.settings.enabled then
             local learnedNpc = ld.npcs and ld.npcs[npcId]
             if learnedNpc then
                 local learnedSpawns = learnedNpc[7]
@@ -253,6 +262,30 @@ object = function(objectId, objective)
         spawns = {}
     end
 
+    local dataSourceMode = Questie.dbLearner
+        and Questie.dbLearner.global
+        and Questie.dbLearner.global.settings
+        and Questie.dbLearner.global.settings.dataSourceMode or "auto"
+    local isLearned = false
+    if dataSourceMode == "none" or dataSourceMode == "learner" then
+        spawns = {}
+    end
+
+    if Questie.IsAscension and Questie.dbLearner and Questie.dbLearner.global
+            and (dataSourceMode == "auto" or dataSourceMode == "learner") then
+        local ld = Questie.dbLearner.global
+        if ld.settings and ld.settings.enabled then
+            local learnedObj = ld.objects and ld.objects[objectId]
+            if learnedObj and learnedObj[4] and next(learnedObj[4]) then
+                local threshold = ld.settings.minConfidencePins or 1
+                if learnedObj.mc and learnedObj.mc >= threshold then
+                    spawns = learnedObj[4]
+                    isLearned = true
+                end
+            end
+        end
+    end
+
 
     ---@type SpawnListObject
     local retObject = {
@@ -263,6 +296,7 @@ object = function(objectId, objective)
         GetIconScale = _GetIconScaleForObject,
         IconScale = _GetIconScaleForObject(),
         TooltipKey = "o_" .. objectId,
+        isLearned = isLearned,
     }
 
     return {

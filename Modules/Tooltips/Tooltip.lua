@@ -253,7 +253,8 @@ function QuestieTooltips:GetTooltip(key)
     if (not QuestieTooltips.lookupByKey[key]) then
         local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
         local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
-        if QuestieLearner and QuestieLearner.data then
+        local mode = QuestieLearner and QuestieLearner.GetDataSourceMode and QuestieLearner:GetDataSourceMode() or "auto"
+        if QuestieLearner and QuestieLearner.data and mode ~= "static" and mode ~= "none" then
              -- Try to find in learned NPCs or objects
              local id = tonumber(key:sub(3))
              if id then
