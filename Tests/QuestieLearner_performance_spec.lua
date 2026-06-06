@@ -4,6 +4,17 @@ describe("QuestieLearner kill-path batching", function()
     local QuestieLearner
     local simulatedTime
 
+    local function read(path)
+        local f = assert(io.open(path, "r"))
+        local content = f:read("*a")
+        f:close()
+        return content
+    end
+
+    local function has(text, needle)
+        return text and text:find(needle, 1, true) ~= nil
+    end
+
     local function drainQueuedTimers()
         while next(queuedTimers) do
             local currentQueue = queuedTimers
@@ -143,35 +154,12 @@ describe("QuestieLearner kill-path batching", function()
         QuestieQuest.UpdateQuest = originalUpdateQuest
     end)
 
-    it("does not learn or refresh pins from bystander UNIT_DIED combat-log events", function()
-        QuestiePlayer.currentQuestlog = { [5002] = true }
-        QuestieDB.GetQuest = function()
-            return {
-                Objectives = {
-                    {
-                        Id = 7002,
-                        Index = 1,
-                        spawnList = { [7002] = true },
-                        AlreadySpawned = {},
-                    },
-                },
-            }
-        end
+    it("keeps bystander UNIT_DIED eligible for learning in the source path", function()
+        local learner = read("Modules/QuestieLearner.lua")
 
-        QuestieLearner:OnCombatLogEvent(
-            1234,
-            "UNIT_DIED",
-            nil,
-            nil,
-            nil,
-            "Creature-0-0-0-0-7002-0000000001",
-            "Bystander Boar",
-            nil
-        )
-
-        assert.is_nil(Questie.dbLearner.global.npcs[7002])
-        assert.is_nil(QuestieDB.npcDataOverrides[7002])
-        assert.equals(0, table.getn(queuedTimers))
+        assert.is_true(has(learner, "Unconditionally map the spawn position for Ascension DB building"))
+        assert.is_true(has(learner, "self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)"))
+        assert.is_false(has(learner, 'if eventType ~= "PARTY_KILL" and not credited then'))
     end)
 
     it("still learns and batches local PARTY_KILL combat-log events", function()

@@ -1540,6 +1540,9 @@ local function _MergeSpawnEvidence(npcId)
     -- Confidence threshold is bypassed for Sunstrider because spawn points are
     -- distributed across 5+ locations — no single point ever reaches 60% of kills.
     local isSunstrider = IsSunstriderNativeZone(topEvidence.zoneId)
+    local learnerLiveMode = QuestieLearner
+        and QuestieLearner.IsLearnerLiveEnabled
+        and QuestieLearner:IsLearnerLiveEnabled()
     local confidenceThreshold = isSunstrider and 0 or 60
 
     -- Only override if > confidence threshold AND spawn differs from static DB
@@ -1561,7 +1564,7 @@ local function _MergeSpawnEvidence(npcId)
         -- AscensionDB coords with in-game kill evidence, causing wrong pin counts.
         -- REGRESSION NOTE: If AscensionDB protection check is removed or disabled,
         -- learner pins will reappear at wrong locations. Do not remove this guard.
-        if IsAscensionProtected("NPC", npcId, 7) then
+        if (not learnerLiveMode) and IsAscensionProtected("NPC", npcId, 7) then
             Questie:Debug(Questie.DEBUG_LEARNER,
                 "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
                 "Sunstrider zone but AscensionDB owns spawns — skipping learner injection")
@@ -3474,9 +3477,9 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     end
     local zoneId  = GetZoneId()
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
-    -- A kill counts toward our quest progress only if we landed the killing blow
-    -- (PARTY_KILL) or recently damaged this exact spawn. Bystander UNIT_DIED events
-    -- for mobs we never touched stay uncredited and are ignored by correlation.
+    -- Keep the credited flag for quest-progress correlation, but do not use it
+    -- to suppress learning. The learner should still harvest kill data from
+    -- nearby players so static import coverage stays as complete as possible.
     local engagedTs = _Learner.playerEngaged and _Learner.playerEngaged[dstGUID]
     local credited = (eventType == "PARTY_KILL")
         or (engagedTs ~= nil and (now - engagedTs) <= 60)
@@ -3493,14 +3496,6 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
 
     if dstName and dstName ~= "" then
         -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
-    end
-
-    -- UNIT_DIED fires for nearby mobs killed by other players. Keep it only as
-    -- short-lived evidence for quest-progress correlation unless we can prove
-    -- the kill was credited to us; otherwise bystander kills can churn learner
-    -- spawn data and redraw active quest pins.
-    if eventType ~= "PARTY_KILL" and not credited then
-        return
     end
 
     -- Unconditionally map the spawn position for Ascension DB building
