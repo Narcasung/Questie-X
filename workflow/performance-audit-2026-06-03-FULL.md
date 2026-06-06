@@ -6153,3 +6153,33 @@ full-precision grouping key in `_MergeSpawnEvidence` (`Modules/QuestieLearner.lu
   disables proximity merge, and a larger radius widens merging.
   `Tests/QuestiePinClustering_spec.lua` asserts the knob wiring (default + UI +
   cache-clear redraw).
+
+### Pass-54 - Quest accept resolver hardening and current NPC/item ID investigation (2026-06-06)
+
+The learner was logging impossible quest IDs from `QUEST_ACCEPTED` because the
+accept handler still had a last-resort `questId = firstArg` fallback. On this
+client/server combination the raw event arguments can be misaligned, so that
+fallback was persisting bogus quest keys such as `615514513` instead of waiting
+for a real quest-log entry. The fix now resolves accepted quests only through a
+real quest-log index / quest-log selection / quest ID that actually exists in
+the log, and skips learning entirely if none of those resolve.
+
+- `Modules/QuestieLearner.lua`
+  - Added a strict accepted-quest resolver that only accepts IDs that map back
+    to a real quest-log entry.
+  - Removed the raw-argument last-resort quest-ID fallback.
+- `Tests/QuestieLearnerDataSourceMode_spec.lua`
+  - Added a regression proving a garbage accepted-quest value resolves from the
+    real quest log instead of being used directly.
+  - Added a regression proving impossible quest IDs are ignored when they do
+    not resolve to the quest log.
+
+### Open follow-up
+
+The current live logs also show a separate learner issue where NPC IDs can be
+mis-read from Ascension GUIDs (`Arcanist Helion` learning as `168` instead of
+`15297`), and item IDs are not yet being learned reliably from the same flows.
+That points to a GUID / source-ID extraction issue in the learner capture path,
+not the quest accept resolver above. The next pass should trace the exact GUID
+parsing and item-source events used by the live client so those IDs are learned
+correctly before any static export work continues.

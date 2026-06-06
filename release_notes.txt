@@ -12,6 +12,7 @@ Current branch work includes:
 - Bystander `UNIT_DIED` suppression so nearby players killing mobs do not force local learner pin redraws.
 - A `PARTY_KILL` event-order fix so legitimate local/group kills are not skipped after an earlier `UNIT_DIED`.
 - Immediate learner spawn pin rendering so kill evidence can become map pins right away in learner mode.
+- A hardened learner `QUEST_ACCEPTED` resolver so bogus quest IDs from raw event arguments are no longer persisted when they do not map back to a real quest-log entry.
 - Learner-aware DB reads that can fall back to `Questie.dbLearner.global.*` when static data is missing.
 - Advanced-tab performance controls for QuestieLearner, QuestieComms, and Arrow throttles.
 - A full QuestieComms disable switch with live queue/broadcast/sync throttles.
@@ -19,7 +20,7 @@ Current branch work includes:
 - Available quest draw-thread guarding so missing quest IDs skip safely instead of crashing redraws.
 - A measured phase 3 branch with additional localization, quest eligibility, tooltip/map, cache, and allocation hot-path reductions.
 
-Remaining before stable release: integrate the learner/comms branch with the measured phase 3 branch, remove or revalidate the stale reverted `QuestieMap.ProcessQueue` profile-local commit, fix unrelated Arrow asset test expectations, and validate in-game in heavy kill/loot zones with the minimap open, learner-only/static-only switching, and repeated loot/object objective testing.
+Remaining before stable release: integrate the learner/comms branch with the measured phase 3 branch, remove or revalidate the stale reverted `QuestieMap.ProcessQueue` profile-local commit, fix unrelated Arrow asset test expectations, and validate in-game in heavy kill/loot zones with the minimap open, learner-only/static-only switching, repeated loot/object objective testing, and the new quest-accept / NPC / item learning paths.
 
 ## Highlights
 
