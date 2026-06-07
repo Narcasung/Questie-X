@@ -118,8 +118,9 @@ end
 
 function QuestieOptions:ClusterRedraw()
     Questie:Debug(Questie.DEBUG_INFO, "Clustering changed, redrawing!")
-    --Redraw clusters here
-    QuestieQuest:SmoothReset();
+    -- Cluster-only changes don't depend on quest log state — skip the
+    -- TestGameCache wait and draw-queue drain that SmoothReset does.
+    QuestieQuest:SmoothReset({ skipCacheTest = true })
 end
 
 ---@return table

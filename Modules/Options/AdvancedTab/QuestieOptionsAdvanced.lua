@@ -374,7 +374,7 @@ function QuestieOptions.tabs.advanced:Initialize()
                     if QuestieDB and QuestieDB.ClearModeCaches then
                         QuestieDB:ClearModeCaches()
                     end
-                    QuestieOptionsUtils:Delay(0.05, QuestieQuest.SmoothReset, l10n('Setting spawn pin dedup radius to %s : Redrawing!', value))
+                    QuestieOptions:ClusterRedraw()
                 end,
             },
             learnerCommsIntensity = {

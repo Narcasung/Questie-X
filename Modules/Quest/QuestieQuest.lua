@@ -330,7 +330,10 @@ local function _UpdateSpecials(questId)
     end
 end
 
-function QuestieQuest:SmoothReset()
+---@param opts? table Options table
+---@field opts.skipCacheTest boolean If true, skip the TestGameCache wait and draw-queue drain. Use for clustering-only changes that don't depend on quest log state.
+function QuestieQuest:SmoothReset(opts)
+    opts = opts or {}
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:SmoothReset]")
     if QuestieQuest._isResetting then
         QuestieQuest._resetAgain = true
@@ -344,6 +347,8 @@ function QuestieQuest:SmoothReset()
     local stepTable = {
         function()
             -- Wait until game cache has quest log okay.
+            -- Skipped when opts.skipCacheTest is set (clustering-only redraws).
+            if opts.skipCacheTest then return true end
             return QuestLogCache.TestGameCache()
         end,
         function()
