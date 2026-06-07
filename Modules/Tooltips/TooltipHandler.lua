@@ -357,14 +357,7 @@ function _QuestieTooltips:AddItemDataToTooltip()
             string.match(link,
                 "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?"))
     end
-    if name and itemId and (
-            name ~= QuestieTooltips.lastGametooltipItem or
-            (not QuestieTooltips.lastGametooltipCount) or
-            _QuestieTooltips:CountTooltip() < QuestieTooltips.lastGametooltipCount or
-            QuestieTooltips.lastGametooltipType ~= "item" or
-            lastItemId ~= itemId or
-            QuestieTooltips.lastFrameName ~= self:GetName()
-        ) then
+    if name and itemId and (lastItemId ~= itemId) then
         QuestieTooltips.lastGametooltipItem = name
         local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
         if tooltipData then
@@ -373,9 +366,6 @@ function _QuestieTooltips:AddItemDataToTooltip()
             end
             for _, v in next, tooltipData do
                 self:AddLine(v)
-            end
-            if QuestieTooltips.ResizeTooltip then
-                QuestieTooltips:ResizeTooltip(self)
             end
         end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()

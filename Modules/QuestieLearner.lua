@@ -3307,18 +3307,16 @@ function QuestieLearner:OnQuestDetail()
 
     local data = {}
     data[1] = GetTitleText and GetTitleText() or nil
-    -- requiredLevel and questLevel are not always available on the detail screen;
-    -- they will be filled in by OnQuestAccepted from the quest log.
-    data[6] = GetObjectiveText and GetObjectiveText() or nil   -- objectives text
-    -- Details/description text (body)
-    if GetQuestDescription then
-        data[17] = GetQuestDescription()
-    end
+    -- requiredLevel [4], questLevel [5], requiredRaces [6], requiredClasses [7],
+    -- and objectivesText [8] are all filled in by OnQuestAccepted from the quest log.
+    -- OnQuestDetail should NOT write to those fields here — LearnQuest only writes
+    -- nil values, so an early write would permanently block the correct value.
 
-    -- Record current zone as zoneOrSort if not already set
+    -- [17] zoneOrSort: current zone areaId (OnQuestAccepted may overwrite with
+    -- its own zoneId, which is fine — accepted is the more accurate context).
     local zoneId = GetZoneId()
     if zoneId and zoneId > 0 then
-        data[8] = zoneId
+        data[17] = zoneId
     end
 
     self:LearnQuest(questId, data)
@@ -3489,21 +3487,35 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] OnQuestAccepted id=" .. tostring(questId))
     if not questId or questId <= 0 then return end
 
-    -- Build data table from quest log (scan for matching entry)
-    -- Only store fields that match the questKeys schema (name=1, questLevel=5).
+    -- Build data table from quest log (scan for matching entry).
+    -- Only store fields that match the questKeys schema.
     -- Do NOT store objectives (key 10) as raw text — the DB compiler expects structured
     -- {creatureId, text} tuples; plain strings crash pairs() in GetQuest.
+    --
+    -- DO NOT capture requiredLevel [4], requiredRaces [6], or requiredClasses [7]
+    -- from the quest log. Those represent the quest's actual requirements, not
+    -- the player's. A quest shown to a Human is automatically acceptable to a
+    -- Human, but it may also be acceptable to Orcs — we cannot know from the
+    -- log alone. Capturing the player's race/class bit as those fields would
+    -- corrupt data for any other character on the same account that loads the
+    -- same SavedVariables (IsDoable would blacklist the quest for them).
+    -- Similarly, requiredLevel is not exposed by GetQuestLogLeaderBoard on 3.3.5.
     local data = {}
+    local logIdx = 0
     for i = 1, GetNumQuestLogEntries() do
-        local title, level, _, isHeader, _, _, _, id = QuestieCompat.GetQuestLogTitle(i)
+        local title, level, suggestedGroup, isHeader, _, _, _, id = QuestieCompat.GetQuestLogTitle(i)
         if not isHeader and id == questId then
             data[1] = title
+            -- [5] questLevel: level returned by GetQuestLogTitle IS the quest's own level
             data[5] = level and level > 0 and level or nil
+            logIdx = i
             break
         end
     end
 
-    -- Zone: reverse-lookup from GetRealZoneText() which is always accurate on 3.3.5.
+    -- [17] zoneOrSort: areaId from current zone name. This is the correct
+    -- field for zone storage (was previously incorrectly written as [8] which
+    -- is objectivesText, and as [17] with the quest description text).
     local zoneText = GetRealZoneText()
     if zoneText and zoneText ~= "" and l10n and l10n.GetAreaIdByLocalName then
         local areaId = l10n:GetAreaIdByLocalName(zoneText)
@@ -3515,12 +3527,13 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
     self:LearnQuest(questId, data)
 
     -- Proactively map objectives based on quest log text
-    local logIdx = 0
-    for i = 1, GetNumQuestLogEntries() do
-        local _, _, _, isHeader, _, _, _, id = QuestieCompat.GetQuestLogTitle(i)
-        if not isHeader and id == questId then
-            logIdx = i
-            break
+    if logIdx == 0 then
+        for i = 1, GetNumQuestLogEntries() do
+            local _, _, _, isHeader, _, _, _, id = QuestieCompat.GetQuestLogTitle(i)
+            if not isHeader and id == questId then
+                logIdx = i
+                break
+            end
         end
     end
 
@@ -4443,8 +4456,64 @@ local function _CountLearnedNpcSpawns(entry)
     return total
 end
 
+-- Replicates ElvUI's "Transparent" tooltip style so the secondary learner
+-- frame matches the look of the standard GameTooltip whether or not ElvUI
+-- is installed. If ElvUI IS installed, defer to its Tooltip:SetStyle (the
+-- user's configured colors/fonts override our defaults).
+local function _ApplyElvUIStyleTooltip(frame)
+    if not frame or not frame.GetName then return end
+    if ElvUI and ElvUI.GetModule then
+        local ok, TT = pcall(ElvUI.GetModule, ElvUI, "Tooltip")
+        if ok and TT and TT.SetStyle then
+            pcall(TT.SetStyle, TT, frame)
+            return
+        end
+    end
+    -- ElvUI default "Transparent" template — see ElvUI/Core/Toolkit.lua:82
+    -- and ElvUI/Settings/Profile.lua:29-31. Hard-coded so the secondary
+    -- frame looks the same with or without ElvUI.
+    if not frame.SetBackdrop then return end
+    frame:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = {left = 3, right = 3, top = 3, bottom = 3},
+    })
+    -- (0.06, 0.06, 0.06, 0.8) — ElvUI's default backdropfadecolor
+    frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8)
+    -- Black border (ElvUI's default bordercolor is {0, 0, 0})
+    frame:SetBackdropBorderColor(0, 0, 0, 1)
+
+    -- Apply the same font ElvUI uses by default. FontTemplate isn't available
+    -- without ElvUI, so set font + shadow directly.
+    local fontName, fontSize = "Fonts\\FRIZQT__.TTF", 12
+    local tooltipName = frame:GetName()
+    if tooltipName then
+        for i = 1, frame:NumLines() or 10 do
+            local left = _G[tooltipName .. "TextLeft" .. i]
+            local right = _G[tooltipName .. "TextRight" .. i]
+            for _, region in next, {left, right} do
+                if region and region.SetFont then
+                    region:SetFont(fontName, fontSize, "")
+                end
+            end
+        end
+    end
+end
+
 local function _GetLearnerTooltipFrame()
     if _learnerTooltipFrame then
+        -- ElvUI may have loaded after this frame was first created; re-apply
+        -- the skin in that case so the secondary frame stays consistent.
+        if not _learnerTooltipFrame.__questieStyled then
+            _ApplyElvUIStyleTooltip(_learnerTooltipFrame)
+            _learnerTooltipFrame:HookScript("OnShow", function(self)
+                _ApplyElvUIStyleTooltip(self)
+            end)
+            _learnerTooltipFrame.__questieStyled = true
+        end
         return _learnerTooltipFrame
     end
 
@@ -4452,6 +4521,13 @@ local function _GetLearnerTooltipFrame()
     frame:SetFrameStrata("TOOLTIP")
     frame:SetClampedToScreen(true)
     frame:SetOwner(UIParent, "ANCHOR_NONE")
+    -- Apply the ElvUI tooltip look now (works with or without ElvUI) and
+    -- re-apply on every show so style changes / new addons don't drift.
+    _ApplyElvUIStyleTooltip(frame)
+    frame:HookScript("OnShow", function(self)
+        _ApplyElvUIStyleTooltip(self)
+    end)
+    frame.__questieStyled = true
     _learnerTooltipFrame = frame
     return _learnerTooltipFrame
 end
@@ -4460,6 +4536,16 @@ local function _HideLearnerTooltipFrame()
     if _learnerTooltipFrame then
         _learnerTooltipFrame:Hide()
     end
+end
+
+-- Adds a blank double-line spacer to a tooltip.  Used as a lightweight
+-- visual separator between learner data and surrounding tooltip content
+-- when the secondary frame is disabled.
+local function _AddTooltipSeparator(tooltip)
+    -- AddDoubleLine(leftText, rightText, leftR, leftG, leftB, rightR, rightG, rightB)
+    -- Passing " " for both with 0 alpha makes the line invisible, creating a
+    -- clean one-line vertical gap without needing any texture assets.
+    tooltip:AddDoubleLine(" ", " ", 0, 0, 0, 0, 0, 0)
 end
 
 local function _ShowLearnerTooltipFrame(sourceTooltip, lines)
@@ -4552,14 +4638,24 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
 
     if Questie.db.profile.learnerTooltipUseSecondary == true then
         local rendered = {}
+        -- Spacer before learner section
+        rendered[#rendered + 1] = " "
         for _, pair in ipairs(lines) do
             rendered[#rendered + 1] = pair[1] .. ": " .. pair[2]
         end
+        -- Spacer after learner section
+        rendered[#rendered + 1] = " "
         _ShowLearnerTooltipFrame(GameTooltip, rendered)
     else
+        -- Thin horizontal separator above learner section so it doesn't
+        -- visually blend into the NPC data above.
+        _AddTooltipSeparator(GameTooltip)
         for _, pair in ipairs(lines) do
             GameTooltip:AddDoubleLine(pair[1], pair[2])
         end
+        -- Thin horizontal separator below learner section to separate
+        -- from any addon data appended below (e.g. other tooltip mods).
+        _AddTooltipSeparator(GameTooltip)
         local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
         if QuestieTooltips and QuestieTooltips.ResizeTooltip then
             QuestieTooltips:ResizeTooltip(GameTooltip)
