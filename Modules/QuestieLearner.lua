@@ -2755,8 +2755,14 @@ function QuestieLearner:InjectLearnedData()
         self:Sanitize(data)
         if not QuestieDB.npcDataOverrides[nid or npcId] then
             -- Spawn evidence is promoted through _MergeSpawnEvidence, where
-            -- AscensionDB ownership is known. Injecting [7] here runs too early
-            -- and can pollute curated plugin spawn tables.
+            -- AscensionDB ownership is known. Injecting [7] verbatim here runs too
+            -- early and can pollute curated plugin spawn tables.
+            -- REGRESSION NOTE (fix da5546f, was bug 7ce0cdc): stripping [7] here is
+            -- ONLY safe because the guarded restore block BELOW re-merges the saved
+            -- spawns (normalized to uiMapId). Do NOT delete that block or "simplify"
+            -- this to defer all spawns to _MergeSpawnEvidence — that promoter only
+            -- runs on LIVE kills, so prior-session spawns would never return on
+            -- /reload and learner quests (e.g. 8325 -> Mana Wyrm 15274) lose pins.
             QuestieDB.npcDataOverrides[nid or npcId] = CopyWithoutField(data, 7)
             npcCount = npcCount + 1
             if data[1] then npcNameIndexNeedsRebuild = true end
