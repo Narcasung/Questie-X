@@ -69,6 +69,14 @@ local DEFAULT_WAYPOINT_HOVER_COLOR = { 0.93, 0.46, 0.13, 0.8 }
 
 local lastTooltipShowTimestamp = GetTime()
 
+local function _GetWorldMapTooltipSourceLine()
+    local parts = { "Questie DB" }
+    if QuestieComms and (QuestieComms.remotePlayerEnabled or QuestieComms.data) then
+        tinsert(parts, "Comms")
+    end
+    return "|cFF808080Source: " .. table.concat(parts, " + ") .. "|r"
+end
+
 function MapIconTooltip:Show()
     local _, _, _, alpha = self.texture:GetVertexColor();
     if alpha == 0 then
@@ -716,6 +724,8 @@ function MapIconTooltip:Show()
                 self:AddLine('|cFFa6a6a6Shift-click to hide|r') -- grey
             end
         end
+
+        self:AddLine(_GetWorldMapTooltipSourceLine(), 0.55, 0.55, 0.55)
     end
     Tooltip:_Rebuild() -- we separate this so things like MODIFIER_STATE_CHANGED can redraw the tooltip
     Tooltip:SetFrameStrata("TOOLTIP");
