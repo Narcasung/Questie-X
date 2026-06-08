@@ -2585,6 +2585,33 @@ function QuestieLearner:InjectLearnedData()
 
     local npcCount, questCount, itemCount, objectCount = 0, 0, 0, 0
 
+    -- Snapshot each NPC's spawn ([7]) keys in their NATIVE uiMapId space BEFORE the
+    -- uiMapId->areaId migration below rewrites them. The pin renderer/override layer
+    -- expects native uiMapId keys (e.g. Sunstrider 1241), exactly as the live
+    -- _MergeSpawnEvidence kill path stores them. We must NOT convert these keys to/from
+    -- areaId on restore: uiMapId 1241 resolves to the Eversong PARENT areaId 3430, which
+    -- maps to the Eversong map 1941 — that would place Sunstrider pins on the wrong map
+    -- (the NE-corner bug). Instead we keep the native key and let HBD
+    -- ResolveZone()/isSameZoneSpace handle Eversong<->Sunstrider cross-map visibility.
+    local nativeNpcSpawns = {}
+    for npcId, data in pairs(learned.npcs) do
+        if type(data[7]) == "table" and next(data[7]) then
+            local snap = {}
+            for zoneId, coords in pairs(data[7]) do
+                if type(coords) == "table" then
+                    local zsnap = {}
+                    for _, coord in ipairs(coords) do
+                        if type(coord) == "table" and coord[1] and coord[2] then
+                            zsnap[table.getn(zsnap) + 1] = { coord[1], coord[2], coord[3] }
+                        end
+                    end
+                    if table.getn(zsnap) > 0 then snap[zoneId] = zsnap end
+                end
+            end
+            if next(snap) then nativeNpcSpawns[tonumber(npcId) or npcId] = snap end
+        end
+    end
+
     -- Migration: fix spawn zone keys that were stored as uiMapId instead of areaId.
     -- Before the GetZoneId() fix, kills on maps like Sunstrider Isle (uiMapId 1241)
     -- were stored under key 1241 instead of the correct areaId 3431.
@@ -2757,12 +2784,16 @@ function QuestieLearner:InjectLearnedData()
             -- Spawn evidence is promoted through _MergeSpawnEvidence, where
             -- AscensionDB ownership is known. Injecting [7] verbatim here runs too
             -- early and can pollute curated plugin spawn tables.
-            -- REGRESSION NOTE (fix da5546f, was bug 7ce0cdc): stripping [7] here is
-            -- ONLY safe because the guarded restore block BELOW re-merges the saved
-            -- spawns (normalized to uiMapId). Do NOT delete that block or "simplify"
-            -- this to defer all spawns to _MergeSpawnEvidence — that promoter only
-            -- runs on LIVE kills, so prior-session spawns would never return on
-            -- /reload and learner quests (e.g. 8325 -> Mana Wyrm 15274) lose pins.
+            -- REGRESSION NOTE (was bug 7ce0cdc): stripping [7] here is ONLY safe
+            -- because the guarded restore block BELOW re-merges the saved spawns
+            -- under their NATIVE uiMapId keys (from the pre-migration snapshot
+            -- nativeNpcSpawns). Do NOT delete that block, do NOT restore from the
+            -- post-migration data[7] keys, do NOT convert keys via areaId (uiMapId
+            -- 1241 -> areaId 3430 -> Eversong map 1941 misplaces Sunstrider pins to
+            -- the NE corner), and do NOT "simplify" to defer all spawns to
+            -- _MergeSpawnEvidence — that promoter only runs on LIVE kills, so
+            -- prior-session spawns would never return on /reload and learner quests
+            -- (e.g. 8325 -> Mana Wyrm 15274) lose pins.
             QuestieDB.npcDataOverrides[nid or npcId] = CopyWithoutField(data, 7)
             npcCount = npcCount + 1
             if data[1] then npcNameIndexNeedsRebuild = true end
@@ -2783,28 +2814,26 @@ function QuestieLearner:InjectLearnedData()
         -- only re-promotes from LIVE kill evidence, so spawns learned in a prior
         -- session never came back on /reload, and a freshly accepted quest had no
         -- pins until the mob was re-killed (e.g. quest 8325 -> Mana Wyrm 15274 on
-        -- Sunstrider). Re-merge the saved spawns here, gated by IsAscensionProtected
-        -- so curated AscensionDB coords are never overwritten: in learner mode the
-        -- check is always false (learner data fully restores); in auto mode only
-        -- non-curated NPCs are restored. Coords are deep-merged with InsertIfNewBucket
-        -- so any AscensionDB spawns already present are preserved and deduped.
+        -- Sunstrider). Restore from the NATIVE-uiMapId snapshot captured before the
+        -- migration above (do NOT read the post-migration data[7] keys, and do NOT
+        -- convert them — that is what put Sunstrider pins on the Eversong map). This
+        -- keys the override exactly like the live kill path, so pins render on the
+        -- correct map and HBD isSameZoneSpace shows them on Eversong too. Gated by
+        -- IsAscensionProtected so curated AscensionDB coords are never overwritten:
+        -- in learner mode the check is always false (learner data fully restores); in
+        -- auto mode only non-curated NPCs are restored. Deep-merged via InsertIfNewBucket.
         local realNpcId = nid or npcId
-        if type(data[7]) == "table" and next(data[7]) and not IsAscensionProtected("NPC", realNpcId, 7) then
+        local nativeSpawns = nativeNpcSpawns[realNpcId]
+        if nativeSpawns and not IsAscensionProtected("NPC", realNpcId, 7) then
             local ovr = QuestieDB.npcDataOverrides[realNpcId]
             ovr[7] = ovr[7] or {}
-            for zoneId, coords in pairs(data[7]) do
+            for zoneId, coords in pairs(nativeSpawns) do
                 if type(coords) == "table" then
-                    -- Render the override under the canonical MAP id, matching the live
-                    -- _MergeSpawnEvidence path (which stores topEvidence.zoneId already
-                    -- normalized). The saved key may be an areaId (e.g. 3431/3430 from
-                    -- the uiMapId->areaId migration above) — NormalizeSpawnZoneKey maps it
-                    -- back to the uiMapId (1241) the pin renderer/HBD actually use.
-                    local mapZone = NormalizeSpawnZoneKey(zoneId)
-                    ovr[7][mapZone] = ovr[7][mapZone] or {}
-                    local grid = GetCoordGridForZone(mapZone)
+                    ovr[7][zoneId] = ovr[7][zoneId] or {}
+                    local grid = GetCoordGridForZone(zoneId)
                     for _, coord in ipairs(coords) do
                         if type(coord) == "table" and coord[1] and coord[2] then
-                            InsertIfNewBucket(ovr[7][mapZone], coord[1], coord[2], grid)
+                            InsertIfNewBucket(ovr[7][zoneId], coord[1], coord[2], grid)
                         end
                     end
                 end
