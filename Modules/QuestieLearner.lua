@@ -3550,13 +3550,19 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
                 if targetName and targetName ~= "" then
                     local npcId = nil
                     local objectId = nil
-                    -- For killcredit, try ID-based lookup first using quest objectives data
-                    if objType == "killcredit" then
+                    -- For monster/killcredit objectives, try ID-based lookup first using quest objectives data.
+                    -- This catches accept-time pins before the first kill event for quests like 8325,
+                    -- where the quest log text may not normalize cleanly to the NPC name.
+                    if objType == "killcredit" or objType == "monster" then
                         local quest = QuestieDB and QuestieDB.GetQuest and QuestieDB.GetQuest(questId)
                         if quest and quest.ObjectiveData and quest.ObjectiveData[j] then
                             local objData = quest.ObjectiveData[j]
-                            if objData.IdList then
-                                for _, possibleId in ipairs(objData.IdList) do
+                            local candidateIds = objData.IdList
+                            if not candidateIds and objData.Id and objData.Id > 0 then
+                                candidateIds = { objData.Id }
+                            end
+                            if candidateIds then
+                                for _, possibleId in ipairs(candidateIds) do
                                     if possibleId and possibleId > 0 then
                                         local npc = QuestieDB:GetNPC(possibleId)
                                         if npc and npc.name and string.lower(npc.name) == string.lower(targetName) then
@@ -3567,7 +3573,7 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
                                 end
                                 -- Fallback: try first valid ID in the list even if name doesn't match
                                 if not npcId then
-                                    for _, possibleId in ipairs(objData.IdList) do
+                                    for _, possibleId in ipairs(candidateIds) do
                                         if possibleId and possibleId > 0 then
                                             local npc = QuestieDB:GetNPC(possibleId)
                                             if npc then
@@ -3615,10 +3621,37 @@ function QuestieLearner:OnQuestAccepted(firstArg, secondArg)
         end
     end
 
+    -- In learner mode, seed objective pins directly from the SavedVariables payload.
+    -- This bypasses quest-log text sync timing and ensures quests like 8325 spawn pins
+    -- immediately on accept when the objective mapping already exists in QuestieLearnerDB.
+    if GetDataSourceMode() == "learner" then
+        local learnedQuest = Questie and Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.quests and Questie.dbLearner.global.quests[questId]
+        if learnedQuest and learnedQuest.objIndex then
+            local objIndex, entry = next(learnedQuest.objIndex)
+            while objIndex do
+                if entry and entry.id then
+                    local entryId = entry.id
+                    if type(entryId) == "table" then
+                        entryId = entryId[1]
+                    end
+                    if entryId and entryId > 0 then
+                        if entry.type == "object" then
+                            self:LearnQuestObjectiveObject(questId, entryId, entry.text or entry.Text or "", objIndex)
+                        else
+                            self:LearnQuestObjectiveNPC(questId, entryId, entry.text or entry.Text or "", objIndex)
+                        end
+                    end
+                end
+                objIndex, entry = next(learnedQuest.objIndex, objIndex)
+            end
+        end
+    end
+
     -- Associate the quest giver: prefer live UnitGUID("npc"), fall back to last gossip entity
     -- (for Objectives Board quests, GOSSIP_CLOSED fires before QUEST_ACCEPTED so "npc" is nil)
     local npcGuid = UnitGUID("npc")
     local giverEntity = nil
+
     if npcGuid then
         local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
         if entityId and entityId > 0 then
