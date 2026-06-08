@@ -1747,6 +1747,37 @@ function QuestieDB.GetQuest(questId, ...) -- /dump QuestieDB.GetQuest(867)
         if overrideData.objIndex then QO.objIndex = overrideData.objIndex end
     end
 
+    -- In auto mode, the SavedVariables learner payload should still enrich static DB quests.
+    -- This is required for quests like 8325 where the static DB has only a stub record,
+    -- but QuestieLearner has the real objective payload in QuestieLearnerDB.global.quests.
+    if mode == "auto" and learnerRecord and rawdata ~= learnerRecord then
+        local _sKey, _iKey = next(questKeys)
+        while _sKey do
+            local learnerVal = learnerRecord[_iKey] or learnerRecord[_sKey]
+            if learnerVal ~= nil then
+                if _sKey == "objectives" and QO.objectives then
+                    local _objIdx, _objList = next(learnerVal)
+                    while _objIdx do
+                        if not QO.objectives[_objIdx] then
+                            QO.objectives[_objIdx] = _objList
+                        else
+                            local _id, _data = next(_objList)
+                            while _id do
+                                QO.objectives[_objIdx][_id] = _data
+                                _id, _data = next(_objList, _id)
+                            end
+                        end
+                        _objIdx, _objList = next(learnerVal, _objIdx)
+                    end
+                elseif QO[_sKey] == nil then
+                    QO[_sKey] = learnerVal
+                end
+            end
+            _sKey, _iKey = next(questKeys, _sKey)
+        end
+        if learnerRecord.objIndex and not QO.objIndex then QO.objIndex = learnerRecord.objIndex end
+    end
+
     local questLevel, requiredLevel = QuestieLib.GetTbcLevel(questId)
     QO.level = questLevel
     QO.requiredLevel = requiredLevel
