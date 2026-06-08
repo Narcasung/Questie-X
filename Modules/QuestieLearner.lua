@@ -2770,6 +2770,40 @@ function QuestieLearner:InjectLearnedData()
                 end
             end
         end
+
+        -- Restore persisted learner spawns ([7]) into the queryable override layer.
+        -- The branch above intentionally strips [7] to avoid clobbering curated
+        -- plugin coords, deferring to _MergeSpawnEvidence. But _MergeSpawnEvidence
+        -- only re-promotes from LIVE kill evidence, so spawns learned in a prior
+        -- session never came back on /reload, and a freshly accepted quest had no
+        -- pins until the mob was re-killed (e.g. quest 8325 -> Mana Wyrm 15274 on
+        -- Sunstrider). Re-merge the saved spawns here, gated by IsAscensionProtected
+        -- so curated AscensionDB coords are never overwritten: in learner mode the
+        -- check is always false (learner data fully restores); in auto mode only
+        -- non-curated NPCs are restored. Coords are deep-merged with InsertIfNewBucket
+        -- so any AscensionDB spawns already present are preserved and deduped.
+        local realNpcId = nid or npcId
+        if type(data[7]) == "table" and next(data[7]) and not IsAscensionProtected("NPC", realNpcId, 7) then
+            local ovr = QuestieDB.npcDataOverrides[realNpcId]
+            ovr[7] = ovr[7] or {}
+            for zoneId, coords in pairs(data[7]) do
+                if type(coords) == "table" then
+                    -- Render the override under the canonical MAP id, matching the live
+                    -- _MergeSpawnEvidence path (which stores topEvidence.zoneId already
+                    -- normalized). The saved key may be an areaId (e.g. 3431/3430 from
+                    -- the uiMapId->areaId migration above) — NormalizeSpawnZoneKey maps it
+                    -- back to the uiMapId (1241) the pin renderer/HBD actually use.
+                    local mapZone = NormalizeSpawnZoneKey(zoneId)
+                    ovr[7][mapZone] = ovr[7][mapZone] or {}
+                    local grid = GetCoordGridForZone(mapZone)
+                    for _, coord in ipairs(coords) do
+                        if type(coord) == "table" and coord[1] and coord[2] then
+                            InsertIfNewBucket(ovr[7][mapZone], coord[1], coord[2], grid)
+                        end
+                    end
+                end
+            end
+        end
     end
     for old, new in pairs(npcIdsToFix) do
         learned.npcs[new] = learned.npcs[old]
