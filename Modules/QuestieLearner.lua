@@ -83,6 +83,20 @@ local function IsAscensionProtected(dbType, id, key)
     return protected and protected[key] == true
 end
 
+-- Direct AscensionDB-ownership check that is NOT bypassed in learner/none mode.
+-- IsAscensionProtected() returns false in learner mode so the learner can override
+-- most fields — but spawn data ([7]) for AscensionDB-curated NPCs (e.g. Sunstrider's
+-- Mana Wyrm) must NEVER be overridden by learner coords, which are often in the wrong
+-- map/zone space and produce pins in the wrong corner of the map. Use this for the
+-- spawn-injection guards so AscensionDB always wins for owned NPCs regardless of mode.
+local function AscensionOwnsNpcSpawns(npcId)
+    return QuestieDB
+        and QuestieDB.ascensionOverrideKeys
+        and QuestieDB.ascensionOverrideKeys["NPC"]
+        and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
+        and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7] == true
+end
+
 local function HasAscensionQuestObjectiveData(questId)
     return IsAscensionProtected("QUEST", questId, 10)
 end
@@ -1690,9 +1704,6 @@ local function _MergeSpawnEvidence(npcId)
     -- Confidence threshold is bypassed for Sunstrider because spawn points are
     -- distributed across 5+ locations — no single point ever reaches 60% of kills.
     local isSunstrider = IsSunstriderNativeZone(topEvidence.zoneId)
-    local learnerLiveMode = QuestieLearner
-        and QuestieLearner.IsLearnerLiveEnabled
-        and QuestieLearner:IsLearnerLiveEnabled()
     local confidenceThreshold = isSunstrider and 0 or 60
 
     -- Only override if > confidence threshold AND spawn differs from static DB
@@ -1714,7 +1725,11 @@ local function _MergeSpawnEvidence(npcId)
         -- AscensionDB coords with in-game kill evidence, causing wrong pin counts.
         -- REGRESSION NOTE: If AscensionDB protection check is removed or disabled,
         -- learner pins will reappear at wrong locations. Do not remove this guard.
-        if (not learnerLiveMode) and IsAscensionProtected("NPC", npcId, 7) then
+        -- This MUST be unconditional — commit 0f20ea8 added a `(not learnerLiveMode)`
+        -- bypass that re-enabled the bug in learner mode (Sunstrider Mana Wyrm kills
+        -- overwrote AscensionDB's curated coords). Use the mode-independent ownership
+        -- check, not IsAscensionProtected (which returns false in learner mode).
+        if AscensionOwnsNpcSpawns(npcId) then
             Questie:Debug(Questie.DEBUG_INFO,
                 "[QuestieLearner] _MergeSpawnEvidence: npcId", npcId,
                 "Sunstrider zone but AscensionDB owns spawns — skipping learner injection")
@@ -2824,7 +2839,10 @@ function QuestieLearner:InjectLearnedData()
         -- auto mode only non-curated NPCs are restored. Deep-merged via InsertIfNewBucket.
         local realNpcId = nid or npcId
         local nativeSpawns = nativeNpcSpawns[realNpcId]
-        if nativeSpawns and not IsAscensionProtected("NPC", realNpcId, 7) then
+        -- Use the mode-independent ownership check: AscensionDB-curated NPC spawns
+        -- (e.g. Sunstrider Mana Wyrm) must never be overlaid with learner coords, even
+        -- in learner mode where IsAscensionProtected would return false.
+        if nativeSpawns and not AscensionOwnsNpcSpawns(realNpcId) then
             local ovr = QuestieDB.npcDataOverrides[realNpcId]
             ovr[7] = ovr[7] or {}
             for zoneId, coords in pairs(nativeSpawns) do

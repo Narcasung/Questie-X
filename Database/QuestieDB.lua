@@ -2314,6 +2314,25 @@ function QuestieDB:GetNPC(npcId)
         end
     end
 
+    -- AscensionDB hand-curates spawn coordinates for Ascension-specific zones
+    -- (e.g. Sunstrider's Mana Wyrm 15274). When AscensionDB owns this NPC's spawns,
+    -- use ONLY those curated coords and discard the learner-record zones that
+    -- _MergeOverride deep-merged in: the learner's Sunstrider coords are frequently
+    -- stored under the wrong map/zone (Sunstrider 1241 vs Eversong space), which
+    -- otherwise leaks in as pins in the wrong corner of the map. In learner mode
+    -- rawdata IS the learner record, so the bad zone survives the merge because
+    -- AscensionDB has no entry to displace it — this check removes it. Direct
+    -- ascensionOverrideKeys lookup (NOT IsAscensionProtected, which returns false
+    -- in learner mode).
+    if override and QuestieDB.ascensionOverrideKeys and QuestieDB.ascensionOverrideKeys["NPC"]
+            and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
+            and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7] then
+        local curated = override[7] or override.spawns
+        if curated and next(curated) then
+            npc.spawns = CopySpawnTable(curated)
+        end
+    end
+
     local friendlyToFaction = npc.friendlyToFaction
     npc.friendly = (not friendlyToFaction) and true or factionReactions[friendlyToFaction]
 
