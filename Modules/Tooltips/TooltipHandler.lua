@@ -9,6 +9,8 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 ---@type QuestiePlayer
 local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
+---@type QuestieLib
+local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 
 --- COMPATIBILITY ---
 local UnitGUID = QuestieCompat.UnitGUID
@@ -360,10 +362,31 @@ function _QuestieTooltips:AddItemDataToTooltip()
     if name and itemId and (lastItemId ~= itemId) then
         QuestieTooltips.lastGametooltipItem = name
         local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
-        if tooltipData then
-            if Questie.db.profile.enableTooltipsItemID == true then
-                GameTooltip:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
+        -- Item ID is shown unconditionally for every item hover (matches the
+        -- behavior of NPC/Object tooltips), so users can always copy/paste
+        -- the ID even for items that have no quest objective or starter
+        -- data attached. The line is always added when the itemId changes
+        -- regardless of whether tooltipData is non-nil.
+        if Questie.db.profile.enableTooltipsItemID == true then
+            self:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
+        end
+        -- If the item starts a quest (the player must right-click/use it,
+        -- or talk to an NPC while it's in their bag), surface that so the
+        -- player can see which quest the item unlocks without first
+        -- having to look it up. We never knew the item's startQuest
+        -- until runtime, so this is read directly from the static DB /
+        -- Ascension override table.
+        local startQuestId = QuestieDB and QuestieDB.QueryItemSingle
+            and tonumber(QuestieDB.QueryItemSingle(itemId, "startQuest") or 0) or 0
+        if startQuestId and startQuestId > 0 and (not _PlayerHasQuest(startQuestId)) then
+            local questTitle = QuestieLib and QuestieLib.GetColoredQuestName
+                and QuestieLib:GetColoredQuestName(startQuestId, Questie.db.profile.enableTooltipsQuestLevel, true, true)
+                or nil
+            if questTitle and questTitle ~= "" then
+                self:AddDoubleLine(QUEST_START_LINE, questTitle)
             end
+        end
+        if tooltipData then
             for _, v in next, tooltipData do
                 self:AddLine(v)
             end
