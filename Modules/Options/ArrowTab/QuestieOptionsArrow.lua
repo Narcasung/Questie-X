@@ -61,7 +61,7 @@ local function GetExpandedFontList()
     return fonts
 end
 
-QuestieOptions.tabs.arrow = { ... }
+QuestieOptions.tabs.arrow = {}
 
 function QuestieOptions.tabs.arrow:Initialize()
     return {
