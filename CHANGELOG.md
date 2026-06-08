@@ -18,6 +18,7 @@
 - **[QuestieComms - Disable Gate Fix]** Scoped the comms enable helper so the disable switch no longer calls a nil global and every send/process entry point consistently respects the setting.
 - **[Arrow - Low-End Performance Controls]** Added live Arrow update throttles to reduce repeated nearest-target and coordinate work while preserving existing arrow behavior.
 - **[Measured Hot Paths - Phase 3]** Landed measured optimizations on the phase 3 branch for literal localization caching, available quest redraw batching, `QuestieDB.IsDoable` batch reads, hot profile aliases, `GetTime()` hoists, NPC fallback lookup caching, and validate-cache allocation cleanup.
+- **[Localization - Zero-Arg Translate Fast Path]** `_l10n:translate` now short-circuits the common no-argument case (`select("#", ...) == 0`) and returns the translation directly, skipping the `{...}` table allocation, the `tostring` coercion loop, and the `safeFormat` call. The vast majority of translation lookups pass no format arguments, so this avoids per-call garbage on a hot path. Behavior matches the existing slow path: a successful no-arg lookup already returned the raw value, and the missing/invalid-entry branches fall back to the key. Cherry-picked from phase2-lua50-sweep.
 
 ### Bug Fixes
 
