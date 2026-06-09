@@ -310,7 +310,10 @@ function _QuestieTooltips:AddUnitDataToTooltip()
         ) then
         QuestieTooltips.lastGametooltipUnit = name
 
-        local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId);
+        -- Suppress System A's inline learner lines here: QuestieLearner's OnTooltipSetUnit
+        -- hook already renders learner spawn/kill data for the hovered unit (into the main
+        -- tooltip, or the separate secondary learner frame when that option is enabled).
+        local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId, true);
 
         if tooltipData then
             if Questie.db.profile.enableTooltipsNPCID == true then

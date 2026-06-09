@@ -334,7 +334,12 @@ local function _GetLearnerTooltipLines(key)
 end
 
 ---@param key string
-function QuestieTooltips:GetTooltip(key)
+---@param suppressLearnerLines boolean? When true, omit the inline learner spawn/kill
+--- lines from System A. Used by the NPC unit-hover tooltip, where the learner data is
+--- already rendered by QuestieLearner's OnTooltipSetUnit hook (main tooltip when the
+--- secondary learner tooltip is off, or the separate secondary frame when it is on).
+--- Map-pin and object tooltips leave this nil so they keep showing learner lines.
+function QuestieTooltips:GetTooltip(key, suppressLearnerLines)
     Questie:Debug(Questie.DEBUG_SPAM, "[QuestieTooltips:GetTooltip]", key)
     if (not key) then
         return nil
@@ -603,10 +608,16 @@ elseif key:sub(1,2) == "o_" then
     end
 
     -- Append learner spawn data when the learner has recorded this NPC.
-    local learnerLines = _GetLearnerTooltipLines(key)
-    if learnerLines then
-        for _, line in ipairs(learnerLines) do
-            tinsert(tooltipLines, line)
+    -- Skipped for the NPC unit-hover tooltip (suppressLearnerLines): QuestieLearner's
+    -- OnTooltipSetUnit hook owns that display and routes it to the main tooltip or the
+    -- separate secondary learner frame, so adding it here too would duplicate it (and,
+    -- with the secondary frame enabled, leak the lines back into the main tooltip).
+    if not suppressLearnerLines then
+        local learnerLines = _GetLearnerTooltipLines(key)
+        if learnerLines then
+            for _, line in ipairs(learnerLines) do
+                tinsert(tooltipLines, line)
+            end
         end
     end
 
