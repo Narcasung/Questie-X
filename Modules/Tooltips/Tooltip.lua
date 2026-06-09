@@ -379,7 +379,11 @@ if key:sub(1,2) == "m_" then
                     if learnedNpc and learnedNpc[10] then
                         for _, questId in ipairs(learnedNpc[10]) do
                             local qData = QuestieLearner.data.quests[questId]
-                            if qData and qData[10] then
+                            -- Only correlate live objective progress for quests the player
+                            -- is currently on. A just-turned-in/abandoned quest is no longer in
+                            -- QuestLogCache, so calling GetQuestObjectives for it would log a
+                            -- debugstack and return {} (harmless but noisy in DEVELOP mode).
+                            if qData and qData[10] and QuestiePlayer.currentQuestlog and QuestiePlayer.currentQuestlog[questId] then
                                 for slotIdx = 1, #qData[10] do
                                     local objSlot = qData[10][slotIdx]
                                     if objSlot then
@@ -432,7 +436,11 @@ elseif key:sub(1,2) == "o_" then
                     if learnedObj and learnedObj[2] then
                         for _, questId in ipairs(learnedObj[2]) do
                             local qData = QuestieLearner.data.quests[questId]
-                            if qData and qData[10] then
+                            -- Only correlate live objective progress for quests the player
+                            -- is currently on. A just-turned-in/abandoned quest is no longer in
+                            -- QuestLogCache, so calling GetQuestObjectives for it would log a
+                            -- debugstack and return {} (harmless but noisy in DEVELOP mode).
+                            if qData and qData[10] and QuestiePlayer.currentQuestlog and QuestiePlayer.currentQuestlog[questId] then
                                 for slotIdx = 1, #qData[10] do
                                     local objSlot = qData[10][slotIdx]
                                     if objSlot then
