@@ -87,6 +87,7 @@ function QuestieOptionsDefaults:Load()
             enableTooltipsObjectID = false,
             enableTooltipsQuestID = false,
             enableTooltipsQuestLevel = true,
+            enableTooltipsSource = false,
             showQuestXpAtMaxLevel = true,
             enableTooltipsNextInChain = true,
             learnerTooltips = true,

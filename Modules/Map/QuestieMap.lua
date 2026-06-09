@@ -573,6 +573,12 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
 
     data.Id = data.id
 
+    -- Manual notes are placed by the Townsfolk / menu system. Tag them so the source
+    -- tooltip line can report it (only if a caller hasn't already set a more specific source).
+    if data.DataSource == nil then
+        data.DataSource = "Townsfolk"
+    end
+
     local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)
     if (not uiMapId) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawManualIcon] No UiMapID for areaId:", areaID, tostring(data.Name))
@@ -712,6 +718,13 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
     if type(data) ~= "table" then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieMap:DrawWorldIcon] must have some data")
         return nil, nil
+    end
+
+    -- Tag data-source provenance for the source tooltip line. Objective pins set this
+    -- explicitly (per-spawn). Available/finisher pins are quest-scoped, so derive from the
+    -- quest. Leave nil for anything else so the tooltip shows no (potentially wrong) source.
+    if data.DataSource == nil and (data.Type == "available" or data.Type == "complete") then
+        data.DataSource = QuestieDB.GetPinDataSource("QUEST", data.Id)
     end
 
     local uiMapId = _ResolveMapUiMapId(ZoneDB:GetUiMapIdByAreaId(areaID), x, y)

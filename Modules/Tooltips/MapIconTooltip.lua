@@ -102,6 +102,23 @@ local function _GetWorldMapTooltipSourceLine(pinData)
     return nil
 end
 
+--- Per-pin data-source attribution line for the hovered world-map icon.
+--- Reads the DataSource tag set at pin creation (objective/finisher/available/manual) so
+--- the label is accurate, plus a Comms overlay when comms holds data for this id.
+local function _GetWorldMapDataSourceLine(pinData)
+    if not Questie.db.profile.enableTooltipsSource then return nil end
+    local src = pinData and pinData.DataSource
+    local parts = {}
+    if src then tinsert(parts, src) end
+    local id = pinData and pinData.Id
+    if id and QuestieComms and QuestieComms.data and QuestieComms.data.KeyExists
+            and QuestieComms.data:KeyExists("m_" .. tostring(id)) then
+        tinsert(parts, "Comms")
+    end
+    if table.getn(parts) == 0 then return nil end
+    return "|cFF808080Source: " .. table.concat(parts, " + ") .. "|r"
+end
+
 function MapIconTooltip:Show()
     local _, _, _, alpha = self.texture:GetVertexColor();
     if alpha == 0 then
@@ -751,6 +768,10 @@ function MapIconTooltip:Show()
         end
 
         self:AddLine(_GetWorldMapTooltipSourceLine(self.data), 0.55, 0.55, 0.55)
+        local dataSourceLine = _GetWorldMapDataSourceLine(self.data)
+        if dataSourceLine then
+            self:AddLine(dataSourceLine, 0.55, 0.55, 0.55)
+        end
     end
     Tooltip:_Rebuild() -- we separate this so things like MODIFIER_STATE_CHANGED can redraw the tooltip
     Tooltip:SetFrameStrata("TOOLTIP");

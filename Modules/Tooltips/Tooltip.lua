@@ -115,12 +115,27 @@ local function _GetQuestObjectiveSummary(questId)
     return summary
 end
 
-local function _BuildTooltipSourceLine(sourceFlags)
-    return nil
-end
-
+--- Accurate data-source attribution for a unit/object/item hover tooltip.
+--- Derives provenance from the entity id (never from the global mode): AscensionDB
+--- curated override, learner record, or base "Questie DB", plus a Comms overlay when
+--- comms holds data for this key. Returns nil when the source can't be determined or the
+--- option is off, so a wrong/guessed label is never shown.
+---@param key string @"m_<npcId>" | "o_<objectId>" | "i_<itemId>"
 local function _GetTooltipSourceLine(key)
-    return nil
+    if not Questie.db.profile.enableTooltipsSource then return nil end
+    if not key then return nil end
+    local prefix = key:sub(1, 2)
+    local id = tonumber(key:sub(3))
+    local entityType = (prefix == "o_" and "OBJECT") or (prefix == "i_" and "ITEM") or "NPC"
+
+    local parts = {}
+    local src = id and QuestieDB.GetPinDataSource(entityType, id) or nil
+    if src then tinsert(parts, src) end
+    if QuestieComms and QuestieComms.data and QuestieComms.data.KeyExists and QuestieComms.data:KeyExists(key) then
+        tinsert(parts, "Comms")
+    end
+    if table.getn(parts) == 0 then return nil end
+    return "|cFF808080Source: " .. table.concat(parts, " + ") .. "|r"
 end
 
 ---@param questId number
@@ -630,6 +645,14 @@ elseif key:sub(1,2) == "o_" then
     end
 
     return tooltipLines
+end
+
+--- Public accessor for the data-source attribution line. Called by the render layer
+--- (TooltipHandler) rather than appended inside GetTooltip so it never interferes with
+--- the quest-title de-duplication that consumes GetTooltip's result.
+---@param key string @"m_<npcId>" | "o_<objectId>" | "i_<itemId>"
+function QuestieTooltips:GetDataSourceLine(key)
+    return _GetTooltipSourceLine(key)
 end
 
 _InitObjectiveTexts = function(objectivesText, objectiveIndex, playerName)

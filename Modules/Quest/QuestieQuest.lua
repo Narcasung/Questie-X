@@ -1916,7 +1916,8 @@ _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCent
                 IconScale = spawnData.GetIconScale(),
                 Name = spawnData.Name,
                 Type = objective.Type,
-                ObjectiveTargetId = spawnData.Id
+                ObjectiveTargetId = spawnData.Id,
+                DataSource = QuestieDB.GetPinDataSource(objective.Type == "object" and "OBJECT" or "NPC", id, spawnData)
             }
 
             objective.AlreadySpawned[id] = {

@@ -2586,6 +2586,42 @@ local function _Asc_LoadIfString(data, label)
     return data
 end
 
+--- Returns the data-source label for a pin/spawn, or nil if it cannot be determined.
+--- Accuracy rule: never guess from global mode. Only returns a label backed by real
+--- evidence — the per-spawn `isLearned` flag, an AscensionDB curated-override entry, or a
+--- learner record for the entity — and otherwise reports the base "Questie DB".
+---@param entityType string @"NPC" | "OBJECT" | "QUEST" | "ITEM"
+---@param id number|nil
+---@param spawnData table|nil @optional per-spawn entry from a spawnList (its .isLearned wins)
+---@return string|nil
+function QuestieDB.GetPinDataSource(entityType, id, spawnData)
+    -- Per-spawn truth is the most precise signal when available.
+    if spawnData and spawnData.isLearned then
+        return "Learner"
+    end
+    if not id then return nil end
+
+    -- AscensionDB-curated entity (has at least one curated override field for this id).
+    local ascKeys = QuestieDB.ascensionOverrideKeys and QuestieDB.ascensionOverrideKeys[entityType]
+    if ascKeys and ascKeys[id] and next(ascKeys[id]) then
+        return "AscensionDB"
+    end
+
+    -- Learner-known entity (learned data exists for this id).
+    local learner = Questie.dbLearner and Questie.dbLearner.global
+    if learner then
+        local bucket = (entityType == "OBJECT" and learner.objects)
+            or (entityType == "QUEST" and learner.quests)
+            or (entityType == "ITEM" and learner.items)
+            or learner.npcs
+        if bucket and bucket[id] then
+            return "Learner"
+        end
+    end
+
+    return "Questie DB"
+end
+
 local function _Asc_ProtectField(dbType, id, key)
     QuestieDB.ascensionOverrideKeys = QuestieDB.ascensionOverrideKeys or {}
     QuestieDB.ascensionOverrideKeys[dbType] = QuestieDB.ascensionOverrideKeys[dbType] or {}

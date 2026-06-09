@@ -558,6 +558,18 @@ function QuestieOptions.tabs.general:Initialize()
                             Questie.db.profile.learnerTooltipUseSecondary = value
                         end
                     },
+                    showDataSource = {
+                        type = "toggle",
+                        order = 8.605,
+                        name = function() return l10n('Show data source'); end,
+                        desc = function() return l10n('Adds a "Source:" line to NPC, object and map-pin tooltips showing where the data came from (Questie DB, AscensionDB, Learner, Townsfolk, Comms). Only shown when the source is actually known.'); end,
+                        width = 1.5,
+                        disabled = function() return not Questie.db.profile.enableTooltips; end,
+                        get = function() return Questie.db.profile.enableTooltipsSource == true end,
+                        set = function(_, value)
+                            Questie.db.profile.enableTooltipsSource = value
+                        end
+                    },
                     partyOnlyToggle = {
                         type = "toggle",
                         order = 8.61,
