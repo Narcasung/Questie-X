@@ -69,7 +69,36 @@ local DEFAULT_WAYPOINT_HOVER_COLOR = { 0.93, 0.46, 0.13, 0.8 }
 
 local lastTooltipShowTimestamp = GetTime()
 
-local function _GetWorldMapTooltipSourceLine()
+local function _GetWorldMapTooltipSourceLine(pinData)
+    -- Show learner spawn data for the hovered map icon when available.
+    local id = pinData and pinData.Id
+    if not id then return nil end
+    local npcId = math.abs(id)
+
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if not QuestieLearner or not QuestieLearner.IsEnabled or not QuestieLearner:IsEnabled() then
+        return nil
+    end
+
+    local learnedNpc = QuestieLearner.data and QuestieLearner.data.npcs and QuestieLearner.data.npcs[npcId]
+    if not learnedNpc then return nil end
+
+    local guidSpawns = learnedNpc[8]
+    local bestX, bestY, bestCount = nil, nil, 0
+    if guidSpawns then
+        for uid, entry in pairs(guidSpawns) do
+            local c = tonumber(entry.count) or 1
+            if c > bestCount then
+                bestCount = c
+                bestX = entry.x
+                bestY = entry.y
+            end
+        end
+    end
+
+    if bestX and bestY then
+        return string.format("|cFF808080Learned spawn (%.1f, %.1f) from %d kills|r", bestX, bestY, bestCount)
+    end
     return nil
 end
 
@@ -721,7 +750,7 @@ function MapIconTooltip:Show()
             end
         end
 
-        self:AddLine(_GetWorldMapTooltipSourceLine(), 0.55, 0.55, 0.55)
+        self:AddLine(_GetWorldMapTooltipSourceLine(self.data), 0.55, 0.55, 0.55)
     end
     Tooltip:_Rebuild() -- we separate this so things like MODIFIER_STATE_CHANGED can redraw the tooltip
     Tooltip:SetFrameStrata("TOOLTIP");
