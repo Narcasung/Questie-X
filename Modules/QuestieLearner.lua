@@ -2212,7 +2212,8 @@ local function HasQuestReferences(itemId)
         end
         if qData[2] and qData[2][3] then
             for _, entry in ipairs(qData[2][3]) do
-                if entry[1] == itemId then
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == itemId then
                     return true
                 end
             end
