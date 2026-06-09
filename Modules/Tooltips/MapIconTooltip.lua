@@ -70,11 +70,7 @@ local DEFAULT_WAYPOINT_HOVER_COLOR = { 0.93, 0.46, 0.13, 0.8 }
 local lastTooltipShowTimestamp = GetTime()
 
 local function _GetWorldMapTooltipSourceLine()
-    local parts = { "Questie DB" }
-    if QuestieComms and (QuestieComms.remotePlayerEnabled or QuestieComms.data) then
-        tinsert(parts, "Comms")
-    end
-    return "|cFF808080Source: " .. table.concat(parts, " + ") .. "|r"
+    return nil
 end
 
 function MapIconTooltip:Show()

@@ -116,44 +116,11 @@ local function _GetQuestObjectiveSummary(questId)
 end
 
 local function _BuildTooltipSourceLine(sourceFlags)
-    if not sourceFlags then
-        return nil
-    end
-
-    local parts = {}
-    if sourceFlags.static then
-        tinsert(parts, "Static DB")
-    end
-    if sourceFlags.learner then
-        tinsert(parts, "Learner")
-    end
-    if sourceFlags.comms then
-        tinsert(parts, "Comms")
-    end
-
-    if table.getn(parts) == 0 then
-        return nil
-    end
-
-    return "|cFF808080Source: " .. table.concat(parts, " + ") .. "|r"
+    return nil
 end
 
 local function _GetTooltipSourceLine(key)
-    local sourceFlags = {}
-
-    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
-    local mode = QuestieLearner and QuestieLearner.GetDataSourceMode and QuestieLearner:GetDataSourceMode() or "auto"
-    if mode == "learner" then
-        sourceFlags.learner = true
-    else
-        sourceFlags.static = true
-    end
-
-    if QuestieComms and QuestieComms.data and QuestieComms.data.KeyExists and QuestieComms.data:KeyExists(key) then
-        sourceFlags.comms = true
-    end
-
-    return _BuildTooltipSourceLine(sourceFlags)
+    return nil
 end
 
 ---@param questId number
