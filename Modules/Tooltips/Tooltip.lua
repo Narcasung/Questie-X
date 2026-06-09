@@ -278,6 +278,61 @@ local function _FetchTooltipsForGroupMembers(key, tooltipData)
     return anotherPlayer
 end
 
+local function _GetLearnerTooltipLines(key)
+    -- key format: "m_<npcId>" for NPCs, "o_<objectId>" for objects, "i_<itemId>" for items
+    local id = tonumber(key:sub(3))
+    if not id then return nil end
+
+    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+    if not QuestieLearner or not QuestieLearner.IsEnabled or not QuestieLearner:IsEnabled() then
+        return nil
+    end
+
+    local learnedNpc = QuestieLearner.data and QuestieLearner.data.npcs and QuestieLearner.data.npcs[id]
+    if not learnedNpc then return nil end
+
+    local lines = {}
+    local guidSpawns = learnedNpc[8]
+    local spawnList = learnedNpc[7]
+
+    -- Count total distinct spawn points
+    local totalSpawns = 0
+    if spawnList then
+        for _ in pairs(spawnList) do totalSpawns = totalSpawns + 1 end
+    end
+
+    -- Find the most-visited spawn (highest count in guidSpawns)
+    local bestX, bestY, bestCount = nil, nil, 0
+    if guidSpawns then
+        for uid, entry in pairs(guidSpawns) do
+            local c = tonumber(entry.count) or 1
+            if c > bestCount then
+                bestCount = c
+                bestX = entry.x
+                bestY = entry.y
+            end
+        end
+    end
+
+    if bestX and bestY then
+        tinsert(lines, string.format("  |cFF808080Learned spawn|r (|cFFFFFFFF%.1f, %.1f|r) |cFF808080from %d kills|r", bestX, bestY, bestCount))
+    end
+
+    if totalSpawns > 0 then
+        tinsert(lines, string.format("  |cFF808080Total spawns learned|r |cFFFFFFFF%d|r", totalSpawns))
+    end
+
+    local mc = tonumber(learnedNpc.mc) or 0
+    if mc > 0 then
+        tinsert(lines, string.format("  |cFF808080Total kills recorded|r |cFFFFFFFF%d|r", mc))
+    end
+
+    if #lines > 0 then
+        return lines
+    end
+    return nil
+end
+
 ---@param key string
 function QuestieTooltips:GetTooltip(key)
     Questie:Debug(Questie.DEBUG_SPAM, "[QuestieTooltips:GetTooltip]", key)
@@ -556,63 +611,6 @@ elseif key:sub(1,2) == "o_" then
     end
 
     return tooltipLines
-end
-
-local function _GetLearnerTooltipLines(key)
-    -- key format: "m_<npcId>" for NPCs, "o_<objectId>" for objects, "i_<itemId>" for items
-    local prefix = key:sub(1, 2)
-    local id = tonumber(key:sub(3))
-    if not id then return nil end
-
-    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
-    if not QuestieLearner or not QuestieLearner.IsEnabled or not QuestieLearner:IsEnabled() then
-        return nil
-    end
-
-    local learnedNpc = QuestieLearner.data and QuestieLearner.data.npcs and QuestieLearner.data.npcs[id]
-    if not learnedNpc then return nil end
-
-    local lines = {}
-    local guidSpawns = learnedNpc[8]
-    local spawnList = learnedNpc[7]
-
-    -- Count total distinct spawn points
-    local totalSpawns = 0
-    if spawnList then
-        for _ in pairs(spawnList) do totalSpawns = totalSpawns + 1 end
-    end
-
-    -- Find the most-visited spawn (highest count in guidSpawns)
-    local bestUID, bestX, bestY, bestCount = nil, nil, nil, 0
-    if guidSpawns then
-        for uid, entry in pairs(guidSpawns) do
-            local c = tonumber(entry.count) or 1
-            if c > bestCount then
-                bestCount = c
-                bestUID = uid
-                bestX = entry.x
-                bestY = entry.y
-            end
-        end
-    end
-
-    if bestX and bestY then
-        tinsert(lines, string.format("  |cFF808080Learned spawn|r (|cFFFFFFFF%.1f, %.1f|r) |cFF808080from %d kills|r", bestX, bestY, bestCount))
-    end
-
-    if totalSpawns > 0 then
-        tinsert(lines, string.format("  |cFF808080Total spawns learned|r |cFFFFFFFF%d|r", totalSpawns))
-    end
-
-    local mc = tonumber(learnedNpc.mc) or 0
-    if mc > 0 then
-        tinsert(lines, string.format("  |cFF808080Total kills recorded|r |cFFFFFFFF%d|r", mc))
-    end
-
-    if #lines > 0 then
-        return lines
-    end
-    return nil
 end
 
 _InitObjectiveTexts = function(objectivesText, objectiveIndex, playerName)
