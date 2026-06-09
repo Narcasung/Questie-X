@@ -1491,6 +1491,7 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
             Questie:Debug(Questie.DEBUG_DEVELOP,
                 "[QuestieQuest:PopulateObjective] - No Update fn but objective is complete, unloading icons.")
             _UnloadAlreadySpawnedIcons(objective)
+            QuestieMap:UnloadQuestFramesForObjective(quest.Id, objectiveIndex)
         end
         return
     end
@@ -1516,6 +1517,7 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
     if QuestieQuest.ShouldHideObjective(objective) then
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] HIDDEN by ShouldHideObjective, unloading icons for objIdx:", objectiveIndex)
         _UnloadAlreadySpawnedIcons(objective)
+        QuestieMap:UnloadQuestFramesForObjective(quest.Id, objectiveIndex)
         return
     end
 
@@ -1536,6 +1538,7 @@ function QuestieQuest:PopulateObjective(quest, objectiveIndex, objective, blockI
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieQuest:PopulateObjective] SKIPPING objective (completed):",
             objective.Description, "completed:", tostring(completed), "quest.isComplete:", tostring(quest.isComplete))
         _UnloadAlreadySpawnedIcons(objective)
+        QuestieMap:UnloadQuestFramesForObjective(quest.Id, objectiveIndex)
         return
     end
 

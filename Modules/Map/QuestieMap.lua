@@ -85,6 +85,28 @@ function QuestieMap:GetFramesForQuest(questId)
     return frames
 end
 
+-- Unload only the frames belonging to a single objective of a quest.
+-- Frames carry data.ObjectiveIndex (set in _DetermineIconsToDraw), so we can remove a
+-- completed objective's pins deterministically off the map's own frame registry instead
+-- of relying on objective.AlreadySpawned, which desyncs from on-screen frames after
+-- learner spawn-list invalidation or complete->abandon->reaccept cycles.
+function QuestieMap:UnloadQuestFramesForObjective(questId, objectiveIndex)
+    -- objectiveIndex 0 is the SpecialObjectives sentinel (shared by all special objectives),
+    -- so unloading by it would cross-remove sibling specials mid-pass. Only act on real
+    -- positive standard-objective indices; specials keep using AlreadySpawned.
+    if (not objectiveIndex) or objectiveIndex <= 0 or (not QuestieMap.questIdFrames[questId]) then
+        return
+    end
+    for name, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+        if frame and frame.data and frame.data.ObjectiveIndex == objectiveIndex then
+            frame:Unload()
+            QuestieMap.questIdFrames[questId][name] = nil
+            _G[name] = nil
+        end
+    end
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading objective frames for questid:", questId, "objIdx:", objectiveIndex)
+end
+
 function QuestieMap:UnloadQuestFrames(questId, iconType)
     if QuestieMap.questIdFrames[questId] then
         if not iconType then
