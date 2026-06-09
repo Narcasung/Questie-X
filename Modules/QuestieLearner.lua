@@ -4149,10 +4149,17 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
 
     if not npcId or npcId <= 0 then return end
 
-    local _mapId, px, py = QuestieCompat.GetCurrentPlayerPosition()
-    if px and py and px > 0 and py > 0 then
-        px = floor(px * 10000) / 100
-        py = floor(py * 10000) / 100
+    -- Only record YOUR position for the spawn. GetCurrentPlayerPosition()
+    -- returns the local player's coords, not the killer's — so for
+    -- party/raid kills where someone else landed the killing blow we
+    -- must not pollute the learner's spawn map with our own location.
+    local _mapId, px, py = nil, nil, nil
+    if credited then
+        _mapId, px, py = QuestieCompat.GetCurrentPlayerPosition()
+        if px and py and px > 0 and py > 0 then
+            px = floor(px * 10000) / 100
+            py = floor(py * 10000) / 100
+        end
     end
     local zoneId  = GetZoneId()
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
