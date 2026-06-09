@@ -97,6 +97,15 @@ local function AscensionOwnsNpcSpawns(npcId)
         and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7] == true
 end
 
+-- Mode-independent check for AscensionDB-curated OBJECT spawns ([4]).
+local function AscensionOwnsObjectSpawns(objectId)
+    return QuestieDB
+        and QuestieDB.ascensionOverrideKeys
+        and QuestieDB.ascensionOverrideKeys["OBJECT"]
+        and QuestieDB.ascensionOverrideKeys["OBJECT"][objectId]
+        and QuestieDB.ascensionOverrideKeys["OBJECT"][objectId][4] == true
+end
+
 local function HasAscensionQuestObjectiveData(questId)
     return IsAscensionProtected("QUEST", questId, 10)
 end
@@ -967,23 +976,28 @@ local function _ApplyNpcLiveUpdate(npcId)
     if existing.mc < threshold then return false end
     if not (QuestieDB and QuestieDB.npcDataOverrides and existing[7] and next(existing[7])) then return false end
 
-    local allowSpawnMerge = existing[7] and next(existing[7]) and HasQuestNpcReferences(npcId)
     local ovr = QuestieDB.npcDataOverrides[npcId]
     if not ovr then
-        if IsAscensionProtected("NPC", npcId, 7) and not allowSpawnMerge then
+        -- Learner mode: IsAscensionProtected returns false, so learner data
+        -- (including spawns) is used exclusively. Auto/static modes: strip
+        -- learner spawns for AscensionDB-curated NPCs.
+        if IsAscensionProtected("NPC", npcId, 7) then
             QuestieDB.npcDataOverrides[npcId] = DeepCopy(CopyWithoutField(existing, 7))
         else
             QuestieDB.npcDataOverrides[npcId] = DeepCopy(existing)
         end
     else
-        -- Merge: fill missing fields; also overwrite empty-string names.
+        -- Merge non-spawn fields. IsAscensionProtected is mode-dependent:
+        -- returns false in learner mode (learner fills all gaps), true in
+        -- auto/static (curated fields are protected).
         for k, v in pairs(existing) do
             if k ~= 7 and not IsAscensionProtected("NPC", npcId, k) and (ovr[k] == nil or (k == 1 and ovr[k] == "")) then
                 ovr[k] = DeepCopy(v)
             end
         end
-        -- Always merge spawn coords.
-        if existing[7] and (not IsAscensionProtected("NPC", npcId, 7) or allowSpawnMerge) then
+        -- Merge spawn coords. allowSpawnMerge bypass removed — it was
+        -- the original hole letting learner coords leak into curated spawns.
+        if existing[7] and not IsAscensionProtected("NPC", npcId, 7) then
             ovr[7] = ovr[7] or {}
             for zid, coords in pairs(existing[7]) do
                 ovr[7][zid] = ovr[7][zid] or {}
@@ -2435,21 +2449,25 @@ function QuestieLearner:LearnObject(objectId, name, spawnX, spawnY, spawnZoneId,
     existing.ls = time() -- Update last seen
     existing.mc = (existing.mc or 0) + 1
 
-    -- Live injection into objectDataOverrides so QueryObjectSingle works without reload
+    -- Live injection into objectDataOverrides so QueryObjectSingle works without reload.
+    -- Same three-mode semantics as the NPC path.
     if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.objectDataOverrides then
-        local allowSpawnMerge = existing.questRelevant or HasQuestObjectReferences(objectId)
         local ovr = QuestieDB.objectDataOverrides[objectId]
         if not ovr then
-            if allowSpawnMerge then
-                QuestieDB.objectDataOverrides[objectId] = existing
-            else
+            -- Learner: use learner data exclusively. Auto/static: strip learner
+            -- spawns for AscensionDB-curated objects.
+            if AscensionOwnsObjectSpawns(objectId) then
                 QuestieDB.objectDataOverrides[objectId] = DeepCopy(CopyWithoutField(existing, 4))
+            else
+                QuestieDB.objectDataOverrides[objectId] = existing
             end
         else
             for k, v in pairs(existing) do
                 if ovr[k] == nil and not IsAscensionProtected("OBJECT", objectId, k) then ovr[k] = v end
             end
-            if existing[4] and (not IsAscensionProtected("OBJECT", objectId, 4) or allowSpawnMerge) then
+            -- Merge spawn coords: learner mode bypasses (IsAscensionProtected=false),
+            -- auto/static protects curated spawns. allowSpawnMerge bypass removed.
+            if existing[4] and not IsAscensionProtected("OBJECT", objectId, 4) then
                 ovr[4] = ovr[4] or {}
                 for zid, coords in pairs(existing[4]) do
                     ovr[4][zid] = ovr[4][zid] or {}

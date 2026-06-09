@@ -2277,6 +2277,10 @@ function QuestieDB:GetNPC(npcId)
         if not rawdata then
             rawdata = override
         end
+        -- Learner mode: discard any curated coords that AscensionDB's
+        -- _Asc_MergeInto wrote into npcDataOverrides. The learner's own
+        -- coords come from rawdata (learnerRecord), not from the override.
+        override = nil
     else
         rawdata = QuestieDB.QueryNPC(npcId, QuestieDB._npcAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
