@@ -4684,16 +4684,6 @@ local function _HideLearnerTooltipFrame()
     end
 end
 
--- Adds a blank double-line spacer to a tooltip.  Used as a lightweight
--- visual separator between learner data and surrounding tooltip content
--- when the secondary frame is disabled.
-local function _AddTooltipSeparator(tooltip)
-    -- AddDoubleLine(leftText, rightText, leftR, leftG, leftB, rightR, rightG, rightB)
-    -- Passing " " for both with 0 alpha makes the line invisible, creating a
-    -- clean one-line vertical gap without needing any texture assets.
-    tooltip:AddDoubleLine(" ", " ", 0, 0, 0, 0, 0, 0)
-end
-
 local function _ShowLearnerTooltipFrame(sourceTooltip, lines)
     local tooltip = _GetLearnerTooltipFrame()
     tooltip:ClearLines()
@@ -4793,19 +4783,9 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
         rendered[#rendered + 1] = " "
         _ShowLearnerTooltipFrame(GameTooltip, rendered)
     else
-        -- Thin horizontal separator above learner section so it doesn't
-        -- visually blend into the NPC data above.
-        _AddTooltipSeparator(GameTooltip)
-        for _, pair in ipairs(lines) do
-            GameTooltip:AddDoubleLine(pair[1], pair[2])
-        end
-        -- Thin horizontal separator below learner section to separate
-        -- from any addon data appended below (e.g. other tooltip mods).
-        _AddTooltipSeparator(GameTooltip)
-        local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
-        if QuestieTooltips and QuestieTooltips.ResizeTooltip then
-            QuestieTooltips:ResizeTooltip(GameTooltip)
-        end
+        -- Learner spawn/kill data is never added to the main tooltip. When the secondary
+        -- learner tooltip is disabled, it is not shown anywhere (the toggle gates it).
+        _HideLearnerTooltipFrame()
     end
 end
 

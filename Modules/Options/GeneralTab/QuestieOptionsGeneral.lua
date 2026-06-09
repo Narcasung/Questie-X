@@ -550,7 +550,7 @@ function QuestieOptions.tabs.general:Initialize()
                         type = "toggle",
                         order = 8.6,
                         name = function() return l10n('Use secondary learner tooltip'); end,
-                        desc = function() return l10n('Show learner-specific spawn details in a separate tooltip instead of adding them to the existing one.'); end,
+                        desc = function() return l10n('Show learner-specific spawn details in a separate tooltip attached to the unit tooltip. When disabled, learner spawn details are not shown (they are never added to the main tooltip).'); end,
                         width = 1.5,
                         disabled = function() return not (Questie.db.profile.enableTooltips and (Questie.db.profile.learnerTooltips ~= false)); end,
                         get = function() return Questie.db.profile.learnerTooltipUseSecondary == true end,
