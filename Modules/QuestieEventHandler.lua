@@ -181,10 +181,17 @@ function QuestieEventHandler:RegisterLateEvents()
         end)
     end
 
-    -- Questie Debug Offer
-    if Questie.IsSoD then
-        Questie:RegisterEvent("LOOT_OPENED", QuestieDebugOffer.LootWindow)
-    end
+    -- LOOT_OPENED: remove pins for looted quest object nodes, and (SoD) run the debug offer.
+    -- AceEvent allows only one handler per event on the Questie object, so both run here.
+    Questie:RegisterEvent("LOOT_OPENED", function(...)
+        local ok, err = pcall(function() QuestieQuest:RemoveLootedObjectivePins() end)
+        if not ok then
+            Questie:Debug(Questie.DEBUG_ELEVATED, "[QuestieEventHandler] RemoveLootedObjectivePins error:", err)
+        end
+        if Questie.IsSoD and QuestieDebugOffer and QuestieDebugOffer.LootWindow then
+            QuestieDebugOffer.LootWindow(...)
+        end
+    end)
 
     -- Questie Comms Events
 

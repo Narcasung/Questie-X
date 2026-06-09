@@ -496,6 +496,10 @@ function QuestieQuest:AcceptQuest(questId)
     local quest = QuestieDB.GetQuest(questId)
 
     if quest then
+        -- Fresh acceptance: clear any looted-object-spawn history so every node pin
+        -- shows again (covers re-doing the quest after abandon or an Ascension prestige).
+        QuestieQuest:ClearLootedSpawns(questId)
+
         -- If any of these flags exist, this quest was previously accepted and may
         -- have stale completion state (e.g. complete-then-abandon-then-reaccept leaves
         -- quest.isComplete=true, WasComplete=true). Only check quest-object flags
@@ -1742,6 +1746,140 @@ _UnloadAlreadySpawnedIcons = function(objective)
     end
 end
 
+-- ============================================================================
+-- Looted object-spawn tracking
+-- When a player loots/opens a quest object node, that specific node's pin should
+-- disappear even if the whole objective is not yet complete. Consumed node
+-- positions are persisted per quest+objective in char DB so the pin stays gone
+-- across reloads, and are cleared on (re)accept so abandoning + redoing the quest
+-- (e.g. after an Ascension prestige) starts fresh.
+--
+-- Matching is RADIUS-based, not exact-coordinate, and works across every data
+-- source mode (auto / learner / static / none): the suppression operates on the
+-- already-resolved objective.spawnList, and the radius absorbs the small coordinate
+-- differences between the static DB spawn and a learner spawn that QuestieLearner
+-- may add at the player's position for the very node that was just looted.
+-- ============================================================================
+
+-- Suppression radius in 0-100 zone units. Wide enough to cover DB-vs-learner
+-- coordinate drift (learner dedups within spawnDedupRadius), tight enough not to
+-- swallow neighbouring nodes in a dense gather field.
+local LOOTED_SPAWN_RADIUS = 1.5
+
+local function _GetLootedStore(create)
+    if (not Questie.db) or (not Questie.db.char) then return nil end
+    local store = Questie.db.char.lootedObjectSpawns
+    if (not store) and create then
+        store = {}
+        Questie.db.char.lootedObjectSpawns = store
+    end
+    return store
+end
+
+---True if (zone,x,y) is within LOOTED_SPAWN_RADIUS of any node already looted for
+---this objective. Mode-agnostic: callers pass coordinates straight from the active
+---objective.spawnList.
+---@param questId number
+---@param objectiveIndex ObjectiveIndex
+function QuestieQuest:IsSpawnLooted(questId, objectiveIndex, zone, x, y)
+    local store = _GetLootedStore(false)
+    if not store then return false end
+    local q = store[questId]
+    if not q then return false end
+    local points = q[objectiveIndex]
+    if not points then return false end
+    for _, p in pairs(points) do
+        if p.zone == zone then
+            local dx, dy = p.x - x, p.y - y
+            if (dx * dx + dy * dy) <= (LOOTED_SPAWN_RADIUS * LOOTED_SPAWN_RADIUS) then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+---@param questId number
+---@param objectiveIndex ObjectiveIndex
+function QuestieQuest:MarkObjectSpawnLooted(questId, objectiveIndex, zone, x, y)
+    if QuestieQuest:IsSpawnLooted(questId, objectiveIndex, zone, x, y) then return end
+    local store = _GetLootedStore(true)
+    if not store then return end
+    store[questId] = store[questId] or {}
+    store[questId][objectiveIndex] = store[questId][objectiveIndex] or {}
+    table.insert(store[questId][objectiveIndex], { zone = zone, x = x, y = y })
+end
+
+---Clear all looted-spawn history for a quest. Called on accept so re-taking the
+---quest (after abandon / prestige) shows every node again.
+---@param questId number
+function QuestieQuest:ClearLootedSpawns(questId)
+    local store = _GetLootedStore(false)
+    if store then store[questId] = nil end
+end
+
+---Fires on LOOT_OPENED. Finds the active object-objective spawn nearest the player
+---(who is standing on the node being looted), marks it consumed, and redraws just
+---that objective so the node's pin is removed while the rest stay clustered correctly.
+---Operates on objective.spawnList, so it is correct in every data source mode; the
+---radius-based suppression also absorbs a learner spawn re-added for the looted node.
+function QuestieQuest:RemoveLootedObjectivePins()
+    if not Questie.db.profile.enableObjectives then return end
+    if (not QuestiePlayer) or (not QuestiePlayer.currentQuestlog) then return end
+    if (not HBD) or (not HBD.GetPlayerWorldPosition) then return end
+
+    local px, py, pInstance = HBD:GetPlayerWorldPosition()
+    if (not px) or (not py) then return end
+
+    local TOLERANCE = 12 -- world yards; the player stands on the node when looting it
+
+    for questId in pairs(QuestiePlayer.currentQuestlog) do
+        local quest = QuestieDB.GetQuest(questId)
+        if quest and quest.Objectives then
+            for objectiveIndex, objective in pairs(quest.Objectives) do
+                if objective.Type == "object" and objective.spawnList and (not objective.Completed) then
+                    local bestDist, bestZone, bestX, bestY
+                    for _, spawnData in pairs(objective.spawnList) do
+                        if spawnData.Spawns then
+                            for zone, coords in pairs(spawnData.Spawns) do
+                                local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
+                                for _, coord in pairs(coords) do
+                                    if coord[1] and coord[2] and uiMapId then
+                                        local wx, wy, wInstance = HBD:GetWorldCoordinatesFromZone(coord[1] / 100, coord[2] / 100, uiMapId)
+                                        if wx and wy and ((not wInstance) or (not pInstance) or wInstance == pInstance) then
+                                            local dx, dy = px - wx, py - wy
+                                            local dist = math.sqrt(dx * dx + dy * dy)
+                                            if (not bestDist) or dist < bestDist then
+                                                bestDist, bestZone, bestX, bestY = dist, zone, coord[1], coord[2]
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    if bestDist and bestDist <= TOLERANCE and
+                        not QuestieQuest:IsSpawnLooted(questId, objectiveIndex, bestZone, bestX, bestY) then
+                        QuestieQuest:MarkObjectSpawnLooted(questId, objectiveIndex, bestZone, bestX, bestY)
+                        Questie:Debug(Questie.DEBUG_DEVELOP,
+                            "[QuestieQuest:RemoveLootedObjectivePins] Removed looted object pin quest:", questId,
+                            "obj:", objectiveIndex, "zone:", bestZone, "dist:", bestDist)
+                        -- Redraw just this objective so clustering recomputes with the
+                        -- looted node skipped (see the IsSpawnLooted guard in _DetermineIconsToDraw).
+                        QuestieMap:UnloadQuestFramesForObjective(questId, objectiveIndex)
+                        objective.AlreadySpawned = {}
+                        local ok, err = xpcall(QuestieQuest.PopulateObjective, ERR_FUNCTION, QuestieQuest, quest, objectiveIndex, objective, false)
+                        if not ok then
+                            Questie:Debug(Questie.DEBUG_ELEVATED, "[QuestieQuest:RemoveLootedObjectivePins] PopulateObjective error:", err)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 ---@param quest Quest
 ---@param objective QuestObjective
 ---@param objectiveIndex ObjectiveIndex
@@ -1792,7 +1930,10 @@ _DetermineIconsToDraw = function(quest, objective, objectiveIndex, objectiveCent
                 local uiMapId = ZoneDB:GetUiMapIdByAreaId(zone)
                 local _, spawn = next(spawns)
                 while _ do
-                    if (spawn[1] and spawn[2]) then
+                    -- Skip object spawns the player has already looted this quest cycle so
+                    -- the consumed node's pin stays removed across redraws/reloads.
+                    if (spawn[1] and spawn[2]) and
+                        not (objective.Type == "object" and QuestieQuest:IsSpawnLooted(quest.Id, objectiveIndex, zone, spawn[1], spawn[2])) then
                         local drawIcon = {
                             AlreadySpawnedId = id,
                             data = data,
