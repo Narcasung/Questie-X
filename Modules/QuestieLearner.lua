@@ -5022,13 +5022,10 @@ end
 --- in each zone are numbers within 0-100 range.
 ---@param data table The learned entity data table (e.g. NPC entry)
 ---@return boolean True if valid, false if malformed
-local function _ValidateLearnedSpawnData(data)
-    if type(data) ~= "table" then return false end
-
-    local spawns = data[7]
-    if not spawns then return true end  -- no spawn data is OK
+-- Validates a single coordinate table (zoneId -> { {x,y}, ... }). Absent is OK.
+local function _ValidateCoordTable(spawns)
+    if spawns == nil then return true end
     if type(spawns) ~= "table" then return false end
-
     for zoneId, zoneSpawns in pairs(spawns) do
         if type(zoneId) ~= "number" then return false end
         if type(zoneSpawns) ~= "table" then return false end
@@ -5039,6 +5036,15 @@ local function _ValidateLearnedSpawnData(data)
             if x < 0 or x > 100 or y < 0 or y > 100 then return false end
         end
     end
+    return true
+end
+
+local function _ValidateLearnedSpawnData(data)
+    if type(data) ~= "table" then return false end
+    -- NPC spawns live in key [7], object spawns in key [4]. Validate whichever is present
+    -- so malformed object coordinates are rejected too (the old check only covered [7]).
+    if not _ValidateCoordTable(data[7]) then return false end
+    if not _ValidateCoordTable(data[4]) then return false end
     return true
 end
 
@@ -5119,12 +5125,20 @@ local function _QueueIncomingNetworkMerge(typ, id, data, op)
 
         local anyChanged = false
         for _, entry in pairs(pending) do
-            local changed = QuestieLearner:_ApplyIncomingNetworkMerge(entry.typ, entry.id, entry.data, entry.op)
-            anyChanged = anyChanged or changed
+            -- Isolate each entry: a single malformed broadcast must not abort the flush
+            -- and lose the rest of the batch (or break the live update loop).
+            local ok, changed = pcall(QuestieLearner._ApplyIncomingNetworkMerge, QuestieLearner,
+                entry.typ, entry.id, entry.data, entry.op)
+            if ok then
+                anyChanged = anyChanged or changed
+            else
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Skipped malformed network merge",
+                    tostring(entry.typ), tostring(entry.id), "-", tostring(changed))
+            end
         end
 
         if anyChanged then
-            QuestieLearner:InjectLearnedData()
+            pcall(QuestieLearner.InjectLearnedData, QuestieLearner)
             QuestieLearner.data = Questie.dbLearner.global
         end
     end
@@ -5206,10 +5220,15 @@ function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
         existing[coordKey] = existing[coordKey] or {}
         local grid = GetCustomGridPrecision()
         for zoneId, coords in pairs(d[coordKey]) do
-            existing[coordKey][zoneId] = existing[coordKey][zoneId] or {}
-            for _, coord in ipairs(coords) do
-                if InsertIfNewBucket(existing[coordKey][zoneId], coord[1], coord[2], grid) then
-                    changed = true
+            -- Defensive: skip malformed zone keys / coord lists rather than erroring.
+            if type(zoneId) == "number" and type(coords) == "table" then
+                existing[coordKey][zoneId] = existing[coordKey][zoneId] or {}
+                for _, coord in ipairs(coords) do
+                    if type(coord) == "table" and type(coord[1]) == "number" and type(coord[2]) == "number" then
+                        if InsertIfNewBucket(existing[coordKey][zoneId], coord[1], coord[2], grid) then
+                            changed = true
+                        end
+                    end
                 end
             end
         end
@@ -5219,13 +5238,15 @@ function QuestieLearner:_ApplyIncomingNetworkMerge(typ, id, d, op)
     if typ == "ITEM" and type(d[2]) == "table" then
         existing[2] = existing[2] or {}
         for _, npcId in ipairs(d[2]) do
-            local found = false
-            for _, existId in ipairs(existing[2]) do
-                if existId == npcId then found = true; break end
-            end
-            if not found then
-                table.insert(existing[2], npcId)
-                changed = true
+            if type(npcId) == "number" then
+                local found = false
+                for _, existId in ipairs(existing[2]) do
+                    if existId == npcId then found = true; break end
+                end
+                if not found then
+                    table.insert(existing[2], npcId)
+                    changed = true
+                end
             end
         end
     end
