@@ -2767,18 +2767,31 @@ function QuestieLearner:InjectLearnedData()
             purgedNpcs = purgedNpcs + 1
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged player-spawned NPC", npcId, data[1] or "?")
         elseif data[7] then
-            -- Check for empty spawn table (no coords at all = stale learner artifact)
+            -- Check for empty spawn table (no coords at all = stale learner artifact).
+            -- Only purge if the NPC has no other useful state — keep entries that
+            -- still have a name, home zone, recorded kills, or quest references,
+            -- so a kill recorded with no position (e.g. party-kill position
+            -- attribution, or pre-record normalization) doesn't drop the whole row.
             local hasCoords = false
-            for zoneKey, coords in pairs(data[7]) do
+            for _zoneKey, coords in pairs(data[7]) do
                 if type(coords) == "table" and #coords > 0 then
                     hasCoords = true
                     break
                 end
             end
             if not hasCoords then
-                learned.npcs[npcId] = nil
-                purgedNpcs = purgedNpcs + 1
-                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged NPC with empty spawns", npcId, data[1] or "?")
+                local hasName = type(data[1]) == "string" and data[1] ~= ""
+                local hasZone = type(data[9]) == "number"
+                local hasKills = (tonumber(data.mc) or 0) > 0
+                local hasQuests = type(data[10]) == "table" and next(data[10]) ~= nil
+                if not hasName and not hasZone and not hasKills and not hasQuests then
+                    learned.npcs[npcId] = nil
+                    purgedNpcs = purgedNpcs + 1
+                    Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged NPC with empty spawns and no other state", npcId, "?")
+                else
+                    -- Drop the empty [7] table so it doesn't trip future checks
+                    data[7] = nil
+                end
             end
         end
     end
