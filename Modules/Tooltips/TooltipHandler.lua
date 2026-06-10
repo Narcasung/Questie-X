@@ -256,9 +256,7 @@ function _QuestieTooltips:HideAscensionQuestLines(tooltip)
     if not Questie.db.profile.enableTooltips then return end
     local numLines = tooltip:NumLines()
     if not numLines or numLines < 1 then return end
-    
-    local questBlockActive = false
-    
+
     for i = 2, numLines do
         local fontString = _G[tooltip:GetName() .. "TextLeft" .. i]
         if fontString then
@@ -267,19 +265,21 @@ function _QuestieTooltips:HideAscensionQuestLines(tooltip)
                 local cleanText = string.gsub(text, "|[cC]%x%x%x%x%x%x%x%x", "")
                 cleanText = string.gsub(cleanText, "|[rR]", "")
                 cleanText = string.match(cleanText, "^%s*(.-)%s*$") or cleanText
-                
-                -- Optional [-] or bullets in front of objective lines
+
+                -- Hide ONLY the Ascension-injected objective progress lines themselves
+                -- (e.g. "0/8 Arcane Wraith slain", "[1] ...", "- 0/2 ...").
+                --
+                -- We intentionally do NOT hide the lines that follow. The previous
+                -- behavior set a "questBlockActive" flag and then wiped every later
+                -- non-indented line until it hit an indented one — which also removed
+                -- Questie's own "Item ID"/"NPC ID"/"Object ID" lines and any other
+                -- addon's tooltip additions (e.g. an item-count overlay), because those
+                -- are appended at the BOTTOM of the tooltip, after the objective block.
+                -- Matching each objective line individually removes the Ascension spam
+                -- without touching anything else on the tooltip.
                 if string.match(cleanText, "^%[%d+.-%]") or string.match(cleanText, "^%d+/%d+") or string.match(cleanText, "^%-.-%d+/%d+") then
                     fontString:SetText("")
                     fontString:Hide()
-                    questBlockActive = true
-                elseif questBlockActive then
-                    if string.match(text, "^%s+") then
-                        questBlockActive = false
-                    else
-                        fontString:SetText("")
-                        fontString:Hide()
-                    end
                 end
             end
         end
