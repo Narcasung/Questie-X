@@ -369,6 +369,26 @@ function QuestieLearnerExport:MergeImport()
     local skipped  = 0
     local rejected = 0
 
+    -- Count actual spawn coordinates ([7] for NPCs, [4] for objects) so we can report how
+    -- many *pins* the import really added — not just how many entries. This tells the user
+    -- whether the source data carried coordinates at all (a sparse export merges entries but
+    -- adds 0 coords, which means there is nothing new to draw on the map).
+    local function CountSpawnCoords(store, coordKey)
+        local n = 0
+        if type(store) ~= "table" then return 0 end
+        for _, d in pairs(store) do
+            if type(d) == "table" and type(d[coordKey]) == "table" then
+                for _, zoneCoords in pairs(d[coordKey]) do
+                    if type(zoneCoords) == "table" then
+                        for _ in ipairs(zoneCoords) do n = n + 1 end
+                    end
+                end
+            end
+        end
+        return n
+    end
+    local coordsBefore = CountSpawnCoords(g.npcs, 7) + CountSpawnCoords(g.objects, 4)
+
     -- Apply each entry SYNCHRONOUSLY and DEFENSIVELY so importing data merged from several
     -- different players is safe:
     --  * each entry is validated for key/coordinate structure inside
@@ -405,6 +425,10 @@ function QuestieLearnerExport:MergeImport()
     self.lastImportData  = nil
     self.lastImportStats = nil
 
+    local coordsAfter = CountSpawnCoords(g.npcs, 7) + CountSpawnCoords(g.objects, 4)
+    local coordsAdded = coordsAfter - coordsBefore
+    if coordsAdded < 0 then coordsAdded = 0 end
+
     -- Push merged data into QuestieDB overrides immediately (no reload required for override data)
     if QuestieLearner and QuestieLearner.InjectLearnedData then
         pcall(QuestieLearner.InjectLearnedData, QuestieLearner)
@@ -417,9 +441,10 @@ function QuestieLearnerExport:MergeImport()
         pcall(QuestieQuest.SmoothReset, QuestieQuest)
     end
 
-    local msg = string.format("Import complete: merged %d, skipped %d already-known%s.",
+    local msg = string.format("Import complete: merged %d, skipped %d already-known%s. Added %d new spawn coordinate%s.",
         merged, skipped,
-        rejected > 0 and (", rejected " .. rejected .. " malformed") or "")
+        rejected > 0 and (", rejected " .. rejected .. " malformed") or "",
+        coordsAdded, coordsAdded == 1 and "" or "s")
     Questie:Debug(Questie.DEBUG_DEVELOP, "[LearnerExport]", msg)
     return true, msg
 end
