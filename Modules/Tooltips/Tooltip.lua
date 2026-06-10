@@ -671,24 +671,47 @@ _InitObjectiveTexts = function(objectivesText, objectiveIndex, playerName)
     return objectivesText
 end
 
--- Apply ElvUI's "Transparent" tooltip look (flat dark background + thin 1px border) so
--- Questie's tooltips match the ElvUI style even when ElvUI is not installed. ElvUI uses a
--- FLAT texture for both the background and the border with a 1px edge (see
--- ElvUI/Core/Toolkit.lua SetTemplate + Settings/Profile.lua:29-31), not the chunky default
--- WoW tooltip border.
-local _ELV_FLAT = "Interface\\ChatFrame\\ChatFrameBackground" -- solid 1x1 texture on 3.3.5
-local function _ApplyElvUIStyle(frame)
+-- Apply ElvUI's "Transparent" tooltip template (flat dark background + a true 1px border)
+-- so Questie's tooltips match the ElvUI style even when ElvUI is not installed. This copies
+-- ElvUI/Core/Toolkit.lua SetTemplate: the exact blank texture (E.media.blankTex =
+-- Interface\Buttons\WHITE8X8) for both bg and edge, edgeSize = E.mult (ONE physical pixel),
+-- backdrop = E.media.backdropfadecolor {0.06,0.06,0.06} @ colorAlpha 0.8, border =
+-- E.media.bordercolor {0,0,0}. Using E.mult instead of a 1-unit edge is what keeps the
+-- border thin and even (a 1-unit edge renders several pixels thick at the user's UI scale).
+local _ELV_FLAT = "Interface\\Buttons\\WHITE8X8" -- E.media.blankTex
+
+-- ElvUI's E.mult: the size, in UI units, of one physical screen pixel. ElvUI scales UIParent
+-- so 1 unit == 1px; without ElvUI we derive the same value: (768 / screenHeight) / uiScale.
+local function _PixelMult()
+    local scale = UIParent:GetScale()
+    if (not scale) or scale <= 0 then scale = 1 end
+    local res = GetCVar and GetCVar("gxResolution")
+    local screenHeight = res and tonumber(string.match(res, "%d+x(%d+)"))
+    if (not screenHeight) or screenHeight <= 0 then
+        screenHeight = (GetScreenHeight and GetScreenHeight() * scale) or 768
+    end
+    local mult = (768 / screenHeight) / scale
+    if (not mult) or mult <= 0 then mult = 1 end
+    return mult
+end
+
+function QuestieTooltips:ApplyElvUISkin(frame)
     if not frame or not frame.SetBackdrop then return end
+    local mult = _PixelMult()
     frame:SetBackdrop({
         bgFile = _ELV_FLAT,
         edgeFile = _ELV_FLAT,
         tile = false,
         tileSize = 0,
-        edgeSize = 1,
+        edgeSize = mult,
         insets = { left = 0, right = 0, top = 0, bottom = 0 },
     })
-    frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8) -- ElvUI backdropfadecolor
-    frame:SetBackdropBorderColor(0, 0, 0, 1)      -- ElvUI bordercolor (black)
+    frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8) -- backdropfadecolor @ colorAlpha
+    frame:SetBackdropBorderColor(0, 0, 0, 1)      -- bordercolor (black)
+end
+
+local function _ApplyElvUIStyle(frame)
+    QuestieTooltips:ApplyElvUISkin(frame)
 end
 
 -- Skins the standard tooltip frames Questie writes into. No-op when ElvUI is loaded (it

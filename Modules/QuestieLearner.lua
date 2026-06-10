@@ -4628,24 +4628,13 @@ local function _ApplyElvUIStyleTooltip(frame)
             return
         end
     end
-    -- ElvUI "Transparent" template — see ElvUI/Core/Toolkit.lua SetTemplate and
-    -- ElvUI/Settings/Profile.lua:29-31. ElvUI uses a FLAT texture for both the
-    -- background and the border with a 1px (E.mult) edge, NOT the chunky default
-    -- WoW tooltip border — so use a solid texture and edgeSize 1 to match.
+    -- Without ElvUI: apply the exact ElvUI "Transparent" template via the shared skinner
+    -- (WHITE8X8 texture, 1-physical-pixel edge, backdropfadecolor + black border).
     if not frame.SetBackdrop then return end
-    local FLAT = "Interface\\ChatFrame\\ChatFrameBackground" -- solid 1x1 texture on 3.3.5
-    frame:SetBackdrop({
-        bgFile = FLAT,
-        edgeFile = FLAT,
-        tile = false,
-        tileSize = 0,
-        edgeSize = 1,
-        insets = {left = 0, right = 0, top = 0, bottom = 0},
-    })
-    -- (0.06, 0.06, 0.06, 0.8) — ElvUI's default backdropfadecolor
-    frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8)
-    -- Black border (ElvUI's default bordercolor is {0, 0, 0})
-    frame:SetBackdropBorderColor(0, 0, 0, 1)
+    local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+    if QuestieTooltips and QuestieTooltips.ApplyElvUISkin then
+        QuestieTooltips:ApplyElvUISkin(frame)
+    end
 
     -- Apply the same font ElvUI uses by default. FontTemplate isn't available
     -- without ElvUI, so set font + shadow directly.
