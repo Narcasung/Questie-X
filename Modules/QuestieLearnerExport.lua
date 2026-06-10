@@ -199,9 +199,10 @@ function QuestieLearnerExport:ValidateImport(importStr)
     -- Strip whitespace
     importStr = importStr:gsub("%s+", "")
 
-    -- Check prefix
-    if not importStr:sub(1, #FORMAT_PREFIX + 2) == FORMAT_PREFIX .. ":" then
-        return nil, "Not a Questie-X export string (missing QxLD prefix)."
+    -- Check prefix (e.g. "QxLD:"). NOTE: the previous check `not str:sub(...) == x` parsed as
+    -- `(not str:sub(...)) == x` which is always false, so invalid strings were never rejected.
+    if importStr:sub(1, #FORMAT_PREFIX + 1) ~= (FORMAT_PREFIX .. ":") then
+        return nil, "Not a Questie-X export string (missing " .. FORMAT_PREFIX .. " prefix)."
     end
 
     local sepPos = importStr:find(FORMAT_SEP, 1, true)
@@ -267,19 +268,48 @@ function QuestieLearnerExport:MergeImport()
 
     local payload = self.lastImportData
     local bucket  = payload.data
-    local merged  = 0
-    local skipped = 0
 
+    -- Ensure the learner stores exist before merging so a fresh/empty profile can still
+    -- accept an import (and so per-type merges never index a nil table).
+    local g = Questie.dbLearner and Questie.dbLearner.global
+    if not g then
+        return false, "Learner data is not initialized."
+    end
+    g.npcs    = g.npcs    or {}
+    g.quests  = g.quests  or {}
+    g.items   = g.items   or {}
+    g.objects = g.objects or {}
+    g.settings = g.settings or {}
+
+    local merged   = 0
+    local skipped  = 0
+    local rejected = 0
+
+    -- Apply each entry SYNCHRONOUSLY and DEFENSIVELY so importing data merged from several
+    -- different players is safe:
+    --  * each entry is validated for key/coordinate structure inside
+    --    _ApplyIncomingNetworkMerge (via _ValidateLearnedSpawnData) and only adopts fields
+    --    the local store is missing — it never overwrites good local data;
+    --  * a single malformed entry (corrupt coords, wrong types) is caught by pcall and
+    --    skipped/counted instead of aborting the whole import or corrupting the store;
+    --  * we merge synchronously (not via the async comms queue) so InjectLearnedData below
+    --    sees the merged data and the returned counts are accurate.
     local function MergeType(typ, src)
+        if type(src) ~= "table" then return end
         for id, d in pairs(src) do
-            local prevData = QuestieLearner.data
-            QuestieLearner:HandleNetworkData(typ, id, d)
-            if QuestieLearner.data ~= prevData then
-                merged = merged + 1
+            local nid = tonumber(id) or id
+            if type(nid) == "number" and nid > 0 and type(d) == "table" then
+                local ok, applied = pcall(QuestieLearner._ApplyIncomingNetworkMerge, QuestieLearner, typ, nid, d)
+                if ok and applied then
+                    merged = merged + 1
+                elseif ok then
+                    skipped = skipped + 1
+                else
+                    rejected = rejected + 1
+                end
             else
-                skipped = skipped + 1
+                rejected = rejected + 1
             end
-            merged = merged + 1
         end
     end
 
@@ -292,12 +322,13 @@ function QuestieLearnerExport:MergeImport()
     self.lastImportStats = nil
 
     -- Push merged data into QuestieDB overrides immediately (no reload required for override data)
-    local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
     if QuestieLearner and QuestieLearner.InjectLearnedData then
-        QuestieLearner:InjectLearnedData()
+        pcall(QuestieLearner.InjectLearnedData, QuestieLearner)
     end
 
-    local msg = "Import complete: merged " .. merged .. " entries, skipped " .. skipped .. " (already known)."
+    local msg = string.format("Import complete: merged %d, skipped %d already-known%s.",
+        merged, skipped,
+        rejected > 0 and (", rejected " .. rejected .. " malformed") or "")
     Questie:Debug(Questie.DEBUG_DEVELOP, "[LearnerExport]", msg)
     return true, msg
 end
