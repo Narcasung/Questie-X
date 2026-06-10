@@ -734,9 +734,15 @@ end
 function QuestieCompat:QUEST_QUERY_COMPLETE(event)
     GetQuestsCompleted(Questie.db.char.complete)
 
+    local currentQuestlog = QuestiePlayer and QuestiePlayer.currentQuestlog
     local questId = next(Questie.db.char.complete)
     while questId do
-        if QuestieDB.IsRepeatable(questId) then
+        -- Repeatable quests are never "complete" for availability purposes.
+        -- Also: a quest currently in the player's log is active, not turned in — the server's
+        -- completed list can still report a quest re-accepted after an Ascension prestige, and
+        -- that stale flag suppresses the turn-in '?' finisher and mislabels it "(Complete)".
+        -- Keep char.complete and the live quest log mutually exclusive.
+        if QuestieDB.IsRepeatable(questId) or (currentQuestlog and currentQuestlog[questId]) then
             Questie.db.char.complete[questId] = nil
         end
         questId = next(Questie.db.char.complete, questId)

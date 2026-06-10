@@ -500,6 +500,15 @@ function QuestieQuest:AcceptQuest(questId)
         -- shows again (covers re-doing the quest after abandon or an Ascension prestige).
         QuestieQuest:ClearLootedSpawns(questId)
 
+        -- An accepted quest is active, NOT completed-and-turned-in. On Ascension a quest
+        -- completed in a previous prestige stays in char.complete; when re-accepted the stale
+        -- flag made Questie treat it as done — the turn-in '?' finisher was suppressed
+        -- (AddFinisher requires `not char.complete[questId]`) and it showed "(Complete)".
+        -- Clear it so the quest tracks/finishes normally again.
+        if Questie.db.char.complete then
+            Questie.db.char.complete[questId] = nil
+        end
+
         -- If any of these flags exist, this quest was previously accepted and may
         -- have stale completion state (e.g. complete-then-abandon-then-reaccept leaves
         -- quest.isComplete=true, WasComplete=true). Only check quest-object flags
