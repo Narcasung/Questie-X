@@ -4615,17 +4615,19 @@ local function _ApplyElvUIStyleTooltip(frame)
             return
         end
     end
-    -- ElvUI default "Transparent" template — see ElvUI/Core/Toolkit.lua:82
-    -- and ElvUI/Settings/Profile.lua:29-31. Hard-coded so the secondary
-    -- frame looks the same with or without ElvUI.
+    -- ElvUI "Transparent" template — see ElvUI/Core/Toolkit.lua SetTemplate and
+    -- ElvUI/Settings/Profile.lua:29-31. ElvUI uses a FLAT texture for both the
+    -- background and the border with a 1px (E.mult) edge, NOT the chunky default
+    -- WoW tooltip border — so use a solid texture and edgeSize 1 to match.
     if not frame.SetBackdrop then return end
+    local FLAT = "Interface\\ChatFrame\\ChatFrameBackground" -- solid 1x1 texture on 3.3.5
     frame:SetBackdrop({
-        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
-        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
-        tile = true,
-        tileSize = 16,
-        edgeSize = 12,
-        insets = {left = 3, right = 3, top = 3, bottom = 3},
+        bgFile = FLAT,
+        edgeFile = FLAT,
+        tile = false,
+        tileSize = 0,
+        edgeSize = 1,
+        insets = {left = 0, right = 0, top = 0, bottom = 0},
     })
     -- (0.06, 0.06, 0.06, 0.8) — ElvUI's default backdropfadecolor
     frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8)
@@ -4778,6 +4780,15 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
         rendered[#rendered + 1] = " "
         for _, pair in ipairs(lines) do
             rendered[#rendered + 1] = pair[1] .. ": " .. pair[2]
+        end
+        -- Data-source attribution belongs ONLY in this secondary frame, and only when the
+        -- source option is enabled. It is never added to the main tooltip; when the secondary
+        -- learner tooltip is disabled it does not appear at all.
+        local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+        local sourceLine = QuestieTooltips and QuestieTooltips.GetDataSourceLine
+            and QuestieTooltips:GetDataSourceLine("m_" .. npcId)
+        if sourceLine then
+            rendered[#rendered + 1] = sourceLine
         end
         -- Spacer after learner section
         rendered[#rendered + 1] = " "

@@ -2626,22 +2626,33 @@ function QuestieDB.GetPinDataSource(entityType, id, spawnData)
     end
     if not id then return nil end
 
-    -- AscensionDB-curated entity (has at least one curated override field for this id).
+    local settings = _GetLearnerSettings()
+    local mode = settings and settings.dataSourceMode or "auto"
+
+    -- Does the learner have a record for this entity?
+    local learner = Questie.dbLearner and Questie.dbLearner.global
+    local bucket = learner and ((entityType == "OBJECT" and learner.objects)
+        or (entityType == "QUEST" and learner.quests)
+        or (entityType == "ITEM" and learner.items)
+        or learner.npcs)
+    local hasLearner = bucket and bucket[id] ~= nil
+
+    -- In learner-only mode the displayed spawns ARE the learner's (GetNPC/GetObject
+    -- return the learner record and discard curated coords), so the learner is the
+    -- authoritative source even for AscensionDB-curated entities. Without this, a
+    -- freshly-learned curated NPC was mislabelled "AscensionDB".
+    if mode == "learner" and hasLearner then
+        return "Learner"
+    end
+
+    -- AscensionDB-curated entity (authoritative in auto/static modes).
     local ascKeys = QuestieDB.ascensionOverrideKeys and QuestieDB.ascensionOverrideKeys[entityType]
     if ascKeys and ascKeys[id] and next(ascKeys[id]) then
         return "AscensionDB"
     end
 
-    -- Learner-known entity (learned data exists for this id).
-    local learner = Questie.dbLearner and Questie.dbLearner.global
-    if learner then
-        local bucket = (entityType == "OBJECT" and learner.objects)
-            or (entityType == "QUEST" and learner.quests)
-            or (entityType == "ITEM" and learner.items)
-            or learner.npcs
-        if bucket and bucket[id] then
-            return "Learner"
-        end
+    if hasLearner then
+        return "Learner"
     end
 
     return "Questie DB"

@@ -123,6 +123,9 @@ end
 ---@param key string @"m_<npcId>" | "o_<objectId>" | "i_<itemId>"
 local function _GetTooltipSourceLine(key)
     if not Questie.db.profile.enableTooltipsSource then return nil end
+    -- Source attribution is shown only inside the secondary learner tooltip; never when
+    -- that option is disabled (the only caller is the secondary frame, but gate here too).
+    if Questie.db.profile.learnerTooltipUseSecondary ~= true then return nil end
     if not key then return nil end
     local prefix = key:sub(1, 2)
     local id = tonumber(key:sub(3))
@@ -668,6 +671,49 @@ _InitObjectiveTexts = function(objectivesText, objectiveIndex, playerName)
     return objectivesText
 end
 
+-- Apply ElvUI's "Transparent" tooltip look (flat dark background + thin 1px border) so
+-- Questie's tooltips match the ElvUI style even when ElvUI is not installed. ElvUI uses a
+-- FLAT texture for both the background and the border with a 1px edge (see
+-- ElvUI/Core/Toolkit.lua SetTemplate + Settings/Profile.lua:29-31), not the chunky default
+-- WoW tooltip border.
+local _ELV_FLAT = "Interface\\ChatFrame\\ChatFrameBackground" -- solid 1x1 texture on 3.3.5
+local function _ApplyElvUIStyle(frame)
+    if not frame or not frame.SetBackdrop then return end
+    frame:SetBackdrop({
+        bgFile = _ELV_FLAT,
+        edgeFile = _ELV_FLAT,
+        tile = false,
+        tileSize = 0,
+        edgeSize = 1,
+        insets = { left = 0, right = 0, top = 0, bottom = 0 },
+    })
+    frame:SetBackdropColor(0.06, 0.06, 0.06, 0.8) -- ElvUI backdropfadecolor
+    frame:SetBackdropBorderColor(0, 0, 0, 1)      -- ElvUI bordercolor (black)
+end
+
+-- Skins the standard tooltip frames Questie writes into. No-op when ElvUI is loaded (it
+-- skins them itself) or when the option is disabled.
+function QuestieTooltips:SkinDefaultTooltips()
+    if (not Questie.db) or (not Questie.db.profile) or Questie.db.profile.elvuiStyleTooltips == false then return end
+    if IsAddOnLoaded("ElvUI") then return end
+    for _, name in ipairs({ "GameTooltip", "ItemRefTooltip", "ShoppingTooltip1", "ShoppingTooltip2", "WorldMapTooltip" }) do
+        local frame = _G[name]
+        if frame then
+            _ApplyElvUIStyle(frame)
+            -- The default UI re-applies its template backdrop (e.g. item-quality borders) on
+            -- some shows; re-assert our flat look on show so it doesn't revert.
+            if not frame.__questieElvHook then
+                frame.__questieElvHook = true
+                frame:HookScript("OnShow", function(self)
+                    if Questie.db.profile.elvuiStyleTooltips ~= false and not IsAddOnLoaded("ElvUI") then
+                        _ApplyElvUIStyle(self)
+                    end
+                end)
+            end
+        end
+    end
+end
+
 function QuestieTooltips:Initialize()
     -- For the clicked item frame.
     ItemRefTooltip:HookScript("OnTooltipSetItem", _QuestieTooltips.AddItemDataToTooltip)
@@ -750,6 +796,8 @@ function QuestieTooltips:Initialize()
             end
         end
     end)
+
+    QuestieTooltips:SkinDefaultTooltips()
 end
 
 return QuestieTooltips

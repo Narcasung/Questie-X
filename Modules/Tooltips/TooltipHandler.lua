@@ -329,11 +329,9 @@ function _QuestieTooltips:AddUnitDataToTooltip()
             end
         end
 
-        -- Data-source attribution (opt-in; internally gated and nil when source unknown).
-        local npcSourceLine = QuestieTooltips:GetDataSourceLine("m_" .. npcId)
-        if npcSourceLine then
-            GameTooltip:AddLine(npcSourceLine)
-        end
+        -- Data-source attribution is rendered by QuestieLearner's secondary tooltip frame
+        -- (only when the secondary learner tooltip is enabled), never inline in the main
+        -- tooltip — see _AddLearnedSpawnTooltipLine.
 
         local npcNum = tonumber(npcId)
         if npcNum then
@@ -400,11 +398,6 @@ function _QuestieTooltips:AddItemDataToTooltip()
                 self:AddLine(v)
             end
         end
-        -- Data-source attribution (opt-in; internally gated and nil when source unknown).
-        local itemSourceLine = QuestieTooltips:GetDataSourceLine("i_" .. (itemId or 0))
-        if itemSourceLine then
-            self:AddLine(itemSourceLine)
-        end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
     end
     lastItemId = itemId;
@@ -457,14 +450,6 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
                         end
                     end
                 end
-            end
-        end
-        -- Data-source attribution for the hovered object (opt-in; nil when unknown).
-        local firstObjectId = lookup[1]
-        if firstObjectId then
-            local objSourceLine = QuestieTooltips:GetDataSourceLine("o_" .. firstObjectId)
-            if objSourceLine then
-                GameTooltip:AddLine(objSourceLine)
             end
         end
         if QuestieTooltips.ResizeTooltip then

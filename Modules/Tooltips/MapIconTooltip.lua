@@ -107,6 +107,9 @@ end
 --- the label is accurate, plus a Comms overlay when comms holds data for this id.
 local function _GetWorldMapDataSourceLine(pinData)
     if not Questie.db.profile.enableTooltipsSource then return nil end
+    -- Source attribution is tied to the secondary learner tooltip: only show it when that
+    -- option is enabled, and never otherwise (matches the unit-hover behaviour).
+    if Questie.db.profile.learnerTooltipUseSecondary ~= true then return nil end
     local src = pinData and pinData.DataSource
     local parts = {}
     if src then tinsert(parts, src) end

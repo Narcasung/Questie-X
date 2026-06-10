@@ -562,12 +562,30 @@ function QuestieOptions.tabs.general:Initialize()
                         type = "toggle",
                         order = 8.605,
                         name = function() return l10n('Show data source'); end,
-                        desc = function() return l10n('Adds a "Source:" line to NPC, object and map-pin tooltips showing where the data came from (Questie DB, AscensionDB, Learner, Townsfolk, Comms). Only shown when the source is actually known.'); end,
+                        desc = function() return l10n('Adds a "Source:" line (Questie DB, AscensionDB, Learner, Townsfolk, Comms) inside the secondary learner tooltip. Requires "Use secondary learner tooltip"; never shown in the main tooltip and not shown at all when the secondary tooltip is disabled. Only shown when the source is actually known.'); end,
                         width = 1.5,
-                        disabled = function() return not Questie.db.profile.enableTooltips; end,
+                        disabled = function() return not (Questie.db.profile.enableTooltips and Questie.db.profile.learnerTooltipUseSecondary == true); end,
                         get = function() return Questie.db.profile.enableTooltipsSource == true end,
                         set = function(_, value)
                             Questie.db.profile.enableTooltipsSource = value
+                        end
+                    },
+                    elvuiStyleTooltips = {
+                        type = "toggle",
+                        order = 8.606,
+                        name = function() return l10n('ElvUI tooltip style'); end,
+                        desc = function() return l10n('Skin Questie tooltips (NPC/item/map-pin and the secondary learner tooltip) with the ElvUI transparent style even when ElvUI is not installed. Has no effect when ElvUI is loaded, since ElvUI skins them itself. Takes full effect after a reload.'); end,
+                        width = 1.5,
+                        disabled = function() return not Questie.db.profile.enableTooltips; end,
+                        get = function() return Questie.db.profile.elvuiStyleTooltips ~= false end,
+                        set = function(_, value)
+                            Questie.db.profile.elvuiStyleTooltips = value
+                            if value then
+                                local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips")
+                                if QuestieTooltips and QuestieTooltips.SkinDefaultTooltips then
+                                    QuestieTooltips:SkinDefaultTooltips()
+                                end
+                            end
                         end
                     },
                     partyOnlyToggle = {
