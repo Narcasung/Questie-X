@@ -500,15 +500,6 @@ function QuestieQuest:AcceptQuest(questId)
         -- shows again (covers re-doing the quest after abandon or an Ascension prestige).
         QuestieQuest:ClearLootedSpawns(questId)
 
-        -- An accepted quest is active, NOT completed-and-turned-in. On Ascension a quest
-        -- completed in a previous prestige stays in char.complete; when re-accepted the stale
-        -- flag made Questie treat it as done — the turn-in '?' finisher was suppressed
-        -- (AddFinisher requires `not char.complete[questId]`) and it showed "(Complete)".
-        -- Clear it so the quest tracks/finishes normally again.
-        if Questie.db.char.complete then
-            Questie.db.char.complete[questId] = nil
-        end
-
         -- If any of these flags exist, this quest was previously accepted and may
         -- have stale completion state (e.g. complete-then-abandon-then-reaccept leaves
         -- quest.isComplete=true, WasComplete=true). Only check quest-object flags
@@ -1295,7 +1286,13 @@ function QuestieQuest:AddFinisher(quest)
 
     local complete = QuestieDB.IsComplete(questId)
 
-    if (QuestiePlayer.currentQuestlog[questId] and (IsQuestFlaggedCompleted(questId) == false) and (complete == 1 or complete == 0) and (not Questie.db.char.complete[questId])) then
+    -- A quest in the player's log is active and NOT yet turned in, so its turn-in finisher
+    -- should always be drawable regardless of the char.complete flag. On Ascension a quest
+    -- completed in a previous prestige stays flagged in char.complete; when re-accepted it is
+    -- active again, and gating the finisher on char.complete (the old `IsQuestFlaggedCompleted
+    -- == false and not char.complete` checks) wrongly suppressed the '?' at the turn-in NPC.
+    -- Trust the live quest log instead. (complete == -1 is a failed quest, so exclude it.)
+    if (QuestiePlayer.currentQuestlog[questId] and (complete == 1 or complete == 0)) then
         local finisher, key
 
         if quest.Finisher ~= nil then

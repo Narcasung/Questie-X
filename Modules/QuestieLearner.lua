@@ -3417,6 +3417,23 @@ function QuestieLearner:OnTargetChanged()
 
     _Learner.guidNpcCache = _Learner.guidNpcCache or {}
     _Learner.guidNpcCache[guid] = { npcId = entityId, name = name, ts = time() }
+
+    -- Learn this NPC's spawn if it is a quest giver/turn-in NPC (mirrors OnMouseoverUnit).
+    -- Targeting a turn-in NPC should record its location so the finisher '?' can draw, even
+    -- when UPDATE_MOUSEOVER_UNIT didn't fire for it (e.g. it was click- or tab-targeted).
+    local npcFlags = UnitNPCFlags and UnitNPCFlags("target") or 0
+    local isQuestGiver = NpcFlagsHasQuestGiver(npcFlags)
+    if not isQuestGiver then
+        local rawNpc = QuestieDB and QuestieDB.npcData and QuestieDB.npcData[entityId]
+        if rawNpc and (rawNpc[10] or rawNpc[11]) then -- known quest starter (10) or ender (11)
+            isQuestGiver = true
+        end
+    end
+    if isQuestGiver then
+        local subName = UnitCreatureFamily and UnitCreatureFamily("target") or nil
+        -- nil coords -> LearnNPC falls back to the player's position (we're at the NPC).
+        self:LearnNPC(entityId, name, level, subName, npcFlags, nil, nil, nil, nil)
+    end
 end
 
 -- Collects all available quest data from the quest detail/offer screen (before accepting)
@@ -3479,19 +3496,22 @@ function QuestieLearner:OnQuestComplete()
     end
     self:LearnQuest(questId, data)
 
-    -- Identify the quest turn-in NPC or object
-    local npcGuid = UnitGUID("npc")
+    -- Identify the quest turn-in NPC or object. Prefer the "npc" gossip unit, but fall back
+    -- to "target" since the player is targeting the turn-in NPC and the gossip unit isn't
+    -- always populated on this client.
+    local unit = (UnitGUID("npc") and "npc") or (UnitGUID("target") and "target") or nil
+    local npcGuid = unit and UnitGUID(unit)
     if npcGuid then
-        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
-        TraceLearnerEntity("quest_complete", npcGuid, unitType, entityId, UnitName("npc"))
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName(unit))
+        TraceLearnerEntity("quest_complete", npcGuid, unitType, entityId, UnitName(unit))
         if entityId and entityId > 0 then
-            local entityName = UnitName("npc")
+            local entityName = UnitName(unit)
             if unitType == "GameObject" then
                 self:LearnQuestGiver(questId, entityId, 2, false)
                 self:LearnObject(entityId, entityName, nil, nil, zoneId, true)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
-                local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
+                local npcFlags = UnitNPCFlags and UnitNPCFlags(unit) or 2
                 self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil, nil, nil, zoneId)
             end
         end
@@ -3800,18 +3820,21 @@ function QuestieLearner:OnQuestTurnedIn(questId, xpReward, moneyReward)
     if not questId or questId <= 0 then return end
 
     local data = {}
-    -- Capture turn-in NPC/object while the gossip unit is still set
-    local npcGuid = UnitGUID("npc")
+    -- Capture the turn-in NPC/object. The "npc" gossip unit can already be cleared by the
+    -- time QUEST_TURNED_IN fires, so fall back to "target" (the player almost always still
+    -- has the turn-in NPC targeted). This is what records the finisher's spawn location.
+    local unit = (UnitGUID("npc") and "npc") or (UnitGUID("target") and "target") or nil
+    local npcGuid = unit and UnitGUID(unit)
     if npcGuid then
-        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName("npc"))
+        local entityId, unitType = self:ResolveNpcIdFromGuidAndName(npcGuid, UnitName(unit))
         if entityId and entityId > 0 then
-            local entityName = UnitName("npc")
+            local entityName = UnitName(unit)
             if unitType == "GameObject" then
                 self:LearnQuestGiver(questId, entityId, 2, false)
                 self:LearnObject(entityId, entityName, nil, nil, GetZoneId(), true)
             elseif unitType == "Creature" or unitType == "Vehicle" then
                 self:LearnQuestGiver(questId, entityId, 1, false)
-                local npcFlags = UnitNPCFlags and UnitNPCFlags("npc") or 2
+                local npcFlags = UnitNPCFlags and UnitNPCFlags(unit) or 2
                 self:LearnNPC(entityId, entityName, nil, nil, npcFlags, nil, nil, nil, GetZoneId())
             end
         end
