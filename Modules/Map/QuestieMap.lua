@@ -660,7 +660,14 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                             self:FakeHide()
                             return
                         elseif self.hidden then
-                            self:FakeShow()
+                            -- Only re-show icons that aren't filtered out (quest-type options
+                            -- like showDungeonQuests, enableMiniMapIcons, hideUntracked, etc.).
+                            -- Previously FadeLogic re-showed ANY FakeHidden minimap icon once in
+                            -- range, so the world-map quest-type filters never applied to the
+                            -- minimap. ShouldBeHidden mirrors the world-map draw-time check.
+                            if not self:ShouldBeHidden() then
+                                self:FakeShow()
+                            end
                         elseif (distance > profile.fadeLevel) then
                             local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue)
                             self:SetFade(fade)
@@ -815,7 +822,14 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                             self:FakeHide()
                             return
                         elseif self.hidden then
-                            self:FakeShow()
+                            -- Only re-show icons that aren't filtered out (quest-type options
+                            -- like showDungeonQuests, enableMiniMapIcons, hideUntracked, etc.).
+                            -- Previously FadeLogic re-showed ANY FakeHidden minimap icon once in
+                            -- range, so the world-map quest-type filters never applied to the
+                            -- minimap. ShouldBeHidden mirrors the world-map draw-time check.
+                            if not self:ShouldBeHidden() then
+                                self:FakeShow()
+                            end
                         elseif (distance > profile.fadeLevel) then
                             local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue);
                             self:SetFade(fade)
