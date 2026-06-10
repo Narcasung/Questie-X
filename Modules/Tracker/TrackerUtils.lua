@@ -1232,7 +1232,14 @@ function TrackerUtils:GetSortedQuestIds()
 end
 
 function TrackerUtils:IsVoiceOverLoaded()
-    if (IsAddOnLoaded("AI_VoiceOver") and IsAddOnLoaded("AI_VoiceOverData_Vanilla")) then
+    -- Require not just that the VoiceOver addons are loaded, but that the runtime
+    -- structure we index actually exists. Some VoiceOver builds (e.g. on Elune) expose
+    -- a different QuestOverlayUI shape where questPlayButtons is absent, which previously
+    -- crashed UpdateVoiceOverPlayButtons / SetAllPlayButtonAlpha with "attempt to index
+    -- field 'questPlayButtons' (a nil value)". All play-button call sites gate on this
+    -- function, so verifying the table here makes them all safe.
+    if IsAddOnLoaded("AI_VoiceOver") and IsAddOnLoaded("AI_VoiceOverData_Vanilla")
+        and VoiceOver and VoiceOver.QuestOverlayUI and VoiceOver.QuestOverlayUI.questPlayButtons then
         return true
     end
 

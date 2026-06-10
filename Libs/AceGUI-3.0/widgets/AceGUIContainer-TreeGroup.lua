@@ -2,7 +2,10 @@
 TreeGroup Container
 Container that uses a tree control to switch between groups.
 -------------------------------------------------------------------------------]]
-local Type, Version = "TreeGroup", 47
+-- Version bumped 47 -> 48 (Questie-X): hardened Button_OnEnter/OnLeave against a nil
+-- AceGUI.tooltip caused by a conflicting addon's broken AceGUI-3.0 core. The bump ensures
+-- this fixed widget wins registration over an unpatched same-version copy.
+local Type, Version = "TreeGroup", 48
 local AceGUI = LibStub and LibStub("AceGUI-3.0", true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then return end
 
@@ -202,6 +205,13 @@ local function Button_OnEnter(frame)
 	self:Fire("OnButtonEnter", frame.uniquevalue, frame)
 
 	if self.enabletooltips then
+		-- AceGUI.tooltip can be nil when a conflicting addon registered a broken
+		-- AceGUI-3.0 core (seen in the wild as version "1.#INF") that won LibStub
+		-- but never created the shared tooltip frame. Lazily (re)create it so tree
+		-- button tooltips work instead of erroring with "attempt to index ... tooltip".
+		if not AceGUI.tooltip then
+			AceGUI.tooltip = CreateFrame("GameTooltip", "AceGUITooltip", UIParent, "GameTooltipTemplate")
+		end
 		local tooltip = AceGUI.tooltip
 		tooltip:SetOwner(frame, "ANCHOR_NONE")
 		tooltip:ClearAllPoints()
@@ -216,7 +226,7 @@ local function Button_OnLeave(frame)
 	local self = frame.obj
 	self:Fire("OnButtonLeave", frame.uniquevalue, frame)
 
-	if self.enabletooltips then
+	if self.enabletooltips and AceGUI.tooltip then
 		AceGUI.tooltip:Hide()
 	end
 end
