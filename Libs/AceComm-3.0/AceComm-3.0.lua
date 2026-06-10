@@ -53,13 +53,27 @@ AceComm.multipart_spool = AceComm.multipart_spool or {}
 --- Register for Addon Traffic on a specified prefix
 -- @param prefix A printable character (\032-\255) classification of the message (typically AddonName or AddonNameEvent), max 16 characters
 -- @param method Callback to call on message reception: Function reference, or method name (string) to call on self. Defaults to "OnCommReceived"
+local _warnedLongPrefix = {}
+
 function AceComm:RegisterComm(prefix, method)
 	if method == nil then
 		method = "OnCommReceived"
 	end
 
-	if #prefix > 16 then -- TODO: 15?
-		error("AceComm:RegisterComm(prefix,method): prefix length is limited to 16 characters")
+	if #prefix > 16 then -- 16 char limit imposed by the client (RegisterAddonMessagePrefix)
+		-- Some third-party addons (e.g. AtlasLoot) call RegisterComm with a prefix longer
+		-- than the client's 16-character limit. Upstream AceComm hard-errors here, which --
+		-- because this is the LibStub-winning AceComm and Questie's xpcall polyfill wraps
+		-- AceAddon's OnEnable -- surfaces as a recurring Lua error at every login. The prefix
+		-- can never work on this client regardless, so degrade gracefully: warn once and skip
+		-- the registration instead of aborting the calling addon's OnEnable.
+		if not _warnedLongPrefix[prefix] then
+			_warnedLongPrefix[prefix] = true
+			if DEFAULT_CHAT_FRAME then
+				DEFAULT_CHAT_FRAME:AddMessage("|cffff8000AceComm:|r ignoring comm prefix longer than 16 characters: '" .. tostring(prefix) .. "'")
+			end
+		end
+		return
 	end
 	if C_ChatInfo then
 		C_ChatInfo.RegisterAddonMessagePrefix(prefix)
