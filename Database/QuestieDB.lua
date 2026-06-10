@@ -668,12 +668,20 @@ function QuestieDB:GetObject(objectId)
 
     local rawdata
     local override
+    local hasLearnerRecord = false
     override = QuestieDB.objectDataOverrides and (QuestieDB.objectDataOverrides[objectId] or QuestieDB.objectDataOverrides[tostring(objectId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("objectData") then
         rawdata = learnerRecord
-        if not rawdata then
+        if rawdata then
+            hasLearnerRecord = true
+        else
+            -- No learner record: fall back to the override only for metadata. Its spawns
+            -- are stripped below so learner-only mode never draws curated/static pins.
             rawdata = override
         end
+        -- Learner mode: discard curated coords AscensionDB wrote into objectDataOverrides
+        -- so learner data is used exclusively (mirrors GetNPC).
+        override = nil
     else
         rawdata = QuestieDB.QueryObject(objectId, QuestieDB._objectAdapterQueryOrder)
         if not rawdata and learnerRecord and mode == "auto" then
@@ -708,6 +716,11 @@ function QuestieDB:GetObject(objectId)
             obj[stringKey] = rawdata[intKey]
             stringKey, intKey = next(QuestieDB.objectKeys, stringKey)
         end
+    end
+
+    -- Learner-only mode draws ONLY learner-recorded spawns (see GetNPC).
+    if mode == "learner" and not hasLearnerRecord then
+        obj.spawns = nil
     end
 
     _QuestieDB.objectCache[objectId] = obj;
@@ -2271,10 +2284,15 @@ function QuestieDB:GetNPC(npcId)
     local learnerRecord = _GetLearnerRecord("npcs", npcId)
     local rawdata
     local override
+    local hasLearnerRecord = false
     override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
     if mode == "learner" or QuestieDB:IsStoreMissing("npcData") then
         rawdata = learnerRecord
-        if not rawdata then
+        if rawdata then
+            hasLearnerRecord = true
+        else
+            -- No learner record: fall back to the override only for metadata (name, etc.).
+            -- Its spawns are stripped below so learner-only mode never draws curated/static pins.
             rawdata = override
         end
         -- Learner mode: discard any curated coords that AscensionDB's
@@ -2346,6 +2364,13 @@ function QuestieDB:GetNPC(npcId)
         if learnedSpawns then
             npc.spawns = learnedSpawns
         end
+    end
+
+    -- Learner-only mode draws ONLY learner-recorded spawns. When this NPC has no learner
+    -- record, rawdata fell back to the curated/override entry purely for metadata; drop its
+    -- spawns so AscensionDB/static coordinates are not rendered as pins in learner mode.
+    if mode == "learner" and not hasLearnerRecord then
+        npc.spawns = nil
     end
 
     _QuestieDB.npcCache[npcId] = npc
