@@ -122,6 +122,9 @@ _CalculateAvailableQuests = function()
 
     local completedQuests = Questie.db.char.complete
     local showRepeatableQuests = Questie.db.profile.showRepeatableQuests
+    -- Hide repeatable available quests (e.g. the Ascension Callboard '!') below level 60,
+    -- where they aren't relevant yet. (#10)
+    local hideRepeatableBelowMax = Questie.db.profile.hideRepeatableBelowMaxLevel and playerLevel < 60
     local showDungeonQuests = Questie.db.profile.showDungeonQuests
     local showRaidQuests = Questie.db.profile.showRaidQuests
     local showPvPQuests = Questie.db.profile.showPvPQuests
@@ -163,6 +166,7 @@ _CalculateAvailableQuests = function()
 
         if (
             ((not showRepeatableQuests) and QuestieDB.IsRepeatable(questId)) or     -- Don't show repeatable quests if option is disabled
+            (hideRepeatableBelowMax and QuestieDB.IsRepeatable(questId)) or         -- Hide repeatable (Callboard) quests below level 60 (#10)
             ((not showPvPQuests) and QuestieDB.IsPvPQuest(questId)) or              -- Don't show PvP quests if option is disabled
             ((not showDungeonQuests) and QuestieDB.IsDungeonQuest(questId)) or      -- Don't show dungeon quests if option is disabled
             ((not showRaidQuests) and QuestieDB.IsRaidQuest(questId)) or            -- Don't show raid quests if option is disabled

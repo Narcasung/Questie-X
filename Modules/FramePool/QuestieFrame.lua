@@ -542,6 +542,7 @@ function _Qframe:ShouldBeHidden()
             and ((not DailyQuests:IsActiveDailyQuest(questId)) -- hide not-today-dailies
                 or ((not profile.enableAvailable) and normal)
                 or ((not profile.showRepeatableQuests) and repeatable)
+                or (profile.hideRepeatableBelowMaxLevel and repeatable and (UnitLevel("player") or 0) < 60) -- Hide Callboard/repeatable quests below 60 (#10)
                 or ((not profile.showEventQuests) and event)
                 or ((not profile.showDungeonQuests) and dungeon)
                 or ((not profile.showRaidQuests) and raid)

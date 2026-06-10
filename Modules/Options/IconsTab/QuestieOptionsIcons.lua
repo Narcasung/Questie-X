@@ -187,6 +187,23 @@ function QuestieOptions.tabs.icons:Initialize()
                             QuestieQuest:ToggleNotes(value)
                         end,
                     },
+                    hideRepeatableBelowMaxLevel = {
+                        type = "toggle",
+                        order = 2.035,
+                        name = function() return l10n('Hide repeatable quests below level 60'); end,
+                        desc = function() return l10n('Hides repeatable available quests (such as the Ascension Callboard) from the map and minimap until the character reaches level 60, where they become relevant.'); end,
+                        width = 1.595,
+                        disabled = function() return (not Questie.db.profile.enabled) or (not Questie.db.profile.showRepeatableQuests); end,
+                        get = function(info) return Questie.db.profile.hideRepeatableBelowMaxLevel end,
+                        set = function(info, value)
+                            Questie.db.profile.hideRepeatableBelowMaxLevel = value
+                            QuestieQuest:ToggleNotes(true)
+                            local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
+                            if AvailableQuests and AvailableQuests.CalculateAndDrawAll then
+                                AvailableQuests.CalculateAndDrawAll()
+                            end
+                        end,
+                    },
                     showPvPQuests = {
                         type = "toggle",
                         order = 2.04,

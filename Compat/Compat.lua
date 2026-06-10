@@ -755,6 +755,14 @@ function QuestieCompat:QUEST_QUERY_COMPLETE(event)
             QuestieCompat.Merge(Questie.db.char.complete, Questie.db.char.weekly)
         end
     end
+
+    -- The completed-quest list arrives asynchronously from the server (this event), often
+    -- AFTER available quests were first drawn — so quests that are actually already complete
+    -- kept showing as available '!' until something else forced a redraw (e.g. /reload).
+    -- Recalculate now that char.complete is populated so completed quests are removed. (#7)
+    if QuestieQuest and QuestieQuest.started and AvailableQuests and AvailableQuests.CalculateAndDrawAll then
+        AvailableQuests.CalculateAndDrawAll()
+    end
 end
 
 -- https://wowpedia.fandom.com/wiki/API_IsQuestFlaggedCompleted

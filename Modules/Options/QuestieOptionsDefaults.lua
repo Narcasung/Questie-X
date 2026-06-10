@@ -177,6 +177,7 @@ function QuestieOptionsDefaults:Load()
             hideUnexploredMapIcons = false,
             hideUntrackedQuestsMapIcons = false,
             showRepeatableQuests = true,
+            hideRepeatableBelowMaxLevel = false,
             showEventQuests = true,
             showDungeonQuests = true,
             showRaidQuests = true,

@@ -129,9 +129,14 @@ end
 
 function QuestieMap:UnloadQuestFramesByDataType(questId, dataType)
     if QuestieMap.questIdFrames[questId] then
-        for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+        for name, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
             if frame and frame.data and frame.data.Type == dataType then
                 frame:Unload()
+                -- Also drop the registry/global reference. Without this the frame name
+                -- lingered in questIdFrames and _G, so the available '!' could stay on the
+                -- minimap after a quest was accepted until a full /reload rebuilt frames. (#9)
+                QuestieMap.questIdFrames[questId][name] = nil
+                _G[name] = nil
             end
         end
 
