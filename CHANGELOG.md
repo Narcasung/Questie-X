@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.6.4] - 2026-06-10
+
+> **⚠ Performance Refactor Incomplete** — This release ships bug fixes and new features but does NOT complete the Performance Refactor branch. Several planned performance optimizations (hot-path localization caching, available-quest redraw batching, `QuestieDB.IsDoable` batch reads, `GetTime()` hoists, NPC fallback lookup caching) remain in progress on the `phase2-lua50-sweep` branch and are NOT included in this build. The performance refactor will be completed in a future release.
+
 ## [Unreleased] - Performance Refactor Branches
 
 ### Performance
