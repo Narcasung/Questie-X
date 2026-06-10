@@ -197,6 +197,12 @@ _OpenImportDialog = function()
         if ok then
             statusLabel:SetText("|cFF00FF00" .. msg .. "|r")
             importBtn:SetDisabled(true)
+            -- Refresh the Database tab so the live stats counts update immediately
+            -- (the map/minimap is already redrawn inside MergeImport via SmoothReset).
+            local AceConfigRegistry = LibStub("AceConfigRegistry-3.0", true)
+            if AceConfigRegistry and AceConfigRegistry.NotifyChange then
+                AceConfigRegistry:NotifyChange("Questie")
+            end
         else
             statusLabel:SetText("|cFFFF0000" .. msg .. "|r")
         end
@@ -403,6 +409,26 @@ function QuestieOptions.tabs.database:Initialize()
                         return
                     end
                     local str, statsOrErr = Exp:Export()
+                    if not str then
+                        Questie:Print("|cFFFF0000Export failed: " .. tostring(statsOrErr) .. "|r")
+                    else
+                        _OpenExportDialog(str, statsOrErr)
+                    end
+                end,
+            },
+
+            export_zone_btn = {
+                type  = "execute",
+                order = 3.25,
+                name  = function() return l10n("Export Current Zone") end,
+                desc  = function() return "Export only the learned data for the zone you are standing in (NPCs/objects in the zone, plus the items they drop and quests they give)." end,
+                func  = function()
+                    local Exp = GetExportModule()
+                    if not Exp then
+                        Questie:Print("|cFFFF0000QuestieLearnerExport module not loaded.|r")
+                        return
+                    end
+                    local str, statsOrErr = Exp:ExportZone()
                     if not str then
                         Questie:Print("|cFFFF0000Export failed: " .. tostring(statsOrErr) .. "|r")
                     else

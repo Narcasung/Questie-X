@@ -78,31 +78,22 @@ end
 -- Export
 -----------------------------------------------------------------------
 
---- Serializes + deflates + encodes the learned data for the given server key.
---- Returns the export string and a stats table, or nil + error message.
----@param serverKey string|nil  defaults to current server
+--- Shared serialize + deflate + encode step. Wrapped defensively so any
+--- malformed sub-entry surfaces as a clean error rather than a Lua error.
+---@param serverKey string
+---@param data table  the bucket (npcs/quests/items/objects) to encode
+---@param stats table
 ---@return string|nil, table|string
-function QuestieLearnerExport:Export(serverKey)
-    serverKey = serverKey or GetServerKey()
-    local bucket = GetServerBucket(serverKey)
-    if not bucket then
-        return nil, "No learned data found for server: " .. tostring(serverKey)
-    end
-
-    local stats = BuildStats(bucket)
-    if stats.total == 0 then
-        return nil, "Nothing to export — learned data is empty."
-    end
-
+function QuestieLearnerExport:_Encode(serverKey, data, stats)
     local payload = {
         v      = FORMAT_VERSION,
         server = serverKey,
         ts     = time and time() or 0,
-        data   = bucket,
+        data   = data,
     }
 
     local ok, serialized = pcall(AceSerializer.Serialize, AceSerializer, payload)
-    if not ok or not serialized then
+    if not ok or type(serialized) ~= "string" then
         return nil, "Serialization failed: " .. tostring(serialized)
     end
 
@@ -121,10 +112,119 @@ function QuestieLearnerExport:Export(serverKey)
     self.lastExportString = result
     self.lastExportStats  = stats
 
-    Questie:Debug(Questie.DEBUG_DEVELOP, "[LearnerExport] Exported", stats.total,
+    Questie:Debug(Questie.DEBUG_DEVELOP, "[LearnerExport] Encoded", stats.total,
         "entries for", serverKey, "len:", string.len(result))
 
     return result, stats
+end
+
+--- Serializes + deflates + encodes the learned data for the given server key.
+--- Returns the export string and a stats table, or nil + error message.
+---@param serverKey string|nil  defaults to current server
+---@return string|nil, table|string
+function QuestieLearnerExport:Export(serverKey)
+    serverKey = serverKey or GetServerKey()
+    local bucket = GetServerBucket(serverKey)
+    if not bucket then
+        return nil, "No learned data found for server: " .. tostring(serverKey)
+    end
+
+    local stats = BuildStats(bucket)
+    if stats.total == 0 then
+        return nil, "Nothing to export — learned data is empty."
+    end
+
+    return self:_Encode(serverKey, bucket, stats)
+end
+
+--- Exports only the learned entries that pertain to a single zone (areaId).
+--- Includes NPCs/objects that spawn in the zone, plus items dropped by those
+--- NPCs and quests started/finished by those NPCs/objects, so the bundle stays
+--- referentially consistent.
+---@param zoneId number  areaId (defaults to the player's current zone)
+---@param serverKey string|nil
+---@return string|nil, table|string
+function QuestieLearnerExport:ExportZone(zoneId, serverKey)
+    serverKey = serverKey or GetServerKey()
+
+    if not zoneId then
+        local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
+        if QuestiePlayer and QuestiePlayer.GetCurrentZoneId then
+            zoneId = QuestiePlayer:GetCurrentZoneId()
+        end
+    end
+    if type(zoneId) ~= "number" or zoneId <= 0 then
+        return nil, "Could not determine your current zone. Stand in a known zone and try again."
+    end
+
+    local bucket = GetServerBucket(serverKey)
+    if not bucket then
+        return nil, "No learned data found for server: " .. tostring(serverKey)
+    end
+
+    local out = { npcs = {}, quests = {}, items = {}, objects = {} }
+    local npcSet, objSet = {}, {}
+
+    local function ZoneHasCoords(spawns)
+        if type(spawns) ~= "table" then return false end
+        local zoneCoords = spawns[zoneId]
+        return type(zoneCoords) == "table" and next(zoneCoords) ~= nil
+    end
+
+    -- NPCs spawning in the zone (NPC spawns live at key [7])
+    for id, d in pairs(bucket.npcs or {}) do
+        if type(d) == "table" and ZoneHasCoords(d[7]) then
+            out.npcs[id] = d
+            npcSet[id] = true
+        end
+    end
+
+    -- Objects spawning in the zone (object spawns live at key [4])
+    for id, d in pairs(bucket.objects or {}) do
+        if type(d) == "table" and ZoneHasCoords(d[4]) then
+            out.objects[id] = d
+            objSet[id] = true
+        end
+    end
+
+    -- Items dropped by an included NPC (item [2] = dropNpcs array)
+    for id, d in pairs(bucket.items or {}) do
+        if type(d) == "table" and type(d[2]) == "table" then
+            for _, npcId in ipairs(d[2]) do
+                if npcSet[npcId] then
+                    out.items[id] = d
+                    break  -- one match is enough
+                end
+            end
+        end
+    end
+
+    -- Quests started/finished by an included NPC or object
+    -- (quest [2]=startedBy{npcIds,objIds,...}, [3]=finishedBy{npcIds,objIds})
+    local function AnyIn(list, set)
+        if type(list) ~= "table" then return false end
+        for _, v in ipairs(list) do
+            if set[v] then return true end
+        end
+        return false
+    end
+    for id, d in pairs(bucket.quests or {}) do
+        if type(d) == "table" then
+            local started, finished = d[2], d[3]
+            if (type(started) == "table" and (AnyIn(started[1], npcSet) or AnyIn(started[2], objSet)))
+            or (type(finished) == "table" and (AnyIn(finished[1], npcSet) or AnyIn(finished[2], objSet))) then
+                out.quests[id] = d
+            end
+        end
+    end
+
+    local stats = BuildStats(out)
+    stats.zone = zoneId
+    if stats.total == 0 then
+        return nil, "Nothing learned in this zone yet."
+    end
+
+    return self:_Encode(serverKey, out, stats)
 end
 
 --- Exports ALL server buckets merged into one payload.
@@ -156,28 +256,7 @@ function QuestieLearnerExport:ExportAll()
     local stats = BuildStats(merged)
     if stats.total == 0 then return nil, "Nothing to export." end
 
-    local payload = {
-        v      = FORMAT_VERSION,
-        server = "all",
-        ts     = time and time() or 0,
-        data   = merged,
-    }
-
-    local ok, serialized = pcall(AceSerializer.Serialize, AceSerializer, payload)
-    if not ok or not serialized then
-        return nil, "Serialization failed."
-    end
-
-    local compressed = LibDeflate:CompressDeflate(serialized, { level = 9 })
-    if not compressed then return nil, "Compression failed." end
-
-    local encoded = LibDeflate:EncodeForPrint(compressed)
-    if not encoded then return nil, "Encoding failed." end
-
-    local result = FORMAT_PREFIX .. ":" .. FORMAT_VERSION .. FORMAT_SEP .. encoded
-    self.lastExportString = result
-    self.lastExportStats  = stats
-    return result, stats
+    return self:_Encode("all", merged, stats)
 end
 
 -----------------------------------------------------------------------
@@ -246,6 +325,11 @@ function QuestieLearnerExport:ValidateImport(importStr)
     end
 
     local stats = BuildStats(bucket)
+    -- Guard against pathological payloads (e.g. a hand-crafted string with millions
+    -- of entries) that could stall the client during the synchronous merge.
+    if stats.total > 200000 then
+        return nil, "Import rejected — too many entries (" .. stats.total .. ")."
+    end
     stats.server = payload.server or "unknown"
     stats.ts     = payload.ts or 0
 
@@ -324,6 +408,13 @@ function QuestieLearnerExport:MergeImport()
     -- Push merged data into QuestieDB overrides immediately (no reload required for override data)
     if QuestieLearner and QuestieLearner.InjectLearnedData then
         pcall(QuestieLearner.InjectLearnedData, QuestieLearner)
+    end
+
+    -- Redraw the map/minimap/tooltips so freshly imported spawns appear live
+    -- (without a /reload). SmoothReset clears and recalculates all notes.
+    local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+    if QuestieQuest and QuestieQuest.SmoothReset then
+        pcall(QuestieQuest.SmoothReset, QuestieQuest)
     end
 
     local msg = string.format("Import complete: merged %d, skipped %d already-known%s.",
