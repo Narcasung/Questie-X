@@ -534,7 +534,7 @@ function QuestieOptions.tabs.icons:Initialize()
                         desc = function() return l10n('How far away minimap icons can remain visible.\n(Default: %s)', optionsDefaults.profile.minimapIconRangeCutoff); end,
                         width = 3.1,
                         min = 25,
-                        max = 200,
+                        max = 1000,
                         step = 5,
                         disabled = function() return ((not Questie.db.profile.enabled) or (not Questie.db.profile.enableMiniMapIcons)); end,
                         get = function(info) return QuestieOptions:GetProfileValue(info); end,

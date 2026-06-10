@@ -22,6 +22,8 @@
 
 ### Features
 
+- **[Map - Minimap Icon Range Cutoff Up To 1000]** Raised the maximum of the "Minimap Icon Range Cutoff" slider from 200 to 1000 (yards), for players who run fully zoomed-out minimaps where quest objective spawns can be far apart. Default and minimum are unchanged.
+
 - **[Map - Hide Repeatable/Callboard Quests Below Level 60]** (#10) Added "Hide repeatable quests below level 60" (Icons tab, off by default) which hides repeatable available `!` quests — such as the Ascension Callboard — from the map and minimap until the character reaches level 60, where they become relevant. Enforced both at draw time (`_DrawQuestIfAvailable`) and in `ShouldBeHidden`, so already-drawn pins are removed on the minimap too, and they reappear automatically on hitting 60. Only affects repeatable available quests and only when the option is enabled.
 
 - **[Tooltip - ElvUI Style Without ElvUI]** Added "ElvUI tooltip style" (General tab, on by default) which skins Questie's tooltips — the NPC/item/object and world-map-pin tooltips plus the secondary learner tooltip — with ElvUI's transparent flat look (dark `0.06/0.06/0.06/0.8` background and a thin 1px border) even when ElvUI is not installed, so they match instead of falling back to the chunky default WoW border. `QuestieTooltips:SkinDefaultTooltips` applies it to `GameTooltip`, `WorldMapTooltip`, `ItemRefTooltip` and the shopping tooltips (re-asserted on show), and the secondary learner frame's fallback style was corrected to the same thin border. No-op when ElvUI is loaded, since ElvUI skins the frames itself.
