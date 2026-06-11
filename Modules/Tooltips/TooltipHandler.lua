@@ -254,6 +254,12 @@ end
 
 function _QuestieTooltips:HideAscensionQuestLines(tooltip)
     if not Questie.db.profile.enableTooltips then return end
+    -- Opt-in only. This strips lines matching quest-objective patterns ("N/M", "[N] ...")
+    -- from tooltips to hide Ascension's server-injected quest progress. It runs on every
+    -- tooltip, so by default it must NOT touch them — otherwise it clobbers other tooltip
+    -- addons' lines that happen to look like "N/M" (durability, stack counts, etc.). Users
+    -- who want the Ascension quest-spam hidden can enable it explicitly. (#16)
+    if not Questie.db.profile.hideAscensionTooltipQuestLines then return end
     local numLines = tooltip:NumLines()
     if not numLines or numLines < 1 then return end
 

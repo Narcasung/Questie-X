@@ -89,6 +89,7 @@ function QuestieOptionsDefaults:Load()
             enableTooltipsQuestLevel = true,
             enableTooltipsSource = false,
             elvuiStyleTooltips = false,
+            hideAscensionTooltipQuestLines = false,
             showQuestXpAtMaxLevel = true,
             enableTooltipsNextInChain = true,
             learnerTooltips = true,

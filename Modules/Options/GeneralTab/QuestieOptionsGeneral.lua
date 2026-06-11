@@ -436,6 +436,16 @@ function QuestieOptions.tabs.general:Initialize()
                         get = function () return Questie.db.profile.enableTooltips; end,
                         set = function (_, value) Questie.db.profile.enableTooltips = value end
                     },
+                    hideAscensionTooltipQuestLines = {
+                        type = "toggle",
+                        order = 8.15,
+                        name = function() return l10n('Hide Ascension quest progress lines'); end,
+                        desc = function() return l10n('Removes the quest-objective progress lines that the Ascension server injects into tooltips (e.g. "0/8 ..."). Off by default so Questie does not modify lines added by other tooltip addons.'); end,
+                        width = 1.5,
+                        disabled = function() return not Questie.db.profile.enableTooltips; end,
+                        get = function() return Questie.db.profile.hideAscensionTooltipQuestLines; end,
+                        set = function (_, value) Questie.db.profile.hideAscensionTooltipQuestLines = value end
+                    },
                     questsInNpcTooltip = {
                         type = "toggle",
                         order = 8.2,
