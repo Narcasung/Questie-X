@@ -4211,9 +4211,32 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
             py = floor(py * 10000) / 100
         else
             px, py = nil, nil
+            -- A credited kill yielded no usable position (e.g. loading screen, or the
+            -- world map is open showing another zone so GetPlayerMapPosition reads 0,0).
+            -- This coordinate is silently skipped — make that visible (throttled) so a
+            -- systematic capture failure is diagnosable instead of looking like
+            -- "learner pins randomly missing" weeks later.
+            _Learner.droppedKillCoords = (_Learner.droppedKillCoords or 0) + 1
+            local nowTs = time()
+            if (not _Learner.lastDroppedCoordWarn) or (nowTs - _Learner.lastDroppedCoordWarn) >= 60 then
+                _Learner.lastDroppedCoordWarn = nowTs
+                Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Credited kill had no usable position; coords skipped.",
+                    "npcId:", npcId, "total skipped this session:", _Learner.droppedKillCoords)
+            end
         end
     end
-    local zoneId  = GetZoneId()
+    -- Key the spawn under the SAME map space the coordinates were captured in. The
+    -- coords from GetCurrentPlayerPosition() are valid in the _mapId it returns
+    -- (Sunstrider parent/child correction included); deriving the key separately via
+    -- GetZoneId()'s zone-name lookup can disagree with the coordinate space on
+    -- subzones, storing pins on the wrong map. Only when no position was captured
+    -- (px,py nil — nothing coordinate-keyed is stored) fall back to GetZoneId().
+    local zoneId
+    if px and py and _mapId and _mapId > 0 then
+        zoneId = NormalizeSpawnZoneKey(_mapId)
+    else
+        zoneId = GetZoneId()
+    end
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
     _Learner.recentKills[dstGUID] = {
         npcId   = npcId,
