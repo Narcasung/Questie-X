@@ -867,6 +867,49 @@ function QuestieDB.IsBoardQuest(questId)
     return result
 end
 
+local _dungeonQuestCache = {}
+
+local function _ZoneLooksDungeon(zoneId)
+    if type(zoneId) ~= "number" or zoneId <= 0 then
+        return false
+    end
+
+    if ZoneDB and ZoneDB.IsDungeonZone and ZoneDB:IsDungeonZone(zoneId) then
+        return true
+    end
+
+    if not ZoneDB then
+        return false
+    end
+
+    local alternativeZoneId = ZoneDB.GetAlternativeZoneId and ZoneDB:GetAlternativeZoneId(zoneId)
+    if alternativeZoneId and ZoneDB.IsDungeonZone and ZoneDB:IsDungeonZone(alternativeZoneId) then
+        return true
+    end
+
+    local parentZoneId = ZoneDB.GetParentZoneId and ZoneDB:GetParentZoneId(zoneId)
+    return parentZoneId and ZoneDB.IsDungeonZone and ZoneDB:IsDungeonZone(parentZoneId) or false
+end
+
+local function _AnySpawnZoneLooksDungeon(ids, querySingle)
+    if type(ids) ~= "table" or type(querySingle) ~= "function" then
+        return false
+    end
+
+    for _, id in ipairs(ids) do
+        local spawns = querySingle(id, "spawns")
+        if type(spawns) == "table" then
+            for zoneId in pairs(spawns) do
+                if _ZoneLooksDungeon(zoneId) then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 ---@param questId number
 ---@return boolean
 function QuestieDB.IsDailyQuest(questId)
@@ -887,7 +930,33 @@ end
 ---@return boolean
 function QuestieDB.IsDungeonQuest(questId)
     local questType, _ = QuestieDB.GetQuestTagInfo(questId)
-    return questType == 81
+    if questType == 81 then
+        return true
+    end
+
+    if questType ~= nil and questType ~= 0 then
+        return false
+    end
+
+    local cached = _dungeonQuestCache[questId]
+    if cached ~= nil then
+        return cached
+    end
+
+    local result = false
+    local zoneOrSort = QuestieDB.QueryQuestSingle(questId, "zoneOrSort")
+    if _ZoneLooksDungeon(zoneOrSort) then
+        result = true
+    else
+        local startedBy = QuestieDB.QueryQuestSingle(questId, "startedBy")
+        if type(startedBy) == "table" then
+            result = _AnySpawnZoneLooksDungeon(startedBy[1], QuestieDB.QueryNPCSingle)
+                or _AnySpawnZoneLooksDungeon(startedBy[2], QuestieDB.QueryObjectSingle)
+        end
+    end
+
+    _dungeonQuestCache[questId] = result
+    return result
 end
 
 ---@param questId number
