@@ -656,6 +656,21 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                         y = self.worldY
                     end
                     if (x and y) then
+                        -- Proactively hide any minimap icon that should be filtered out, even if it
+                        -- is currently shown. The quest-type / map filters (showDungeonQuests,
+                        -- enableMiniMapIcons, hideUntracked, hide-repeatable-below-60, etc.) can be
+                        -- true when the icon was first drawn, or HBD's pin renderer may have shown it
+                        -- on coming into range. Previously FadeLogic only re-checked ShouldBeHidden
+                        -- when deciding whether to RE-SHOW an already-hidden icon, so a filtered icon
+                        -- that was already visible (e.g. a dungeon quest) lingered on the minimap
+                        -- while the world map correctly hid it. Hiding here keeps both maps in sync. (#11)
+                        if self:ShouldBeHidden() then
+                            if not self.hidden then
+                                self:FakeHide()
+                            end
+                            return
+                        end
+
                         local xd = QuestieMap.playerX - x
                         local yd = QuestieMap.playerY - y
                         local distance = math.sqrt(xd * xd + yd * yd)
@@ -827,14 +842,30 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                         y = self.worldY
                     end
                     if (x and y) then
+                        -- Proactively hide any filtered minimap icon even if currently shown,
+                        -- keeping the minimap in sync with the world-map filters. (#11)
+                        if self:ShouldBeHidden() then
+                            if not self.hidden then
+                                self:FakeHide()
+                            end
+                            return
+                        end
+
                         local xd = QuestieMap.playerX - x
                         local yd = QuestieMap.playerY - y
                         local distance = math.sqrt(xd * xd + yd * yd);
                         local minimapVisibilityCutoff = self.minimapVisibilityCutoff or profile.minimapIconRangeCutoff or 100;
 
-                        -- Hard stop: keep minimap pins from remaining visible beyond
-                        -- the configured minimap range cutoff.
-                        if (distance > minimapVisibilityCutoff) then
+                        -- Only clip icons OUTSIDE the minimap's visible radius, so a cutoff smaller
+                        -- than the current view radius doesn't hide icons that are on the minimap (#17).
+                        local minimapRadius = (HBDPins and HBDPins.GetMinimapRadius and HBDPins:GetMinimapRadius()) or 0
+                        local effectiveCutoff = minimapVisibilityCutoff
+                        if minimapRadius and minimapRadius > effectiveCutoff then
+                            effectiveCutoff = minimapRadius
+                        end
+
+                        -- Hard stop: keep minimap pins from remaining visible beyond the cutoff.
+                        if (distance > effectiveCutoff) then
                             self:FakeHide()
                             return
                         elseif self.hidden then
