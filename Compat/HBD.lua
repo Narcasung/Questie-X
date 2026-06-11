@@ -468,9 +468,15 @@ local function drawMinimapPin(pin, data)
     -- data.floatOnEdge is replaced by (data.floatOnEdge and ((pin.texture and pin.texture.a and pin.texture.a ~= 0) or pin.texture == nil))
     -- icons will now only float on edge if they have an opacity which is not 0 or if no texture exist.
     data.distanceFromMinimapCenter = dist
+    -- Minimap range cutoff: only clamp icons that fall OUTSIDE the minimap's visible
+    -- radius (dist > 1, i.e. edge-floating icons). Icons that are actually within the
+    -- visible minimap circle must always show, otherwise the cutoff hides quest icons
+    -- that are clearly on the minimap whenever its view radius (133-466 yd depending on
+    -- zoom) exceeds the cutoff yard value — the regression reported in #17. The cutoff
+    -- then only limits how far edge-floating icons reach for far-apart objectives.
     local minimapVisibilityCutoff = pin.minimapVisibilityCutoff
         or (Questie and Questie.db and Questie.db.profile and Questie.db.profile.minimapIconRangeCutoff)
-    if minimapVisibilityCutoff and lastXY and lastYY and data.x and data.y then
+    if dist > 1 and minimapVisibilityCutoff and lastXY and lastYY and data.x and data.y then
         local xd, yd = lastXY - data.x, lastYY - data.y
         local distance = (xd * xd + yd * yd)^0.5
         if distance > minimapVisibilityCutoff then
@@ -725,6 +731,13 @@ function pins:RefreshMinimap()
     queueFullUpdate = true
     UpdateMinimapPins(true)
     UpdateMinimapIconPosition()
+end
+
+-- Returns the minimap's current visible radius in yards (last value computed by
+-- UpdateMinimapPins). Used by Questie's minimap FadeLogic so the range cutoff only
+-- clips icons that are genuinely OUTSIDE the visible minimap, never icons within it.
+function pins:GetMinimapRadius()
+    return mapRadius
 end
 
 function pins:SetMinimapVisibilityCutoff(cutoff)

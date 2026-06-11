@@ -661,7 +661,18 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                         local distance = math.sqrt(xd * xd + yd * yd)
                         local minimapVisibilityCutoff = self.minimapVisibilityCutoff or profile.minimapIconRangeCutoff or 100
 
-                        if (distance > minimapVisibilityCutoff) then
+                        -- Only let the range cutoff hide icons that fall OUTSIDE the minimap's
+                        -- visible radius. Icons within the visible minimap circle must always show,
+                        -- otherwise a cutoff smaller than the current view radius (133-466 yd by
+                        -- zoom) hides quest icons that are clearly on the minimap (#17). The cutoff
+                        -- then only limits how far edge-floating icons reach.
+                        local minimapRadius = (HBDPins and HBDPins.GetMinimapRadius and HBDPins:GetMinimapRadius()) or 0
+                        local effectiveCutoff = minimapVisibilityCutoff
+                        if minimapRadius and minimapRadius > effectiveCutoff then
+                            effectiveCutoff = minimapRadius
+                        end
+
+                        if (distance > effectiveCutoff) then
                             self:FakeHide()
                             return
                         elseif self.hidden then
