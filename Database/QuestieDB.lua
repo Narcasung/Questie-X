@@ -831,6 +831,42 @@ function QuestieDB.IsRepeatable(questId)
     return flags and bitband(flags, 1) ~= 0
 end
 
+local _boardQuestCache = {}
+--- Detects Ascension "board" quests — the Call Board / Contract Board repeatable
+--- bounties (e.g. NPC 24 "Outlaw's Contract Board"). These are given by a starter
+--- NPC/object whose name contains "board" but are NOT reliably flagged repeatable in
+--- the DB, so QuestieDB.IsRepeatable alone misses them. Used by the "hide repeatable
+--- quests below level 60" option so Callboard `!` markers are actually hidden (#10).
+--- Result is cached per quest since starter names never change at runtime.
+---@param questId number
+---@return boolean
+function QuestieDB.IsBoardQuest(questId)
+    local cached = _boardQuestCache[questId]
+    if cached ~= nil then
+        return cached
+    end
+
+    local result = false
+    local startedBy = QuestieDB.QueryQuestSingle(questId, "startedBy")
+    if type(startedBy) == "table" then
+        local function _AnyNameHasBoard(ids, querySingle)
+            if type(ids) ~= "table" then return false end
+            for _, id in ipairs(ids) do
+                local name = querySingle(id, "name")
+                if type(name) == "string" and string.find(string.lower(name), "board", 1, true) then
+                    return true
+                end
+            end
+            return false
+        end
+        result = _AnyNameHasBoard(startedBy[1], QuestieDB.QueryNPCSingle)
+            or _AnyNameHasBoard(startedBy[2], QuestieDB.QueryObjectSingle)
+    end
+
+    _boardQuestCache[questId] = result
+    return result
+end
+
 ---@param questId number
 ---@return boolean
 function QuestieDB.IsDailyQuest(questId)

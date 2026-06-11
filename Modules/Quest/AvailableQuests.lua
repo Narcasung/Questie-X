@@ -166,7 +166,7 @@ _CalculateAvailableQuests = function()
 
         if (
             ((not showRepeatableQuests) and QuestieDB.IsRepeatable(questId)) or     -- Don't show repeatable quests if option is disabled
-            (hideRepeatableBelowMax and QuestieDB.IsRepeatable(questId)) or         -- Hide repeatable (Callboard) quests below level 60 (#10)
+            (hideRepeatableBelowMax and (QuestieDB.IsRepeatable(questId) or QuestieDB.IsBoardQuest(questId))) or -- Hide repeatable / Callboard quests below level 60 (#10)
             ((not showPvPQuests) and QuestieDB.IsPvPQuest(questId)) or              -- Don't show PvP quests if option is disabled
             ((not showDungeonQuests) and QuestieDB.IsDungeonQuest(questId)) or      -- Don't show dungeon quests if option is disabled
             ((not showRaidQuests) and QuestieDB.IsRaidQuest(questId)) or            -- Don't show raid quests if option is disabled
