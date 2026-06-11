@@ -19,6 +19,8 @@ local _Learner = QuestieLearner.private or {}
 local GetDataSourceMode
 local DeepCopy
 local HasQuestNpcReferences
+local HasQuestNpcGiverReferences
+local HasQuestObjectGiverReferences
 
 local floor = math.floor
 local abs   = math.abs
@@ -982,11 +984,13 @@ local function _ApplyNpcLiveUpdate(npcId)
     if not (QuestieDB and QuestieDB.npcDataOverrides and existing[7] and next(existing[7])) then return false end
 
     local ovr = QuestieDB.npcDataOverrides[npcId]
+    local allowQuestGiverSpawns = HasQuestNpcGiverReferences and HasQuestNpcGiverReferences(npcId)
     if not ovr then
         -- Learner mode: IsAscensionProtected returns false, so learner data
         -- (including spawns) is used exclusively. Auto/static modes: strip
-        -- learner spawns for AscensionDB-curated NPCs.
-        if IsAscensionProtected("NPC", npcId, 7) then
+        -- learner spawns for AscensionDB-curated NPCs unless the learner
+        -- explicitly tied this entity to a starter/finisher arrow.
+        if IsAscensionProtected("NPC", npcId, 7) and not allowQuestGiverSpawns then
             QuestieDB.npcDataOverrides[npcId] = DeepCopy(CopyWithoutField(existing, 7))
         else
             QuestieDB.npcDataOverrides[npcId] = DeepCopy(existing)
@@ -1002,7 +1006,7 @@ local function _ApplyNpcLiveUpdate(npcId)
         end
         -- Merge spawn coords. allowSpawnMerge bypass removed — it was
         -- the original hole letting learner coords leak into curated spawns.
-        if existing[7] and not IsAscensionProtected("NPC", npcId, 7) then
+        if existing[7] and (allowQuestGiverSpawns or not IsAscensionProtected("NPC", npcId, 7)) then
             ovr[7] = ovr[7] or {}
             for zid, coords in pairs(existing[7]) do
                 ovr[7][zid] = ovr[7][zid] or {}
@@ -2287,6 +2291,62 @@ local function HasQuestObjectReferences(objectId)
     return false
 end
 
+HasQuestNpcGiverReferences = function(npcId)
+    local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not learned or not learned.quests then
+        return false
+    end
+
+    for _, qData in pairs(learned.quests) do
+        if qData[2] and qData[2][1] then
+            for _, entry in ipairs(qData[2][1]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == npcId then
+                    return true
+                end
+            end
+        end
+        if qData[3] and qData[3][1] then
+            for _, entry in ipairs(qData[3][1]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == npcId then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+HasQuestObjectGiverReferences = function(objectId)
+    local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
+    if not learned or not learned.quests then
+        return false
+    end
+
+    for _, qData in pairs(learned.quests) do
+        if qData[2] and qData[2][2] then
+            for _, entry in ipairs(qData[2][2]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == objectId then
+                    return true
+                end
+            end
+        end
+        if qData[3] and qData[3][2] then
+            for _, entry in ipairs(qData[3][2]) do
+                local entryId = type(entry) == "table" and entry[1] or entry
+                if entryId == objectId then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
 HasQuestNpcReferences = function(npcId)
     local learned = Questie and Questie.dbLearner and Questie.dbLearner.global
     if not learned or not learned.quests then
@@ -2458,10 +2518,12 @@ function QuestieLearner:LearnObject(objectId, name, spawnX, spawnY, spawnZoneId,
     -- Same three-mode semantics as the NPC path.
     if self:IsLearnerLiveEnabled() and QuestieDB and QuestieDB.objectDataOverrides then
         local ovr = QuestieDB.objectDataOverrides[objectId]
+        local allowQuestGiverSpawns = HasQuestObjectGiverReferences and HasQuestObjectGiverReferences(objectId)
         if not ovr then
             -- Learner: use learner data exclusively. Auto/static: strip learner
-            -- spawns for AscensionDB-curated objects.
-            if AscensionOwnsObjectSpawns(objectId) then
+            -- spawns for AscensionDB-curated objects unless the learner
+            -- explicitly tied this entity to a starter/finisher arrow.
+            if AscensionOwnsObjectSpawns(objectId) and not allowQuestGiverSpawns then
                 QuestieDB.objectDataOverrides[objectId] = DeepCopy(CopyWithoutField(existing, 4))
             else
                 QuestieDB.objectDataOverrides[objectId] = existing
@@ -2472,7 +2534,7 @@ function QuestieLearner:LearnObject(objectId, name, spawnX, spawnY, spawnZoneId,
             end
             -- Merge spawn coords: learner mode bypasses (IsAscensionProtected=false),
             -- auto/static protects curated spawns. allowSpawnMerge bypass removed.
-            if existing[4] and not IsAscensionProtected("OBJECT", objectId, 4) then
+            if existing[4] and (allowQuestGiverSpawns or not IsAscensionProtected("OBJECT", objectId, 4)) then
                 ovr[4] = ovr[4] or {}
                 for zid, coords in pairs(existing[4]) do
                     ovr[4][zid] = ovr[4][zid] or {}
