@@ -3402,6 +3402,14 @@ local GetObjectIdFromGUID = function(guid)
     return nil
 end
 
+-- Public wrappers so other modules (e.g. tooltips) can reuse the learner's robust GUID
+-- parsing. These handle modern dash GUIDs AND legacy 0x hex GUIDs (and GameObject GUIDs),
+-- unlike a naive strsplit("-", guid) which returns nothing for hex/object GUIDs — the cause
+-- of NPC/Object IDs failing to show on some tooltips.
+function QuestieLearner:GetIdAndTypeFromGUID(guid) return GetIdAndTypeFromGUID(guid) end
+function QuestieLearner:GetObjectIdFromGUID(guid) return GetObjectIdFromGUID(guid) end
+function QuestieLearner:GetNpcIdFromGUID(guid) return GetNpcIdFromGUID(guid) end
+
 local function TraceLearnerEntity(source, guid, unitType, entityId, name)
     if not Questie or not Questie.Debug then return end
     local prefix = "n/a"

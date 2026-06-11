@@ -368,9 +368,23 @@ function _QuestieTooltips:AddUnitDataToTooltip()
 
     local guidType, _, _, _, _, npcId, _ = strsplit("-", guid or "");
 
+    -- Robust fallback for GUIDs strsplit("-") can't parse — legacy 0x hex GUIDs (and any
+    -- malformed/short modern GUID). The learner's GetIdAndTypeFromGUID handles both formats,
+    -- so reuse it; without this the NPC ID line silently failed to write on those units.
+    if (not tonumber(npcId)) and guid then
+        local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+        if QuestieLearner and QuestieLearner.GetIdAndTypeFromGUID then
+            local fallbackId, fallbackType = QuestieLearner:GetIdAndTypeFromGUID(guid)
+            if fallbackId then
+                npcId = tostring(fallbackId)
+                if (not guidType) or guidType == "" then guidType = fallbackType end
+            end
+        end
+    end
+
     -- NPC ID is (re)added on EVERY render so it survives WoW's tooltip rebuilds, not only the
     -- first hover of a new unit. Deduped per tooltip so it never doubles up.
-    if name and (guidType == "Creature" or guidType == "Vehicle") and npcId
+    if name and (guidType == "Creature" or guidType == "Vehicle") and npcId and tonumber(npcId)
             and Questie.db.profile.enableTooltipsNPCID == true
             and not _TooltipHasLeftLine(self, "NPC ID") then
         GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
@@ -504,11 +518,21 @@ function _QuestieTooltips:AddObjectDataToTooltip(name)
         local lookup = l10n.objectNameLookup[name] or {}
         local count = table.getn(lookup)
 
-        if Questie.db.profile.enableTooltipsObjectID == true and count ~= 0 then
+        if Questie.db.profile.enableTooltipsObjectID == true and not _TooltipHasLeftLine(GameTooltip, "Object ID") then
             if count == 1 then
                 GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. lookup[1] .. "|r")
-            else
+            elseif count > 1 then
                 GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. lookup[1] .. " (" .. count .. ")|r")
+            else
+                -- Name not in the object lookup ("problematic"). Fall back to the object's
+                -- GUID via the learner's robust GameObject-GUID parser, so the ID still shows.
+                local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
+                local objGuid = UnitGUID and UnitGUID("mouseover")
+                local objId = objGuid and QuestieLearner and QuestieLearner.GetObjectIdFromGUID
+                    and QuestieLearner:GetObjectIdFromGUID(objGuid)
+                if objId then
+                    GameTooltip:AddDoubleLine("Object ID", "|cFFFFFFFF" .. objId .. "|r")
+                end
             end
         end
 
