@@ -13,8 +13,6 @@ local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type ZoneDB
 local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
----@type HBD
-local HBD = (QuestieCompat and QuestieCompat.HBD) or (LibStub and LibStub("HereBeDragonsQuestie-2.0", true))
 
 local _Learner = QuestieLearner.private or {}
 
@@ -289,25 +287,14 @@ local function GetZoneId()
 end
 
 local function GetPlayerCoords()
-    -- Prefer HBD's cached zone position. The raw GetPlayerMapPosition("player") returns 0,0
-    -- whenever the world map isn't set to the player's current zone (the common case — the map
-    -- is usually closed or showing another zone), and it also mis-reports on Ascension subzones
-    -- like Sunstrider Isle. That made kill/learn events fall back with NO coordinates, so learned
-    -- NPCs were saved as spawnSource="fallback" with no [7] spawns and their pins never persisted.
-    -- HBD:GetPlayerZonePosition() goes through QuestieCompat.GetCurrentPlayerPosition(), which
-    -- runs SetMapToCurrentZone() and corrects the Sunstrider parent/child coordinate-space
-    -- mismatch, and it caches the result so it is cheap to call on every kill.
-    if HBD and HBD.GetPlayerZonePosition then
-        local zx, zy = HBD:GetPlayerZonePosition()
-        if zx and zy and zx > 0 and zy > 0 then
-            -- HBD returns 0–1; store in 0–100 scale, 2-decimal precision.
-            return floor(zx * 10000) / 100, floor(zy * 10000) / 100
-        end
-    end
-
-    local x, y = GetPlayerMapPosition("player")
+    -- Use the robust position helper (handles SetMapToCurrentZone and the Sunstrider
+    -- parent/child coordinate-space correction) rather than the raw GetPlayerMapPosition,
+    -- which returns 0,0 whenever the world map isn't set to the player's zone. Returns nil
+    -- when no valid position is available so callers that record the player's location as a
+    -- spawn (mouseover quest-givers, object use) simply skip rather than logging a 0,0 pin.
+    local _mapId, x, y = QuestieCompat.GetCurrentPlayerPosition()
     if x and y and x > 0 and y > 0 then
-        -- Store in 0–100 scale, 2-decimal precision
+        -- Native APIs return 0–1; store in 0–100 scale, 2-decimal precision.
         return floor(x * 10000) / 100, floor(y * 10000) / 100
     end
     return nil, nil
@@ -4203,6 +4190,15 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
 
     if not npcId or npcId <= 0 then return end
 
+    -- Determine whether this kill is "credited" to us (our own/party kill we engaged)
+    -- BEFORE using it to decide whether to record our position. This MUST come first:
+    -- previously `credited` was read while still nil (defined further below), so the
+    -- position-capture block never ran and kills never recorded any spawn coordinates —
+    -- every killed NPC stayed spawnSource="fallback" with no [7] and drew no learner pins.
+    local engagedTs = _Learner.playerEngaged and _Learner.playerEngaged[dstGUID]
+    local credited = (eventType == "PARTY_KILL")
+        or (engagedTs ~= nil and (now - engagedTs) <= 60)
+
     -- Only record YOUR position for the spawn. GetCurrentPlayerPosition()
     -- returns the local player's coords, not the killer's — so for
     -- party/raid kills where someone else landed the killing blow we
@@ -4213,16 +4209,12 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         if px and py and px > 0 and py > 0 then
             px = floor(px * 10000) / 100
             py = floor(py * 10000) / 100
+        else
+            px, py = nil, nil
         end
     end
     local zoneId  = GetZoneId()
     local zoneText = GetRealZoneText and GetRealZoneText() or ""
-    -- Keep the credited flag for quest-progress correlation, but do not use it
-    -- to suppress learning. The learner should still harvest kill data from
-    -- nearby players so static import coverage stays as complete as possible.
-    local engagedTs = _Learner.playerEngaged and _Learner.playerEngaged[dstGUID]
-    local credited = (eventType == "PARTY_KILL")
-        or (engagedTs ~= nil and (now - engagedTs) <= 60)
     _Learner.recentKills[dstGUID] = {
         npcId   = npcId,
         name    = name or "",
