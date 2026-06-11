@@ -119,6 +119,13 @@ local migrationFunctions = {
         if Questie.db and Questie.db.global and Questie.db.global.learnedData then
              Questie.db.global.learnedData = nil
         end
+    end,
+    [8] = function()
+        -- The "ElvUI style tooltips" option shipped enabled by default, which made Questie
+        -- restyle every default WoW tooltip (stripping the border) for users who never asked
+        -- for it (#16). It is now opt-in (default false). Reset it off once so existing installs
+        -- get their default tooltips back; users who want the flat style can re-enable it.
+        Questie.db.profile.elvuiStyleTooltips = false
     end
 }
 

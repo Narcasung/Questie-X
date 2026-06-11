@@ -88,7 +88,7 @@ function QuestieOptionsDefaults:Load()
             enableTooltipsQuestID = false,
             enableTooltipsQuestLevel = true,
             enableTooltipsSource = false,
-            elvuiStyleTooltips = true,
+            elvuiStyleTooltips = false,
             showQuestXpAtMaxLevel = true,
             enableTooltipsNextInChain = true,
             learnerTooltips = true,
