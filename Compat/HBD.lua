@@ -490,7 +490,19 @@ local function drawMinimapPin(pin, data)
     if dist <= 1 or (data.floatOnEdge and ((pin.texture and pin.texture.a and pin.texture.a ~= 0) or pin.texture == nil)) then
         pin:Show()
         pin:ClearAllPoints()
-        pin:SetPoint("CENTER", pins.Minimap, "CENTER", diffX * minimapWidth, -diffY * minimapHeight)
+        -- Snap the icon offset to the physical pixel grid. At fractional UI scales (e.g. a
+        -- 0.71 game scale combined with Windows display scaling) a raw fractional offset lands
+        -- the icon between physical pixels, so it renders blurry and visibly misaligned with the
+        -- engine-drawn native quest blips that ARE pixel-aligned (#6). Rounding the offset to a
+        -- whole physical pixel keeps Questie's pins on the same grid as the native markers.
+        local ox = diffX * minimapWidth
+        local oy = -diffY * minimapHeight
+        local eScale = pins.Minimap:GetEffectiveScale()
+        if eScale and eScale > 0 then
+            ox = math.floor(ox * eScale + 0.5) / eScale
+            oy = math.floor(oy * eScale + 0.5) / eScale
+        end
+        pin:SetPoint("CENTER", pins.Minimap, "CENTER", ox, oy)
         data.onEdge = (dist > 1)
     else
         pin:Hide()
