@@ -2571,7 +2571,11 @@ function QuestieLearner:Sanitize(data)
         if data[coordKey] and type(data[coordKey]) == "table" then
             for zoneId, coords in pairs(data[coordKey]) do
                 local unique = {}
-                local grid = COORD_GRID -- use standard for static sanitization
+                -- Use the SAME per-zone grid the coords were stored with. The flat
+                -- COORD_GRID (2.0) is too coarse for tightly-packed zones like Sunstrider
+                -- Isle, whose grid is 0.5 — sanitizing at 2.0 collapsed distinct learned
+                -- spawns into fewer pins on every InjectLearnedData.
+                local grid = GetCoordGridForZone(zoneId)
                 for _, c in ipairs(coords) do
                     local bx, by = floor(c[1] / grid) * grid, floor(c[2] / grid) * grid
                     local key = bx .. "," .. by
@@ -2713,32 +2717,30 @@ function QuestieLearner:InjectLearnedData()
         end
     end
 
-    -- Migration: fix spawn zone keys that were stored as uiMapId instead of areaId.
-    -- Before the GetZoneId() fix, kills on maps like Sunstrider Isle (uiMapId 1241)
-    -- were stored under key 1241 instead of the correct areaId 3431.
-    -- Convert any uiMapId keys to areaId using ZoneDB.
+    -- Migration: normalize legacy areaId spawn keys to the canonical uiMapId render key.
+    -- The pin pipeline (DrawWorldIcon / HBD) keys spawns by uiMapId (Sunstrider 1241,
+    -- Eversong 1941). Some old learner rows stored coords under the AREA id (3431/3430)
+    -- instead, so convert those forward to the uiMapId via NormalizeSpawnZoneKey.
+    --
+    -- CRITICAL: keys that are ALREADY uiMapIds (1241, 1941) must be left untouched. The
+    -- previous version of this code did the reverse — it ran GetAreaIdByUiMapId(1241),
+    -- which returns the Eversong PARENT areaId 3430, and moved Sunstrider coords there
+    -- (rendering them on the wrong map / NE corner) while InsertIfNewBucket silently
+    -- deduped distinct coords down. That corrupted the saved learner data on every
+    -- InjectLearnedData. Never convert a uiMapId to an areaId here.
     local zonesFixed = 0
     for npcId, data in pairs(learned.npcs) do
         if data[7] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[7]) do
-                local originalZoneKey = zoneKey
-                zoneKey = NormalizeSpawnZoneKey(zoneKey)
-                -- Older Ascension learner data stored native Sunstrider coords
-                -- under parent areaId 3430 while [9] still identified the row as
-                -- Sunstrider. Move those coords to areaId 3431 so they render on
-                -- uiMapId 1241 instead of Eversong.
-                if originalZoneKey == 3430 and IsSunstriderNativeZone(data[9]) then
-                    zonesToMigrate[originalZoneKey] = 3431
-                end
-                -- If zoneKey looks like a uiMapId (a map ID rather than an areaId),
-                -- ZoneDB:GetAreaIdByUiMapId will return the corresponding areaId.
-                -- If it returns nil, zoneKey is already an areaId — no migration needed.
-                -- Skip very common areaIds that happen to look like small numbers.
-                if not zonesToMigrate[originalZoneKey] and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-                    local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
-                    if maybeAreaId and maybeAreaId ~= zoneKey then
-                        zonesToMigrate[originalZoneKey] = maybeAreaId
+                -- Legacy Sunstrider coords mis-stored under the Eversong parent areaId 3430
+                -- belong on Sunstrider's uiMapId 1241, not Eversong's 1941.
+                if zoneKey == 3430 and IsSunstriderNativeZone(data[9]) then
+                    zonesToMigrate[zoneKey] = 1241
+                else
+                    local normalized = NormalizeSpawnZoneKey(zoneKey)
+                    if normalized and normalized ~= zoneKey then
+                        zonesToMigrate[zoneKey] = normalized
                     end
                 end
             end
@@ -2755,20 +2757,17 @@ function QuestieLearner:InjectLearnedData()
             end
         end
     end
-    -- Same migration for object spawn data (field 4)
+    -- Same migration for object spawn data (field 4) — areaId -> uiMapId, never the reverse.
     for objId, data in pairs(learned.objects) do
         if data[4] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[4]) do
-                local originalZoneKey = zoneKey
-                zoneKey = NormalizeSpawnZoneKey(zoneKey)
-                if originalZoneKey == 3430 and IsSunstriderNativeZone(data[5]) then
-                    zonesToMigrate[originalZoneKey] = 3431
-                end
-                if not zonesToMigrate[originalZoneKey] and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-                    local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(zoneKey)
-                    if maybeAreaId and maybeAreaId ~= zoneKey then
-                        zonesToMigrate[originalZoneKey] = maybeAreaId
+                if zoneKey == 3430 and IsSunstriderNativeZone(data[5]) then
+                    zonesToMigrate[zoneKey] = 1241
+                else
+                    local normalized = NormalizeSpawnZoneKey(zoneKey)
+                    if normalized and normalized ~= zoneKey then
+                        zonesToMigrate[zoneKey] = normalized
                     end
                 end
             end
@@ -2786,36 +2785,37 @@ function QuestieLearner:InjectLearnedData()
         end
     end
     if zonesFixed > 0 then
-        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Migrated", zonesFixed, "spawn zone keys from uiMapId to areaId")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Migrated", zonesFixed, "legacy areaId spawn zone keys to uiMapId")
     end
 
-    -- Also fix [9] zone field for NPCs and [5] zone field for Objects
-    -- that were stored as uiMapId instead of areaId (e.g. 1241 → 3431).
+    -- Normalize the [9] (NPC) / [5] (Object) home-zone field to the canonical uiMapId,
+    -- matching the spawn keys and how LearnNPC/LearnObject now store it. Legacy areaIds
+    -- (e.g. 3431) become uiMapIds (1241); values that are already uiMapIds are left alone.
+    -- (The previous version forced these to the Eversong parent areaId 3430, which broke
+    -- IsSunstriderNativeZone detection for Sunstrider rows.)
     local fieldsFixed = 0
     for npcId, data in pairs(learned.npcs) do
-        if type(data[9]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-            local normalizedZone = NormalizeSpawnZoneKey(data[9])
-            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
-            if maybeAreaId and maybeAreaId ~= data[9] then
-                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", maybeAreaId)
-                data[9] = maybeAreaId
+        if type(data[9]) == "number" then
+            local normalized = NormalizeSpawnZoneKey(data[9])
+            if normalized and normalized ~= data[9] then
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", normalized)
+                data[9] = normalized
                 fieldsFixed = fieldsFixed + 1
             end
         end
     end
     for objId, data in pairs(learned.objects) do
-        if type(data[5]) == "number" and ZoneDB and ZoneDB.GetAreaIdByUiMapId then
-            local normalizedZone = NormalizeSpawnZoneKey(data[5])
-            local maybeAreaId = ZoneDB:GetAreaIdByUiMapId(normalizedZone)
-            if maybeAreaId and maybeAreaId ~= data[5] then
-                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", maybeAreaId)
-                data[5] = maybeAreaId
+        if type(data[5]) == "number" then
+            local normalized = NormalizeSpawnZoneKey(data[5])
+            if normalized and normalized ~= data[5] then
+                Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", normalized)
+                data[5] = normalized
                 fieldsFixed = fieldsFixed + 1
             end
         end
     end
     if fieldsFixed > 0 then
-        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Fixed", fieldsFixed, "zone fields from uiMapId to areaId")
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Normalized", fieldsFixed, "home-zone fields to uiMapId")
     end
 
     -- Purge player-spawned totems from learned NPCs (they are not real world spawns)
