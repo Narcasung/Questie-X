@@ -618,6 +618,36 @@ end
 local allianceChampionMarkerQuests = { [13699] = true, [13713] = true, [13723] = true, [13724] = true, [13725] = true }
 local hordeChampionMarkerQuests = { [13726] = true, [13727] = true, [13728] = true, [13729] = true, [13731] = true }
 
+local function _CleanupCompletedQuestObjectivePins(quest)
+    if (not quest) or (not quest.Id) then
+        return
+    end
+
+    -- Full quest completion has to drain objective-owned frame refs before the
+    -- cached objective table is cleared. Some kill pins can be absent from the
+    -- map registry after data-source refreshes, but still live in AlreadySpawned.
+    if type(quest.Objectives) == "table" then
+        for objectiveIndex, objective in pairs(quest.Objectives) do
+            if type(objective) == "table" then
+                _UnloadAlreadySpawnedIcons(objective)
+                if type(objectiveIndex) == "number" then
+                    QuestieMap:UnloadQuestFramesForObjective(quest.Id, objectiveIndex)
+                end
+            end
+        end
+    end
+
+    if type(quest.SpecialObjectives) == "table" then
+        for _, objective in pairs(quest.SpecialObjectives) do
+            if type(objective) == "table" then
+                _UnloadAlreadySpawnedIcons(objective)
+            end
+        end
+    end
+
+    QuestieMap:UnloadQuestFrames(quest.Id)
+end
+
 ---@param questId number
 function QuestieQuest:CompleteQuest(questId)
     -- Skip quests which are turn in only and are not added to the quest log in the first place
@@ -651,11 +681,15 @@ function QuestieQuest:CompleteQuest(questId)
     -- Cached Completed=true / isUpdated=true flags that would cause
     -- PopulateObjectiveNotes to skip drawing map pins (bug: complete-abandon-reaccept).
     local quest = QuestieDB.GetQuest(questId)
-    if quest and type(quest.Objectives) == "table" then
-        quest.Objectives = {}
-    end
+    if quest then
+        _CleanupCompletedQuestObjectivePins(quest)
 
-    QuestieMap:UnloadQuestFrames(questId)
+        if type(quest.Objectives) == "table" then
+            quest.Objectives = {}
+        end
+    else
+        QuestieMap:UnloadQuestFrames(questId)
+    end
 
     -- Clear the pending-complete guard now that frames are unloaded
     if QuestiePlayer.pendingCompleteQuestIds then
@@ -669,6 +703,13 @@ function QuestieQuest:CompleteQuest(questId)
     -- Delayed verification to ensure all objective icons are removed
     -- This handles race conditions where AvailableQuests might redraw icons or UnloadQuestFrames misses some
     C_Timer.After(0.5, function()
+        local delayedQuest = QuestieDB.GetQuest(questId)
+        if delayedQuest then
+            _CleanupCompletedQuestObjectivePins(delayedQuest)
+        elseif QuestieMap.questIdFrames[questId] then
+            QuestieMap:UnloadQuestFrames(questId)
+        end
+
         if QuestieMap.questIdFrames[questId] then
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieQuest:CompleteQuest] Lingering frames detected for quest:",
                 questId, "- forcing cleanup")
