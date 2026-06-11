@@ -108,7 +108,7 @@ function QuestieOptions:SetProfileValue(info, value)
     end
     Questie.db.profile[key] = value
 
-    if key == "minimapIconRangeCutoff" then
+    if key == "minimapIconRangeCutoff" or key == "fadeLevel" then
         local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
         if QuestieMap and QuestieMap.RefreshMinimapIconVisibility then
             QuestieMap:RefreshMinimapIconVisibility()

@@ -549,8 +549,8 @@ function QuestieOptions.tabs.icons:Initialize()
                         desc = function() return l10n('How much objective icons should fade depending on distance.\n(Default: %s)', optionsDefaults.profile.fadeLevel); end,
                         width = 3.1,
                         min = 10,
-                        max = 100,
-                        step = 1,
+                        max = 1000,
+                        step = 5,
                         disabled = function() return ((not Questie.db.profile.enabled) or (not Questie.db.profile.enableMiniMapIcons)); end,
                         get = function(info) return QuestieOptions:GetProfileValue(info); end,
                         set = function (info, value)
