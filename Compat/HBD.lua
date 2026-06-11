@@ -490,19 +490,7 @@ local function drawMinimapPin(pin, data)
     if dist <= 1 or (data.floatOnEdge and ((pin.texture and pin.texture.a and pin.texture.a ~= 0) or pin.texture == nil)) then
         pin:Show()
         pin:ClearAllPoints()
-        -- Snap the icon offset to the physical pixel grid. At fractional UI scales (e.g. a
-        -- 0.71 game scale combined with Windows display scaling) a raw fractional offset lands
-        -- the icon between physical pixels, so it renders blurry and visibly misaligned with the
-        -- engine-drawn native quest blips that ARE pixel-aligned (#6). Rounding the offset to a
-        -- whole physical pixel keeps Questie's pins on the same grid as the native markers.
-        local ox = diffX * minimapWidth
-        local oy = -diffY * minimapHeight
-        local eScale = pins.Minimap:GetEffectiveScale()
-        if eScale and eScale > 0 then
-            ox = math.floor(ox * eScale + 0.5) / eScale
-            oy = math.floor(oy * eScale + 0.5) / eScale
-        end
-        pin:SetPoint("CENTER", pins.Minimap, "CENTER", ox, oy)
+        pin:SetPoint("CENTER", pins.Minimap, "CENTER", diffX * minimapWidth, -diffY * minimapHeight)
         data.onEdge = (dist > 1)
     else
         pin:Hide()
@@ -568,11 +556,11 @@ local function UpdateMinimapPins(force)
                 or sizeTable[2] or sizeTable[1] or sizeTable[0]
             mapRadius = size / 2
         end
-        -- minimapWidth = actual half-width of the visible minimap frame in screen pixels.
-        -- diffX (yards) / mapRadius (yards in viewport) * minimapWidth (pixels) = correct screen offset.
-        -- No additional scaling needed when mapRadius comes from the live API.
-        minimapWidth  = pins.Minimap:GetWidth()  * pins.Minimap:GetScale() / 2
-        minimapHeight = pins.Minimap:GetHeight() * pins.Minimap:GetScale() / 2
+        -- SetPoint offsets are in the minimap parent's coordinate space, not
+        -- physical pixels. Keep width/height unscaled so non-1 UI/minimap scales
+        -- do not push pins away from the native minimap blips (#6).
+        minimapWidth  = pins.Minimap:GetWidth() / 2
+        minimapHeight = pins.Minimap:GetHeight() / 2
 
         --[[ DEBUG: One-shot per (zoom, indoors, diffZoom) — shows pixel math state
         if not _G.QuestieDebugPinMath then _G.QuestieDebugPinMath = {} end
@@ -691,9 +679,11 @@ local function UpdateMinimapIconPosition()
 
 			mapRadius = size / 2
         end
-        -- minimapWidth = actual half-width of the visible minimap frame in screen pixels.
-        minimapWidth  = pins.Minimap:GetWidth()  * pins.Minimap:GetScale() / 2
-        minimapHeight = pins.Minimap:GetHeight() * pins.Minimap:GetScale() / 2
+        -- SetPoint offsets are in the minimap parent's coordinate space, not
+        -- physical pixels. Keep width/height unscaled so non-1 UI/minimap scales
+        -- do not push pins away from the native minimap blips (#6).
+        minimapWidth  = pins.Minimap:GetWidth() / 2
+        minimapHeight = pins.Minimap:GetHeight() / 2
 
         --[[ DEBUG: One-shot per (zoom, indoors) per-pin — shows ratio stability across zooms
         if not _G.QuestieDebugPinMath.pinMath then _G.QuestieDebugPinMath.pinMath = {} end
