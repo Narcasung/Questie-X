@@ -2073,15 +2073,14 @@ _DrawObjectiveIcons = function(questId, iconsToDraw, objective, maxPerType)
         range = range * 0.2;                                                   -- Only use 20% of the default range.
     end
 
-    -- Sunstrider Isle (uiMapID 1241) is a tiny starting area where AscensionDB
-    -- places individual spawn coords that should each show as a distinct pin.
-    -- In learner mode we keep clustering enabled so newly learned coordinates
-    -- can still consolidate; static/auto keeps the old "show every pin" path.
-    local learnerMode = Questie.dbLearner
-        and Questie.dbLearner.global
-        and Questie.dbLearner.global.settings
-        and Questie.dbLearner.global.settings.dataSourceMode == "learner"
-    if orderedList[1] and orderedList[1].zone == 1241 and not learnerMode then
+    -- Sunstrider Isle (uiMapID 1241) is a tiny starting area where AscensionDB and the
+    -- learner both place individual spawn coords that should each render as a distinct pin
+    -- — it is also where players build/verify the learner DB and need to SEE every learned
+    -- spawn, not a single consolidated dot. Show every pin here by default in ALL data-source
+    -- modes (learner included). Only consolidate when the player has explicitly turned up the
+    -- Dense Pin Clustering Aggressiveness knob; the previous "cluster in learner mode" special
+    -- case collapsed multiple learned spawns into one pin, which broke DB building.
+    if orderedList[1] and orderedList[1].zone == 1241 and densityAggression == 0 then
         range = 0
     end
 
