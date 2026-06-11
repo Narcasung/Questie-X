@@ -252,16 +252,76 @@ local function _AddQuestStarterDropsToTooltip(npcId)
     end
 end
 
+-- Collapses STACKED Ascension quest-progress lines for the same objective.
+-- The Ascension server appends a new progress line on every objective update instead of
+-- replacing the previous one, so a tooltip can pile up "0/8", "1/8", "2/8", "3/8" for one
+-- objective (#9). This keeps only the most-progressed line of each stack.
+--
+-- It is SAFE to run unconditionally (unlike the full strip below): it only hides a line
+-- when the SAME tooltip holds another progress line with the same objective text AND the
+-- same denominator. Other addons — and Questie's own single-line objectives — never produce
+-- two such duplicates, so their tooltip lines are never touched.
+function _QuestieTooltips:DedupeAscensionProgressLines(tooltip, numLines)
+    local frameName = tooltip:GetName()
+    if not frameName then return end
+
+    local groups = {}
+    for i = 2, numLines do
+        local fontString = _G[frameName .. "TextLeft" .. i]
+        local text = fontString and fontString:GetText()
+        if text then
+            local clean = string.gsub(text, "|[cC]%x%x%x%x%x%x%x%x", "")
+            clean = string.gsub(clean, "|[rR]", "")
+            clean = string.match(clean, "^%s*(.-)%s*$") or clean
+            -- Strip an optional leading bullet/dash so "- 2/8 ..." matches "2/8 ...".
+            local body = string.match(clean, "^%-%s*(.+)$") or clean
+            local current, total, label = string.match(body, "^(%d+)%s*/%s*(%d+)%s*(.-)$")
+            if current and total then
+                local key = (label or "") .. "@@" .. total
+                local group = groups[key]
+                if not group then
+                    groups[key] = { indices = { i }, bestIndex = i, bestCurrent = tonumber(current) }
+                else
+                    table.insert(group.indices, i)
+                    if tonumber(current) >= group.bestCurrent then
+                        group.bestCurrent = tonumber(current)
+                        group.bestIndex = i
+                    end
+                end
+            end
+        end
+    end
+
+    for _, group in pairs(groups) do
+        if table.getn(group.indices) > 1 then
+            for _, idx in ipairs(group.indices) do
+                if idx ~= group.bestIndex then
+                    local fontString = _G[frameName .. "TextLeft" .. idx]
+                    if fontString then
+                        fontString:SetText("")
+                        fontString:Hide()
+                    end
+                end
+            end
+        end
+    end
+end
+
 function _QuestieTooltips:HideAscensionQuestLines(tooltip)
     if not Questie.db.profile.enableTooltips then return end
-    -- Opt-in only. This strips lines matching quest-objective patterns ("N/M", "[N] ...")
-    -- from tooltips to hide Ascension's server-injected quest progress. It runs on every
-    -- tooltip, so by default it must NOT touch them — otherwise it clobbers other tooltip
-    -- addons' lines that happen to look like "N/M" (durability, stack counts, etc.). Users
-    -- who want the Ascension quest-spam hidden can enable it explicitly. (#16)
-    if not Questie.db.profile.hideAscensionTooltipQuestLines then return end
     local numLines = tooltip:NumLines()
     if not numLines or numLines < 1 then return end
+
+    -- Always collapse stacked duplicate progress lines for the same objective. This is the
+    -- safe, targeted fix for the "0/8 1/8 2/8 ..." pile-up and never touches other addons.
+    _QuestieTooltips:DedupeAscensionProgressLines(tooltip, numLines)
+
+    -- Opt-in only. The full strip removes EVERY line matching a quest-objective pattern
+    -- ("N/M", "[N] ...") to hide all of Ascension's server-injected quest progress. It runs
+    -- on every tooltip, so by default it must NOT touch them — otherwise it clobbers other
+    -- tooltip addons' lines that happen to look like "N/M" (durability, stack counts, etc.).
+    -- Users who want all Ascension quest-spam gone can enable it explicitly. (#16)
+    if not Questie.db.profile.hideAscensionTooltipQuestLines then return end
 
     for i = 2, numLines do
         local fontString = _G[tooltip:GetName() .. "TextLeft" .. i]
