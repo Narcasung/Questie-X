@@ -189,6 +189,7 @@ local UnitLevel = UnitLevel
 local UnitFactionGroup = UnitFactionGroup
 local UnitReaction = UnitReaction
 local UnitCreatureFamily = UnitCreatureFamily
+local UnitCreatureType = UnitCreatureType
 local GetRealZoneText = GetRealZoneText
 local GetTitleText = GetTitleText
 local GetObjectiveText = GetObjectiveText
@@ -1435,12 +1436,63 @@ local PLAYER_SPAWNED_NPC_SET = {
     [1107398] = true, -- Stoneclaw Totem V
 }
 
+-- Critters are never quest-relevant, so they should never enter the learner DB.
+-- This static set covers the common classic critters; Ascension's custom critters are
+-- caught at runtime via UnitCreatureType (see _NoteUnitCreatureType / _Learner.critterIds).
+local CRITTER_NPC_SET = {
+    [721]  = true, -- Rabbit
+    [883]  = true, -- Deer
+    [1933] = true, -- Sheep
+    [2442] = true, -- Cow
+    [6368] = true, -- Cat
+    [2620] = true, -- Prairie Dog
+    [4953] = true, -- Cat (Wisp)
+    [9700] = true, -- Squirrel
+    [5113] = true, -- Mouse
+    [5114] = true, -- Rat
+    [5115] = true, -- Snake
+    [5116] = true, -- Toad
+    [2914] = true, -- Frog
+    [385]  = true, -- Small Frog
+    [890]  = true, -- Crab
+    [299]  = true, -- Chicken
+    [620]  = true, -- Chicken
+    [2719] = true, -- Battered Rabbit
+}
+
+-- Runtime-discovered critters (npcId -> true), populated by _NoteUnitCreatureType when a
+-- unit token is available, so Ascension's custom critters are excluded even if not in the
+-- static set above.
+_Learner.critterIds = _Learner.critterIds or {}
+
+local function IsCritterNpc(npcId)
+    return npcId and (CRITTER_NPC_SET[npcId] or _Learner.critterIds[npcId]) or false
+end
+
+-- Records the creature type for a unit we currently have a token for (mouseover/target).
+-- When the unit is a Critter, remember its npcId and purge any learner data for it, since
+-- critters are never quest-relevant and only pollute the learner DB.
+local function _NoteUnitCreatureType(unit, npcId)
+    if not unit or not npcId or npcId <= 0 then return end
+    if not (UnitCreatureType and UnitExists and UnitExists(unit)) then return end
+    if UnitCreatureType(unit) == "Critter" then
+        _Learner.critterIds[npcId] = true
+        local ld = Questie.dbLearner and Questie.dbLearner.global
+        if ld and ld.npcs and ld.npcs[npcId] then
+            ld.npcs[npcId] = nil
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Removed critter from learner data:", npcId)
+        end
+    end
+end
+
 function QuestieLearner:LearnNPC(npcId, name, level, subName, npcFlags, factionString, spawnX, spawnY, spawnZoneId)
     if not self:IsEnabled() then return end
     if not Questie.dbLearner.global.settings.learnNpcs then return end
     if not npcId or npcId <= 0 then return end
     -- Never learn player-spawned totems
     if PLAYER_SPAWNED_NPC_SET[npcId] then return end
+    -- Never learn critters (not quest-relevant)
+    if IsCritterNpc(npcId) then return end
 
     -- Use provided spawn coords (e.g. from kill event) or fall back to current player position.
     -- Normalize area IDs → map IDs immediately so all storage uses the same key space
@@ -2733,9 +2785,11 @@ function QuestieLearner:InjectLearnedData()
         if data[7] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[7]) do
-                -- Legacy Sunstrider coords mis-stored under the Eversong parent areaId 3430
-                -- belong on Sunstrider's uiMapId 1241, not Eversong's 1941.
-                if zoneKey == 3430 and IsSunstriderNativeZone(data[9]) then
+                -- Any spawn under the Eversong PARENT areaId 3430 is mis-stored Sunstrider
+                -- data: legitimate Eversong coords are keyed by uiMapId 1941, never 3430 (3430
+                -- only appears via the old uiMapId->areaId bug, which mangled Sunstrider's
+                -- 1241). Move it to Sunstrider's uiMapId 1241.
+                if zoneKey == 3430 then
                     zonesToMigrate[zoneKey] = 1241
                 else
                     local normalized = NormalizeSpawnZoneKey(zoneKey)
@@ -2762,7 +2816,9 @@ function QuestieLearner:InjectLearnedData()
         if data[4] then
             local zonesToMigrate = {}
             for zoneKey, coords in pairs(data[4]) do
-                if zoneKey == 3430 and IsSunstriderNativeZone(data[5]) then
+                -- Same rule as NPCs: spawns under Eversong parent areaId 3430 are mis-stored
+                -- Sunstrider data (e.g. object 180516 "Shrine of Dath'Remar") -> uiMapId 1241.
+                if zoneKey == 3430 then
                     zonesToMigrate[zoneKey] = 1241
                 else
                     local normalized = NormalizeSpawnZoneKey(zoneKey)
@@ -2796,7 +2852,7 @@ function QuestieLearner:InjectLearnedData()
     local fieldsFixed = 0
     for npcId, data in pairs(learned.npcs) do
         if type(data[9]) == "number" then
-            local normalized = NormalizeSpawnZoneKey(data[9])
+            local normalized = (data[9] == 3430) and 1241 or NormalizeSpawnZoneKey(data[9])
             if normalized and normalized ~= data[9] then
                 Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] NPC", npcId, "zone field [9]", data[9], "->", normalized)
                 data[9] = normalized
@@ -2806,7 +2862,7 @@ function QuestieLearner:InjectLearnedData()
     end
     for objId, data in pairs(learned.objects) do
         if type(data[5]) == "number" then
-            local normalized = NormalizeSpawnZoneKey(data[5])
+            local normalized = (data[5] == 3430) and 1241 or NormalizeSpawnZoneKey(data[5])
             if normalized and normalized ~= data[5] then
                 Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Object", objId, "zone field [5]", data[5], "->", normalized)
                 data[5] = normalized
@@ -2833,6 +2889,12 @@ function QuestieLearner:InjectLearnedData()
             learned.npcs[npcId] = nil
             purgedNpcs = purgedNpcs + 1
             Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged player-spawned NPC", npcId, data[1] or "?")
+        elseif IsCritterNpc(npcId) then
+            -- Critters are never quest-relevant; drop any that were recorded before
+            -- critter filtering existed.
+            learned.npcs[npcId] = nil
+            purgedNpcs = purgedNpcs + 1
+            Questie:Debug(Questie.DEBUG_INFO, "[QuestieLearner] Purged critter NPC", npcId, data[1] or "?")
         elseif data[7] then
             -- Check for empty spawn table (no coords at all = stale learner artifact).
             -- Only purge if the NPC has no other useful state — keep entries that
@@ -3413,6 +3475,11 @@ function QuestieLearner:OnMouseoverUnit()
     end
     if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
 
+    -- Flag (and purge) critters the moment we have a unit token for them, so Ascension's
+    -- custom critters are excluded going forward and any already-recorded critter is removed.
+    _NoteUnitCreatureType("mouseover", entityId)
+    if IsCritterNpc(entityId) then return end
+
     -- Only learn this NPC if it carries the questgiver flag OR if it is already
     -- known in the database as a starter/finisher (so we can update its coords).
     local npcFlags = UnitNPCFlags and UnitNPCFlags("mouseover") or 0
@@ -3479,6 +3546,10 @@ function QuestieLearner:OnTargetChanged()
         return
     end
     if unitType ~= "Creature" and unitType ~= "Vehicle" then return end
+
+    -- Flag (and purge) critters as soon as we target one.
+    _NoteUnitCreatureType("target", entityId)
+    if IsCritterNpc(entityId) then return end
 
     local level = UnitLevel("target")
 
@@ -4251,6 +4322,13 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
     end
 
     if not npcId or npcId <= 0 then return end
+
+    -- If we have the dead unit as our current target, note its creature type so critters
+    -- get flagged/purged; then skip recording any critter kill entirely.
+    if UnitGUID and UnitGUID("target") == dstGUID then
+        _NoteUnitCreatureType("target", npcId)
+    end
+    if IsCritterNpc(npcId) then return end
 
     -- Determine whether this kill is "credited" to us (our own/party kill we engaged)
     -- BEFORE using it to decide whether to record our position. This MUST come first:
