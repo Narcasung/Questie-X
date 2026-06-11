@@ -367,6 +367,15 @@ function _QuestieTooltips:AddUnitDataToTooltip()
     end
 
     local guidType, _, _, _, _, npcId, _ = strsplit("-", guid or "");
+
+    -- NPC ID is (re)added on EVERY render so it survives WoW's tooltip rebuilds, not only the
+    -- first hover of a new unit. Deduped per tooltip so it never doubles up.
+    if name and (guidType == "Creature" or guidType == "Vehicle") and npcId
+            and Questie.db.profile.enableTooltipsNPCID == true
+            and not _TooltipHasLeftLine(self, "NPC ID") then
+        GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
+    end
+
     if name and (guidType == "Creature" or guidType == "Vehicle") and (
             name ~= QuestieTooltips.lastGametooltipUnit or
             (not QuestieTooltips.lastGametooltipCount) or
@@ -381,17 +390,10 @@ function _QuestieTooltips:AddUnitDataToTooltip()
         -- tooltip, or the separate secondary learner frame when that option is enabled).
         local tooltipData = QuestieTooltips:GetTooltip("m_" .. npcId, true);
 
+        -- NPC ID line is added above (every render, deduped); only the objective lines remain here.
         if tooltipData then
-            if Questie.db.profile.enableTooltipsNPCID == true then
-                GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
-            end
             for _, v in next, tooltipData do
                 GameTooltip:AddLine(v)
-            end
-        else
-            -- Even if Questie has no objective tooltip for this NPC, we still want to show quest-starter drops.
-            if Questie.db.profile.enableTooltipsNPCID == true then
-                GameTooltip:AddDoubleLine("NPC ID", "|cFFFFFFFF" .. npcId .. "|r")
             end
         end
 
@@ -417,6 +419,25 @@ end
 -- Rest of original file
 -- =======================
 
+-- True if the tooltip already shows a left-column line beginning with `label`. Used so the
+-- ID lines can be (re)added on EVERY tooltip render without ever duplicating within a single
+-- tooltip. The id lines must be added every render because WoW clears and re-fires
+-- OnTooltipSetItem/OnTooltipSetUnit for the same item/unit, and the old "only when the id
+-- changed" gate skipped re-adding the line on the rebuilt tooltip — so the ID vanished.
+local function _TooltipHasLeftLine(tooltip, label)
+    local frameName = tooltip and tooltip.GetName and tooltip:GetName()
+    if not frameName then return false end
+    local numLines = tooltip:NumLines()
+    for i = 1, (numLines or 0) do
+        local fontString = _G[frameName .. "TextLeft" .. i]
+        local text = fontString and fontString:GetText()
+        if text and string.find(text, label, 1, true) == 1 then
+            return true
+        end
+    end
+    return false
+end
+
 local lastItemId = 0;
 function _QuestieTooltips:AddItemDataToTooltip()
     if (self.IsForbidden and self:IsForbidden()) or (not Questie.db.profile.enableTooltips) then
@@ -432,17 +453,17 @@ function _QuestieTooltips:AddItemDataToTooltip()
             string.match(link,
                 "|?c?f?f?(%x*)|?H?([^:]*):?(%d+):?(%d*):?(%d*):?(%d*):?(%d*):?(%d*):?(%-?%d*):?(%-?%d*):?(%d*):?(%d*):?(%-?%d*)|?h?%[?([^%[%]]*)%]?|?h?|?r?"))
     end
+
+    -- Item ID is (re)added on EVERY render so it survives WoW's tooltip rebuilds, not just the
+    -- first hover of a new item. Deduped per tooltip so it never doubles up.
+    if name and itemId and Questie.db.profile.enableTooltipsItemID == true
+            and not _TooltipHasLeftLine(self, "Item ID") then
+        self:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
+    end
+
     if name and itemId and (lastItemId ~= itemId) then
         QuestieTooltips.lastGametooltipItem = name
         local tooltipData = QuestieTooltips:GetTooltip("i_" .. (itemId or 0));
-        -- Item ID is shown unconditionally for every item hover (matches the
-        -- behavior of NPC/Object tooltips), so users can always copy/paste
-        -- the ID even for items that have no quest objective or starter
-        -- data attached. The line is always added when the itemId changes
-        -- regardless of whether tooltipData is non-nil.
-        if Questie.db.profile.enableTooltipsItemID == true then
-            self:AddDoubleLine("Item ID", "|cFFFFFFFF" .. itemId .. "|r")
-        end
         -- If the item starts a quest (the player must right-click/use it,
         -- or talk to an NPC while it's in their bag), surface that so the
         -- player can see which quest the item unlocks without first
