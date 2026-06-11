@@ -13,6 +13,8 @@ local QuestLogCache = QuestieLoader:ImportModule("QuestLogCache")
 local l10n = QuestieLoader:ImportModule("l10n")
 ---@type ZoneDB
 local ZoneDB = QuestieLoader:ImportModule("ZoneDB")
+---@type HBD
+local HBD = (QuestieCompat and QuestieCompat.HBD) or (LibStub and LibStub("HereBeDragonsQuestie-2.0", true))
 
 local _Learner = QuestieLearner.private or {}
 
@@ -287,6 +289,22 @@ local function GetZoneId()
 end
 
 local function GetPlayerCoords()
+    -- Prefer HBD's cached zone position. The raw GetPlayerMapPosition("player") returns 0,0
+    -- whenever the world map isn't set to the player's current zone (the common case — the map
+    -- is usually closed or showing another zone), and it also mis-reports on Ascension subzones
+    -- like Sunstrider Isle. That made kill/learn events fall back with NO coordinates, so learned
+    -- NPCs were saved as spawnSource="fallback" with no [7] spawns and their pins never persisted.
+    -- HBD:GetPlayerZonePosition() goes through QuestieCompat.GetCurrentPlayerPosition(), which
+    -- runs SetMapToCurrentZone() and corrects the Sunstrider parent/child coordinate-space
+    -- mismatch, and it caches the result so it is cheap to call on every kill.
+    if HBD and HBD.GetPlayerZonePosition then
+        local zx, zy = HBD:GetPlayerZonePosition()
+        if zx and zy and zx > 0 and zy > 0 then
+            -- HBD returns 0–1; store in 0–100 scale, 2-decimal precision.
+            return floor(zx * 10000) / 100, floor(zy * 10000) / 100
+        end
+    end
+
     local x, y = GetPlayerMapPosition("player")
     if x and y and x > 0 and y > 0 then
         -- Store in 0–100 scale, 2-decimal precision
