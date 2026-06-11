@@ -419,9 +419,18 @@ function _QuestEventHandler:QuestRemoved(questId)
     end
 
     -- QUEST_REMOVED can fire before QUEST_TURNED_IN. If QUEST_TURNED_IN is not called after X seconds the quest
-    -- was abandoned
+    -- was abandoned.
+    --
+    -- Capture the completion state NOW, while the quest is still in QuestLogCache. On Ascension some
+    -- turn-ins (notably crafting/auto-complete quests) never fire QUEST_TURNED_IN, only QUEST_REMOVED,
+    -- so MarkQuestAsAbandoned runs a second later — by which point the cache has been cleared and
+    -- IsComplete can no longer tell the quest was finished, causing a turned-in quest to be misclassified
+    -- as abandoned (its objective pins / turn-in "?" then linger). Snapshot it here so the timer can
+    -- treat a quest that was complete at removal as a completion.
+    local completeAtRemoval = QuestieDB.IsComplete(questId)
     questLog[questId] = {
         state = QUEST_LOG_STATES.QUEST_REMOVED,
+        completeAtRemoval = completeAtRemoval,
         timer = C_Timer.NewTicker(1, function()
             _QuestEventHandler:MarkQuestAsAbandoned(questId)
         end, 1)
@@ -448,9 +457,15 @@ function _QuestEventHandler:MarkQuestAsAbandoned(questId)
         -- If objectives were complete, treat it as a completion (not abandonment) so objective pins get hidden.
         local objectivesWereComplete = false
         local quest = QuestieDB.GetQuest(questId)
+        -- Prefer the completion state snapshotted at QUEST_REMOVED time (before the cache was
+        -- cleared); fall back to a live IsComplete if no snapshot was captured. This reliably
+        -- catches turn-ins that skipped QUEST_TURNED_IN so they are completed, not abandoned.
+        if questEntry.completeAtRemoval == 1 then
+            objectivesWereComplete = true
+        end
         if quest then
             local isComplete = QuestieDB.IsComplete(questId)
-            objectivesWereComplete = (isComplete == 1)
+            objectivesWereComplete = objectivesWereComplete or (isComplete == 1)
 
             -- Check for Ebonhold auto-complete quests which might be removed before IsComplete returns 1
             local desc = quest.Description
