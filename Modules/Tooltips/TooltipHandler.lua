@@ -405,7 +405,7 @@ function _QuestieTooltips:AddUnitDataToTooltip()
         end
 
         if QuestieTooltips.ResizeTooltip then
-            QuestieTooltips:ResizeTooltip(GameTooltip)
+            QuestieTooltips:ResizeTooltip(self)
         end
         QuestieTooltips.lastGametooltipCount = _QuestieTooltips:CountTooltip()
     end

@@ -2395,6 +2395,21 @@ function QuestieDB:GetNPC(npcId)
         rawdata = learnerRecord
         if rawdata then
             hasLearnerRecord = true
+            if override and (type(rawdata[7]) ~= "table" or next(rawdata[7]) == nil)
+                    and not (QuestieDB.ascensionOverrideKeys
+                        and QuestieDB.ascensionOverrideKeys["NPC"]
+                        and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
+                        and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]) then
+                local overrideSpawns = override[7] or override.spawns
+                if type(overrideSpawns) == "table" and next(overrideSpawns) then
+                    local mergedRawdata = {}
+                    for k, v in pairs(rawdata) do
+                        mergedRawdata[k] = v
+                    end
+                    mergedRawdata[7] = CopySpawnTable(overrideSpawns)
+                    rawdata = mergedRawdata
+                end
+            end
         else
             -- No learner record: fall back to the override only for metadata (name, etc.).
             -- Its spawns are stripped below so learner-only mode never draws curated/static pins.
