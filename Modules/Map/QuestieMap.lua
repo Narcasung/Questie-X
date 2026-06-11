@@ -216,6 +216,28 @@ local minimapDrawQueue = {};
 QuestieMap._mapDrawQueue = mapDrawQueue
 QuestieMap._minimapDrawQueue = minimapDrawQueue
 
+--- Removes any still-pending world-map / minimap draw calls for a frame.
+--- The two draw queues are processed independently in ProcessQueue, so a frame that is
+--- unloaded while still queued (e.g. a quest objective that completes the same tick its
+--- pins were queued) could otherwise be re-added to the WORLD MAP by a later map-queue
+--- entry AFTER it was already unloaded via its minimap-queue entry. Because Unload nils
+--- the questIdFrames/_G reference, that re-added world-map pin becomes orphaned and stays
+--- until /reload — while the minimap pin was correctly removed. Dropping the queued draw
+--- calls on Unload keeps both maps in sync. (#9)
+function QuestieMap:DequeueFrameDrawCalls(frame)
+    if not frame then return end
+    for i = #mapDrawQueue, 1, -1 do
+        if mapDrawQueue[i] and mapDrawQueue[i][2] == frame then
+            tremove(mapDrawQueue, i)
+        end
+    end
+    for i = #minimapDrawQueue, 1, -1 do
+        if minimapDrawQueue[i] and minimapDrawQueue[i][2] == frame then
+            tremove(minimapDrawQueue, i)
+        end
+    end
+end
+
 --- Called at startup (Stage 3) and on PLAYER_ENTERING_WORLD to reset the draw queue.
 function QuestieMap:InitializeQueue()
     Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Starting draw queue timer!")

@@ -327,8 +327,15 @@ end
 function _Qframe:Unload()
     if not self._loaded then
         self._needsUnload = true
+        -- Drop any pending draw-queue entries so this frame can't be re-added to a map
+        -- after it was unloaded while still queued (see DequeueFrameDrawCalls). Without
+        -- this a completed quest's world-map pin could linger until /reload. (#9)
+        QuestieMap:DequeueFrameDrawCalls(self)
         return -- icon is still in the draw queue
     end
+    -- Even when already loaded, the frame may have been re-queued for a redraw; clear those
+    -- pending draw calls so they don't re-add the icon after this unload. (#9)
+    QuestieMap:DequeueFrameDrawCalls(self)
     self._needsUnload = nil
     self._loaded = nil
     --Questie:Debug(Questie.DEBUG_SPAM, "[_Qframe:Unload]")
