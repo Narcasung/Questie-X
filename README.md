@@ -1,12 +1,12 @@
-> **Notice:** I am actively working on a major performance refactor. Until I publish a stable release that I am satisfied with, please use the repository version instead of the release asset.
->
+> **Notice:** This is a maintenance release, not the completed performance refactor. The performance refactor is still in progress on the `phase2-lua50-sweep` branch. This release (v1.6.4) contains bug fixes and improvements over v1.6.3 and should be more stable, but the full performance work will land in a future release. If you are currently on v1.6.3, this release is a recommended upgrade.
+
 > Current refactor focus: reducing QuestieLearner pin redraws during heavy kill activity, adding live Advanced performance controls for QuestieLearner and QuestieComms, adding Arrow throttles for low-end systems, and suppressing non-fatal error spam outside Questie debug modes. These changes are being staged on feature branches first and still need in-game validation before they become the next stable release.
 
 <div align="center">
 
 <img src="docs/QuestieXlogo.png" alt="Questie-X Logo" width="320" />
 
-![Version](https://img.shields.io/badge/Questie--X-v1.6.3-blue.svg?style=for-the-badge)
+![Version](https://img.shields.io/badge/Questie--X-v1.6.4-blue.svg?style=for-the-badge)
 [![Downloads](https://img.shields.io/github/downloads/Xurkon/Questie-X/total?style=for-the-badge&color=e67e22)](https://github.com/Xurkon/Questie-X/releases)
 [![Documentation](https://img.shields.io/badge/Documentation-View%20Docs-58a6ff?style=for-the-badge)](https://xurkon.github.io/Questie-X/)
 [![Patreon](https://img.shields.io/badge/Patreon-F96854?style=for-the-badge&logo=patreon&logoColor=white)](https://www.patreon.com/Xurkon)
