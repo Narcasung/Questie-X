@@ -79,6 +79,15 @@ local function _ShouldMinimapIconBeHidden(icon, forceRefresh)
     return icon._lastShouldBeHiddenResult
 end
 
+local function _GetMinimapDistanceFade(distance, profile)
+    local fade = 1 - (math.min(fadeOverDistance, (distance - profile.fadeLevel)) * normalizedValue)
+    local minimumFade = profile.iconFadeLevel or 0.3
+    if fade < minimumFade then
+        return minimumFade
+    end
+    return fade
+end
+
 local isDrawQueueDisabled = false
 
 --* TODO: How the frames are handled needs to be reworked, why are we getting them from _G
@@ -733,8 +742,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                                 self:FakeShow()
                             end
                         elseif (distance > profile.fadeLevel) then
-                            local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue)
-                            self:SetFade(fade)
+                            self:SetFade(_GetMinimapDistanceFade(distance, profile))
                         elseif (distance < profile.fadeOverPlayerDistance) and profile.fadeOverPlayer then
                             local fadeAmount = profile.fadeOverPlayerLevel + distance * (1 - profile.fadeOverPlayerLevel) / profile.fadeOverPlayerDistance
                             if self.faded and fadeAmount > profile.iconFadeLevel then
@@ -911,8 +919,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                                 self:FakeShow()
                             end
                         elseif (distance > profile.fadeLevel) then
-                            local fade = 1 - (math.min(10, (distance - profile.fadeLevel)) * normalizedValue);
-                            self:SetFade(fade)
+                            self:SetFade(_GetMinimapDistanceFade(distance, profile))
                         elseif (distance < profile.fadeOverPlayerDistance) and profile.fadeOverPlayer then
                             local fadeAmount = profile.fadeOverPlayerLevel + distance * (1 - profile.fadeOverPlayerLevel) / profile.fadeOverPlayerDistance
                             if self.faded and fadeAmount > profile.iconFadeLevel then

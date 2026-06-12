@@ -41,6 +41,7 @@
 
 ### Bug Fixes
 
+- **[Map - Minimap Fade No Longer Hides Icons]** (#17) Distance-based minimap fading now clamps to the configured faded-icon opacity floor instead of reaching 0 alpha. The fade distance can visually de-emphasize distant icons, but only the range cutoff can remove them from the minimap.
 - **[Regression Tests - Learner Spawn And Tooltip Fallback]** Fixed the two previously failing specs: AscensionDB-owned NPC spawn overrides now keep their curated coordinates even in learner mode, preventing stale learner zones from leaking wrong-corner pins; and NPC quest-start tooltip fallback now calls `QuestieDB:GetQuest` correctly so objective summary text appears when no live objective tooltip is registered.
 - **[Performance - Minimap Filter And Learner Kill Hot Paths]** (#20) Reduced two likely stutter sources introduced after 1.6.2: minimap fade passes now cache expensive quest-filter visibility checks for already-visible icons instead of re-running them every 0.1s per icon, while still forcing a fresh check before hidden icons reappear; and the learner kill path no longer runs the spawn-evidence merge scan before the merger's three-evidence minimum can succeed.
 - **[Map Tooltip - Objective Progress Refresh]** (#18) Minimap and world-map objective pin tooltips now refresh the underlying objective before rendering progress text, so kill counters update on hover instead of staying at the count captured when the pin was drawn.
