@@ -17,6 +17,26 @@ local UnitGUID = QuestieCompat.UnitGUID
 
 local lastGuid
 
+-- True if the tooltip already shows a left-column line beginning with `label`. Used so the
+-- ID lines can be (re)added on EVERY tooltip render without ever duplicating within a single
+-- tooltip. The id lines must be re-added every render because WoW clears and re-fires
+-- OnTooltipSetItem/OnTooltipSetUnit for the same item/unit, and the old "only when the id
+-- changed" gate skipped re-adding the line on the rebuilt tooltip — so the ID vanished.
+-- Defined here (before the Add*DataToTooltip functions) so all of them can see it.
+local function _TooltipHasLeftLine(tooltip, label)
+    local frameName = tooltip and tooltip.GetName and tooltip:GetName()
+    if not frameName then return false end
+    local numLines = tooltip:NumLines()
+    for i = 1, (numLines or 0) do
+        local fontString = _G[frameName .. "TextLeft" .. i]
+        local text = fontString and fontString:GetText()
+        if text and string.find(text, label, 1, true) == 1 then
+            return true
+        end
+    end
+    return false
+end
+
 -- ============================================================
 -- NPCs that DROP an item which STARTS a quest (quest-starter drops)
 -- Shows in tooltip like:
@@ -433,24 +453,6 @@ end
 -- Rest of original file
 -- =======================
 
--- True if the tooltip already shows a left-column line beginning with `label`. Used so the
--- ID lines can be (re)added on EVERY tooltip render without ever duplicating within a single
--- tooltip. The id lines must be added every render because WoW clears and re-fires
--- OnTooltipSetItem/OnTooltipSetUnit for the same item/unit, and the old "only when the id
--- changed" gate skipped re-adding the line on the rebuilt tooltip — so the ID vanished.
-local function _TooltipHasLeftLine(tooltip, label)
-    local frameName = tooltip and tooltip.GetName and tooltip:GetName()
-    if not frameName then return false end
-    local numLines = tooltip:NumLines()
-    for i = 1, (numLines or 0) do
-        local fontString = _G[frameName .. "TextLeft" .. i]
-        local text = fontString and fontString:GetText()
-        if text and string.find(text, label, 1, true) == 1 then
-            return true
-        end
-    end
-    return false
-end
 
 local lastItemId = 0;
 function _QuestieTooltips:AddItemDataToTooltip()
