@@ -1656,7 +1656,8 @@ function QuestieDB.IsComplete(questId)
         -- Before assuming an empty objective list means the quest is done, check if we *expect* objectives from the DB.
         -- On WotLK private servers, GetQuestObjectives sometimes transiently returns nil during cache rebuilds,
         -- which leads to IsComplete prematurely returning 1 and unloading map icons in the middle of a quest.
-        local expectedObjectives = QuestieDB.GetQuest(questId) and QuestieDB.GetQuest(questId).ObjectiveData
+        local expectedQuest = QuestieDB.GetQuest(questId)
+        local expectedObjectives = expectedQuest and expectedQuest.ObjectiveData
         if expectedObjectives and table.getn(expectedObjectives) > 0 then
             return 0
         end

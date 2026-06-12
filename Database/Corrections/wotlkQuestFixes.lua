@@ -1,4 +1,4 @@
-﻿---@class QuestieWotlkQuestFixes
+---@class QuestieWotlkQuestFixes
 local QuestieWotlkQuestFixes = QuestieLoader:CreateModule("QuestieWotlkQuestFixes")
 local _QuestieWotlkQuestFixes = {}
 

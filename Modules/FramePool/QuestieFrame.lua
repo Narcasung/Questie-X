@@ -130,7 +130,6 @@ if not QuestieCompat.Is335 then
     newFrame:SetScript("OnClick", _Qframe.OnClick);
 
     newFrame.GlowUpdate = _Qframe.GlowUpdate
-    newFrame.BaseOnUpdate = _Qframe.BaseOnUpdate
     newFrame.BaseOnShow = _Qframe.BaseOnShow
     newFrame.BaseOnHide = _Qframe.BaseOnHide
 
