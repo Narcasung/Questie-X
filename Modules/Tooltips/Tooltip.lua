@@ -95,7 +95,7 @@ local function _GetQuestObjectiveSummary(questId)
         return nil
     end
 
-    local quest = QuestieDB.GetQuest(questId)
+    local quest = QuestieDB:GetQuest(questId)
     if not quest or not quest.ObjectiveData then
         return nil
     end

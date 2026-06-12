@@ -2392,15 +2392,17 @@ function QuestieDB:GetNPC(npcId)
     local override
     local hasLearnerRecord = false
     override = QuestieDB.npcDataOverrides and (QuestieDB.npcDataOverrides[npcId] or QuestieDB.npcDataOverrides[tostring(npcId)])
+    local ascensionOwnsSpawns = QuestieDB.ascensionOverrideKeys
+        and QuestieDB.ascensionOverrideKeys["NPC"]
+        and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
+        and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
+    local curatedSpawnOverride = override
     if mode == "learner" or QuestieDB:IsStoreMissing("npcData") then
         rawdata = learnerRecord
         if rawdata then
             hasLearnerRecord = true
             if override and (type(rawdata[7]) ~= "table" or next(rawdata[7]) == nil)
-                    and not (QuestieDB.ascensionOverrideKeys
-                        and QuestieDB.ascensionOverrideKeys["NPC"]
-                        and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
-                        and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]) then
+                    and not ascensionOwnsSpawns then
                 local overrideSpawns = override[7] or override.spawns
                 if type(overrideSpawns) == "table" and next(overrideSpawns) then
                     local mergedRawdata = {}
@@ -2467,10 +2469,8 @@ function QuestieDB:GetNPC(npcId)
     -- AscensionDB has no entry to displace it — this check removes it. Direct
     -- ascensionOverrideKeys lookup (NOT IsAscensionProtected, which returns false
     -- in learner mode).
-    if override and QuestieDB.ascensionOverrideKeys and QuestieDB.ascensionOverrideKeys["NPC"]
-            and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
-            and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7] then
-        local curated = override[7] or override.spawns
+    if ascensionOwnsSpawns and curatedSpawnOverride then
+        local curated = curatedSpawnOverride[7] or curatedSpawnOverride.spawns
         if curated and next(curated) then
             npc.spawns = CopySpawnTable(curated)
         end
