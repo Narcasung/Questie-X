@@ -19,7 +19,7 @@ local QuestieTooltips = QuestieLoader:ImportModule("QuestieTooltips");
 ---@type QuestieMenu
 local QuestieMenu = QuestieLoader:ImportModule("QuestieMenu");
 
-QuestieOptions.tabs.icons = {...}
+QuestieOptions.tabs.icons = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 
 local _GetIconTypes

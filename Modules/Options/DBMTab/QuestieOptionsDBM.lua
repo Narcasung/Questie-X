@@ -14,7 +14,7 @@ local QuestieDBMIntegration = QuestieLoader:ImportModule("QuestieDBMIntegration"
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
-QuestieOptions.tabs.dbm = {...}
+QuestieOptions.tabs.dbm = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 
 

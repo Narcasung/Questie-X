@@ -7,7 +7,7 @@ local QuestieTracker = QuestieLoader:ImportModule("QuestieTracker");
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
 
-QuestieOptions.tabs.auto = {...}
+QuestieOptions.tabs.auto = {}
 
 local _GetShortcuts
 
