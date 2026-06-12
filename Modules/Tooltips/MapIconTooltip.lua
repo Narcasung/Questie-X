@@ -69,6 +69,18 @@ local DEFAULT_WAYPOINT_HOVER_COLOR = { 0.93, 0.46, 0.13, 0.8 }
 
 local lastTooltipShowTimestamp = GetTime()
 
+function MapIconTooltip:RefreshObjectiveForTooltip(objective)
+    if not objective or not objective.Update then
+        return
+    end
+
+    -- Map/minimap pins can remain on screen while quest progress changes. Refresh the
+    -- shared objective before rendering so tooltip counters do not stay at the value
+    -- captured when the pin was originally drawn.
+    objective.isUpdated = false
+    objective:Update()
+end
+
 local function _GetWorldMapTooltipSourceLine(pinData)
     -- Show learner spawn data for the hovered map icon when available.
     local id = pinData and pinData.Id
@@ -870,6 +882,7 @@ end
 function _MapIconTooltip:GetObjectiveTooltip(icon)
     local tooltips = {}
     local iconData = icon.data
+    MapIconTooltip:RefreshObjectiveForTooltip(iconData.ObjectiveData)
     local text = iconData.ObjectiveData.Description
     local color = QuestieLib:GetRGBForObjective(iconData.ObjectiveData)
     if iconData.ObjectiveData.Needed then
