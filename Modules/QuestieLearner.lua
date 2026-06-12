@@ -4401,17 +4401,23 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
         -- Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Kill cached for correlation:", npcId, dstName, "@", tostring(px), tostring(py), "zone", tostring(zoneId))
     end
 
-    -- Unconditionally map the spawn position for Ascension DB building.
-    -- Only announce the first time we learn a unique NPC ID; repeated kills
-    -- still update evidence but should not spam "learned" debug output.
-    local npcWasKnown = Questie.dbLearner.global.npcs[npcId] ~= nil
-    self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
-    if not npcWasKnown then
-        Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Combat-log learned NPC:", eventType, npcId, name or "?")
-    end
+    -- Only record a SPAWN for kills we can actually position: our own / credited kills with
+    -- a captured player position (px,py). Bystander kills — other players killing nearby mobs
+    -- we never engaged — have no usable position; recording them would store OUR location as
+    -- the mob's spawn and inflate the kill count (the "recording nearby player kills as my
+    -- own" bug). For those we skip the spawn entirely; the NPC's name/quest data is still
+    -- learned via mouseover/target. LearnNPC must NOT be called with nil px,py here, because
+    -- its GetPlayerCoords fallback would re-introduce exactly that pollution.
+    if px and py then
+        local npcWasKnown = Questie.dbLearner.global.npcs[npcId] ~= nil
+        self:LearnNPC(npcId, name, nil, nil, nil, nil, px, py, zoneId)
+        if not npcWasKnown then
+            Questie:Debug(Questie.DEBUG_LEARNER, "[QuestieLearner] Combat-log learned NPC:", eventType, npcId, name or "?")
+        end
 
-    -- Phase 2: store per-GUID spawn evidence for weighted merge
-    self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
+        -- Phase 2: store per-GUID spawn evidence for weighted merge
+        self:_StoreGuidSpawnEvidence(npcId, dstGUID, zoneId, px, py)
+    end
     local guidSpawnsAfterStore = Questie.dbLearner.global.npcs[npcId]
         and Questie.dbLearner.global.npcs[npcId][8]
     if guidSpawnsAfterStore then
