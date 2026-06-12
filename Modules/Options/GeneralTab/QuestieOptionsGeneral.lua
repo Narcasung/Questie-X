@@ -496,15 +496,6 @@ function QuestieOptions.tabs.general:Initialize()
                         order = 8.55,
                         name = function() return l10n('Learner Tooltips'); end,
                     },
-                    learnerTooltipRecommendation = {
-                        type = "description",
-                        order = 8.555,
-                        name = function()
-                            return l10n(
-                                "Low-end PC: keep the learner extras minimal. Start with learner tooltips on, but leave the secondary tooltip, data source line, auto-resize, and the extra learner detail lines off unless you need them.\nHigh-end PC: turn on learner tooltips, the secondary tooltip, data source, spawn line, confidence line, total spawns, and auto-resize."
-                            )
-                        end,
-                    },
                     learnerTooltips = {
                         type = "toggle",
                         order = 8.56,

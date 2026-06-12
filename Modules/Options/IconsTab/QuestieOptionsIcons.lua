@@ -531,7 +531,12 @@ function QuestieOptions.tabs.icons:Initialize()
                         type = "range",
                         order = 4.35,
                         name = function() return l10n('Minimap Icon Range Cutoff'); end,
-                        desc = function() return l10n('How far away minimap icons can remain visible.\n(Default: %s)', optionsDefaults.profile.minimapIconRangeCutoff); end,
+                        desc = function()
+                            return l10n(
+                                "How far away minimap icons can remain visible.\nSuggested low-end PC range: 100-250.\nSuggested high-end PC range: 466-1000.\n(Default: %s)",
+                                optionsDefaults.profile.minimapIconRangeCutoff
+                            )
+                        end,
                         width = 3.1,
                         min = 25,
                         max = 1000,
@@ -546,7 +551,12 @@ function QuestieOptions.tabs.icons:Initialize()
                         type = "range",
                         order = 4.4,
                         name = function() return l10n('Minimap Icon Fade Distance'); end,
-                        desc = function() return l10n('How much objective icons should fade depending on distance.\n(Default: %s)', optionsDefaults.profile.fadeLevel); end,
+                        desc = function()
+                            return l10n(
+                                "How much objective icons should fade depending on distance.\nSuggested low-end PC range: 100-250.\nSuggested high-end PC range: match or exceed the cutoff if you want no distance fade.\n(Default: %s)",
+                                optionsDefaults.profile.fadeLevel
+                            )
+                        end,
                         width = 3.1,
                         min = 10,
                         max = 1000,
