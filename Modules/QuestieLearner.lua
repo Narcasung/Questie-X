@@ -4439,15 +4439,15 @@ function QuestieLearner:OnCombatLogEvent(timestamp, eventType, srcGUID, srcName,
             -- "y", tostring(py))
     end
 
-    -- Phase 3: weighted merge when evidence count is sufficient.
-    -- Temporarily lowered to 1 for Sunstrider/Mana Wyrm diagnostics so we can
-    -- verify the promotion path immediately.
+    -- Phase 3: weighted merge when evidence count is sufficient. The merger
+    -- itself requires at least three evidence points, so avoid doing its scan
+    -- on every early kill while the candidate still cannot be promoted.
     local guidSpawns = Questie.dbLearner.global.npcs[npcId]
         and Questie.dbLearner.global.npcs[npcId][8]
     if guidSpawns then
         local count = 0
         for _ in pairs(guidSpawns) do count = count + 1 end
-        if self:IsLearnerLiveEnabled() and count >= 1 then
+        if self:IsLearnerLiveEnabled() and count >= 3 then
             _MergeSpawnEvidence(npcId)
         end
     end

@@ -56,6 +56,7 @@ local tunpack = unpack;
 local drawTimer
 local fadeLogicTimerShown
 local fadeLogicCoroutine
+local MINIMAP_VISIBILITY_CHECK_INTERVAL = 1
 
 local function _ResolveMapUiMapId(uiMapId, x, y)
     -- Ghost map 946 has no real coordinate data; redirect to Eversong (1941).
@@ -67,6 +68,15 @@ local function _ResolveMapUiMapId(uiMapId, x, y)
     -- through ResolveZone()/isSameZoneSpace logic, which keeps 1241 and 1941
     -- linked without forcing the render target to the parent map.
     return uiMapId
+end
+
+local function _ShouldMinimapIconBeHidden(icon, forceRefresh)
+    local now = GetTime()
+    if forceRefresh or (not icon._lastShouldBeHiddenCheck) or (now - icon._lastShouldBeHiddenCheck) >= MINIMAP_VISIBILITY_CHECK_INTERVAL then
+        icon._lastShouldBeHiddenCheck = now
+        icon._lastShouldBeHiddenResult = icon:ShouldBeHidden()
+    end
+    return icon._lastShouldBeHiddenResult
 end
 
 local isDrawQueueDisabled = false
@@ -362,6 +372,7 @@ function QuestieMap:RefreshMinimapIconVisibility()
     for minimapFrame, data in pairs(HBDPins.activeMinimapPins) do
         if minimapFrame and minimapFrame.miniMapIcon and minimapFrame.FadeLogic then
             minimapFrame.minimapVisibilityCutoff = minimapVisibilityCutoff
+            minimapFrame._lastShouldBeHiddenCheck = nil
             minimapFrame:FadeLogic()
             if minimapFrame.GlowUpdate then
                 minimapFrame:GlowUpdate()
@@ -686,7 +697,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                         -- when deciding whether to RE-SHOW an already-hidden icon, so a filtered icon
                         -- that was already visible (e.g. a dungeon quest) lingered on the minimap
                         -- while the world map correctly hid it. Hiding here keeps both maps in sync. (#11)
-                        if self:ShouldBeHidden() then
+                        if _ShouldMinimapIconBeHidden(self) then
                             if not self.hidden then
                                 self:FakeHide()
                             end
@@ -718,7 +729,7 @@ function QuestieMap:DrawManualIcon(data, areaID, x, y, typ)
                             -- Previously FadeLogic re-showed ANY FakeHidden minimap icon once in
                             -- range, so the world-map quest-type filters never applied to the
                             -- minimap. ShouldBeHidden mirrors the world-map draw-time check.
-                            if not self:ShouldBeHidden() then
+                            if not _ShouldMinimapIconBeHidden(self, true) then
                                 self:FakeShow()
                             end
                         elseif (distance > profile.fadeLevel) then
@@ -866,7 +877,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                     if (x and y) then
                         -- Proactively hide any filtered minimap icon even if currently shown,
                         -- keeping the minimap in sync with the world-map filters. (#11)
-                        if self:ShouldBeHidden() then
+                        if _ShouldMinimapIconBeHidden(self) then
                             if not self.hidden then
                                 self:FakeHide()
                             end
@@ -896,7 +907,7 @@ function QuestieMap:DrawWorldIcon(data, areaID, x, y, showFlag)
                             -- Previously FadeLogic re-showed ANY FakeHidden minimap icon once in
                             -- range, so the world-map quest-type filters never applied to the
                             -- minimap. ShouldBeHidden mirrors the world-map draw-time check.
-                            if not self:ShouldBeHidden() then
+                            if not _ShouldMinimapIconBeHidden(self, true) then
                                 self:FakeShow()
                             end
                         elseif (distance > profile.fadeLevel) then
