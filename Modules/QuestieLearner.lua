@@ -3348,7 +3348,7 @@ local function GetIdAndTypeFromGUID(guid)
         if t then
             local low32 = tonumber(string.sub(guid, 11, 18), 16)
             if low32 then
-                local nid = low32 % 8388608
+                local nid = math.mod(low32, 8388608)
                 if nid > 0 then return nid, t end
             end
         end
@@ -3460,7 +3460,7 @@ end
 local function NpcFlagsHasQuestGiver(flags)
     if not flags then return false end
     -- bitwise AND for Lua 5.1 (no bit library guaranteed)
-    return math.floor(flags / NPC_FLAG_QUESTGIVER) % 2 == 1
+    return math.mod(math.floor(flags / NPC_FLAG_QUESTGIVER), 2) == 1
 end
 
 function QuestieLearner:OnMouseoverUnit()
