@@ -41,6 +41,7 @@
 
 ### Bug Fixes
 
+- **[Map - Sunstrider Quest Prereq Gate]** (#8) Added the missing prereq link for `Felendren the Banished` (8335), so the quest no longer appears as available before `Aggression` (8334) is completed.
 - **[Icons UI - Minimap Cutoff/Fade Suggestions]** Added short low-end and high-end recommendation text to the Minimap Icon Range Cutoff and Minimap Icon Fade Distance controls so the icon settings explain their intended starting points instead of leaving players to guess.
 - **[Map - Minimap Fade No Longer Hides Icons]** (#17) Distance-based minimap fading now clamps to the configured faded-icon opacity floor instead of reaching 0 alpha. The fade distance can visually de-emphasize distant icons, but only the range cutoff can remove them from the minimap.
 - **[Regression Tests - Learner Spawn And Tooltip Fallback]** Fixed the two previously failing specs: AscensionDB-owned NPC spawn overrides now keep their curated coordinates even in learner mode, preventing stale learner zones from leaking wrong-corner pins; and NPC quest-start tooltip fallback now calls `QuestieDB:GetQuest` correctly so objective summary text appears when no live objective tooltip is registered.
