@@ -302,6 +302,7 @@ function QuestieMenu:Show(hideDelay)
     tinsert(menuTable, { text= l10n("Objective"), func = function()
         local value = not Questie.db.profile.enableObjectives
         Questie.db.profile.enableObjectives = value
+        QuestieCompat.SyncBlizzardObjectivePOIs(value)
         QuestieQuest:ToggleNotes(value)
         QuestieQuest:SmoothReset()
     end, icon=QuestieLib.AddonPath.."Icons\\event.blp", notCheckable=false, checked=Questie.db.profile.enableObjectives, isNotRadio=true, keepShownOnClick=true})

@@ -587,6 +587,18 @@ function QuestieCompat.GetQuestIDFromLogIndex(questLogIndex)
     return select(8, QuestieCompat.GetQuestLogTitle(questLogIndex))
 end
 
+---Keeps Blizzard/server objective POIs from drawing over Questie's objective icons.
+---@param useQuestieObjectives boolean
+function QuestieCompat.SyncBlizzardObjectivePOIs(useQuestieObjectives)
+    if GetCVar and GetCVar("questPOI") ~= nil and SetCVar then
+        SetCVar("questPOI", useQuestieObjectives and "0" or "1")
+    end
+
+    if WorldMapQuestShowObjectives and WorldMapQuestShowObjectives.SetChecked then
+        WorldMapQuestShowObjectives:SetChecked(not useQuestieObjectives)
+    end
+end
+
 -- https://wowpedia.fandom.com/wiki/API_GetQuestLink
 -- Returns a QuestLink for a quest.
 -- Between patches 6.2 and 7.3.2 argument was changed to take a QuestID instead of a quest log index.

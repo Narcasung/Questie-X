@@ -226,6 +226,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     end
 
     Questie:SetIcons()
+    QuestieCompat.SyncBlizzardObjectivePOIs(Questie.db.profile.enableObjectives)
 
     if QUESTIE_LOCALES_OVERRIDE ~= nil then
         l10n:InitializeLocaleOverride()
