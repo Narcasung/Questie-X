@@ -9,6 +9,12 @@
 - **[Lua 5.0 - Modulo Operator]** Routed the nine arithmetic `%` modulo sites (daily/weekly quest flag tests, Darkmoon Faire cycle math, learner GUID/flag math, race/class flag tests) through the existing `math.mod` shim. Lua 5.0 has no `%` operator outside string formatting, so this was a parse error on Vanilla 1.12 clients; the addon now parses on 5.0 through Retail.
 - **[Lua 5.0 - Options Tab Tables]** Fixed `QuestieOptions.tabs.{auto,dbm,icons,nameplate}` being initialized with `{...}` instead of `{}`. On Lua 5.1 this silently captured the addon varargs into the table; on Lua 5.0 it is a parse error. All sibling tabs already used `{}`, and `Initialize` repopulates the table, so there is no behavioral change.
 
+### Performance
+
+> Measured optimizations being cherry-picked from `phase3-measured-perf` and in-game tested one at a time on top of 1.6.4.
+
+- **[l10n - Literal Translation Cache]** Added a locale-keyed cache for no-argument translation lookups so repeated literal keys resolve without redoing the lookup chain. The cache is reset on locale change and when locale overrides are applied. (Ported from `phase3-measured-perf` 970dd88.)
+
 ## [Unreleased] - Performance Refactor Branches
 
 ### Performance

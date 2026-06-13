@@ -12,6 +12,7 @@ l10n.npcNameLookup = {}
 l10n.objectNameLookup = {}
 l10n.objectLookup = {}
 l10n.questLookup = {}
+l10n.translationCache = {}
 
 ---@type QuestieDB
 local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
@@ -30,6 +31,10 @@ local supportedLocals = {
     ['koKR'] = true,
 }
 
+local function ResetTranslationCache()
+    l10n.translationCache = {}
+end
+
 function l10n:InitializeLocaleOverride()
     local overridingLocale = QUESTIE_LOCALES_OVERRIDE.locale
     supportedLocals[overridingLocale] = true
@@ -45,6 +50,8 @@ function l10n:InitializeLocaleOverride()
             l10n.translations[id][overridingLocale] = false
         end
     end
+
+    ResetTranslationCache()
 end
 
 ---@param zoneName string
@@ -193,28 +200,42 @@ function _l10n:translate(key, ...)
     key = tostring(key)
     local argCount = select("#", ...)
     if argCount == 0 then
+        local localeCache = l10n.translationCache[locale]
+        if localeCache and localeCache[key] ~= nil then
+            return localeCache[key]
+        end
+        if not localeCache then
+            localeCache = {}
+            l10n.translationCache[locale] = localeCache
+        end
+
         local translationEntry = l10n.translations[key]
         if not translationEntry then
             if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing completely!") end
+            localeCache[key] = key
             return key
         end
 
         local translationValue = translationEntry[locale]
         if (not translationValue) then
             if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translations for '" .. tostring(key) .. "' are missing the entry for language" , locale, "!") end
+            localeCache[key] = key
             return key
         end
 
         if translationValue == true then
             -- Fallback to enUS which is the key
+            localeCache[key] = key
             return key
         end
 
         if type(translationValue) ~= "string" then
             if (Questie.db.profile.debugEnabled) then Questie:Debug(Questie.DEBUG_ELEVATED, "ERROR: Translation for '" .. tostring(key) .. "' is not a string!") end
+            localeCache[key] = key
             return key
         end
 
+        localeCache[key] = translationValue
         return translationValue
     end
 
@@ -283,6 +304,8 @@ function l10n:SetUILocale(lang)
     else
         locale = _l10n:GetFallbackLocale(GetLocale())
     end
+
+    ResetTranslationCache()
 end
 
 function l10n:GetUILocale()

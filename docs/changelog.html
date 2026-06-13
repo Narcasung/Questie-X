@@ -218,6 +218,11 @@
             <li><strong>[Lua 5.0 &mdash; Modulo Operator]</strong> Routed the nine arithmetic <code>%</code> modulo sites (daily/weekly quest flag tests, Darkmoon Faire cycle math, learner GUID/flag math, race/class flag tests) through the existing <code>math.mod</code> shim. Lua 5.0 has no <code>%</code> operator outside string formatting, so this was a parse error on Vanilla 1.12 clients; the addon now parses on 5.0 through Retail.</li>
             <li><strong>[Lua 5.0 &mdash; Options Tab Tables]</strong> Fixed <code>QuestieOptions.tabs.{auto,dbm,icons,nameplate}</code> being initialized with <code>{...}</code> instead of <code>{}</code>. On Lua 5.1 this silently captured the addon varargs into the table; on Lua 5.0 it is a parse error. All sibling tabs already used <code>{}</code>, and <code>Initialize</code> repopulates the table, so there is no behavioral change.</li>
         </ul>
+        <h3>Performance</h3>
+        <p><em>Measured optimizations being cherry-picked from <code>phase3-measured-perf</code> and in-game tested one at a time on top of 1.6.4.</em></p>
+        <ul>
+            <li><strong>[l10n &mdash; Literal Translation Cache]</strong> Added a locale-keyed cache for no-argument translation lookups so repeated literal keys resolve without redoing the lookup chain. The cache is reset on locale change and when locale overrides are applied. (Ported from <code>phase3-measured-perf</code> 970dd88.)</li>
+        </ul>
         <h3>Bug Fixes</h3>
         <ul>
             <li><strong>[Map &mdash; Suppress Duplicate Native Quest POIs]</strong> Rather than globally disabling the server/Blizzard objective POIs, Questie now keeps them enabled and hides only the individual Blizzard POI buttons for quests that already have a visible Questie POI (per-quest duplicate-POI suppression in <code>QuestieCompat</code>, hooked at init). Blizzard POIs still appear for quests Questie does not cover, but no longer stack on top of Questie's own objective icons.</li>
