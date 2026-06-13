@@ -302,7 +302,10 @@ local function _GetLearnerTooltipLines(key)
     if not id then return nil end
 
     local QuestieLearner = QuestieLoader:ImportModule("QuestieLearner")
-    if not QuestieLearner or not QuestieLearner.IsEnabled or not QuestieLearner:IsEnabled() then
+    if not QuestieLearner
+        or not QuestieLearner.CanShowLearnerTooltips
+        or not QuestieLearner:CanShowLearnerTooltips()
+    then
         return nil
     end
 

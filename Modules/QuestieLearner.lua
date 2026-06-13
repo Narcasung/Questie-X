@@ -586,6 +586,12 @@ function QuestieLearner:IsLearnerLiveEnabled()
     return mode == "auto" or mode == "learner"
 end
 
+function QuestieLearner:CanShowLearnerTooltips()
+    if not EnsureLearnedData() then return false end
+    local mode = self:GetDataSourceMode()
+    return mode == "auto" or mode == "learner"
+end
+
 function QuestieLearner:ApplyDataSourceMode()
     if not EnsureLearnedData() then return end
     local settings = Questie.dbLearner and Questie.dbLearner.global and Questie.dbLearner.global.settings
@@ -4901,7 +4907,7 @@ end
 local function _ShowLearnerTooltipFrame(sourceTooltip, lines)
     local tooltip = _GetLearnerTooltipFrame()
     tooltip:ClearLines()
-    tooltip:SetOwner(sourceTooltip or GameTooltip, "ANCHOR_RIGHT")
+    tooltip:SetOwner(UIParent, "ANCHOR_NONE")
     for _, line in next, lines do
         tooltip:AddLine(line)
     end
@@ -4909,6 +4915,9 @@ local function _ShowLearnerTooltipFrame(sourceTooltip, lines)
     if QuestieTooltips and QuestieTooltips.ResizeTooltip then
         QuestieTooltips:ResizeTooltip(tooltip)
     end
+    local anchor = sourceTooltip or GameTooltip
+    tooltip:ClearAllPoints()
+    tooltip:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
     tooltip:Show()
 end
 
@@ -4918,6 +4927,10 @@ end
 ---@param unitToken string WoW unit token (e.g. "mouseover")
 local function _AddLearnedSpawnTooltipLine(unitToken)
     if not Questie or not Questie.dbLearner then
+        _HideLearnerTooltipFrame()
+        return
+    end
+    if not QuestieLearner:CanShowLearnerTooltips() then
         _HideLearnerTooltipFrame()
         return
     end
