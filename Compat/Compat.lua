@@ -587,16 +587,156 @@ function QuestieCompat.GetQuestIDFromLogIndex(questLogIndex)
     return select(8, QuestieCompat.GetQuestLogTitle(questLogIndex))
 end
 
----Keeps Blizzard/server objective POIs from drawing over Questie's objective icons.
----@param useQuestieObjectives boolean
-function QuestieCompat.SyncBlizzardObjectivePOIs(useQuestieObjectives)
+local QUESTIE_DUPLICATE_POI_ICON_TYPES = {
+    complete = true,
+    monster = true,
+    object = true,
+    item = true,
+    event = true,
+}
+
+local BLIZZARD_POI_QUEST_ID_FIELDS = {
+    "questID",
+    "questId",
+    "questIDNumber",
+    "questIDNum",
+    "questLogID",
+    "id",
+}
+
+local BLIZZARD_POI_QUEST_LOG_INDEX_FIELDS = {
+    "questLogIndex",
+    "questIndex",
+    "logIndex",
+}
+
+local function _ToPositiveNumber(value)
+    if type(value) == "number" or type(value) == "string" then
+        local number = tonumber(value)
+        if number and number > 0 then
+            return number
+        end
+    end
+
+    return nil
+end
+
+---Enables Blizzard/server objective POIs without globally disabling them when Questie objectives are on.
+function QuestieCompat.EnableBlizzardObjectivePOIs()
     if GetCVar and GetCVar("questPOI") ~= nil and SetCVar then
-        SetCVar("questPOI", useQuestieObjectives and "0" or "1")
+        SetCVar("questPOI", "1")
     end
 
     if WorldMapQuestShowObjectives and WorldMapQuestShowObjectives.SetChecked then
-        WorldMapQuestShowObjectives:SetChecked(not useQuestieObjectives)
+        WorldMapQuestShowObjectives:SetChecked(true)
     end
+end
+
+---@param frame table
+---@return boolean
+local function _IsVisibleQuestiePOIFrame(frame)
+    if (not frame) or (not frame.data) or (not QUESTIE_DUPLICATE_POI_ICON_TYPES[frame.data.Type]) then
+        return false
+    end
+
+    if frame.ShouldBeHidden then
+        return not frame:ShouldBeHidden()
+    end
+
+    return not frame.hidden
+end
+
+---@param questId number
+---@return boolean
+function QuestieCompat.HasVisibleQuestiePOIForQuest(questId)
+    if (not questId) or questId <= 0 then
+        return false
+    end
+
+    local QuestieMap = QuestieLoader:ImportModule("QuestieMap")
+    local questFrames = QuestieMap.questIdFrames and QuestieMap.questIdFrames[questId]
+    if not questFrames then
+        return false
+    end
+
+    for _, frameName in pairs(questFrames) do
+        if _IsVisibleQuestiePOIFrame(_G[frameName]) then
+            return true
+        end
+    end
+
+    return false
+end
+
+---@param poiButton table
+---@return number|nil
+function QuestieCompat.GetQuestIDFromBlizzardPOIButton(poiButton)
+    if not poiButton then
+        return nil
+    end
+
+    for _, field in ipairs(BLIZZARD_POI_QUEST_ID_FIELDS) do
+        local questId = _ToPositiveNumber(poiButton[field])
+        if questId then
+            return questId
+        end
+    end
+
+    for _, field in ipairs(BLIZZARD_POI_QUEST_LOG_INDEX_FIELDS) do
+        local questLogIndex = _ToPositiveNumber(poiButton[field])
+        if questLogIndex then
+            local questId = QuestieCompat.GetQuestIDFromLogIndex(questLogIndex)
+            if questId and questId > 0 then
+                return questId
+            end
+        end
+    end
+
+    return nil
+end
+
+---@param poiButton table
+function QuestieCompat.SuppressDuplicateBlizzardPOIButton(poiButton)
+    local questId = QuestieCompat.GetQuestIDFromBlizzardPOIButton(poiButton)
+    if questId and QuestieCompat.HasVisibleQuestiePOIForQuest(questId) then
+        poiButton.questieDuplicateSuppressed = true
+        poiButton:Hide()
+    end
+end
+
+function QuestieCompat.SuppressDuplicateBlizzardPOI(parentName, buttonType, buttonIndex)
+    local poiButton = _G[string.format(
+        "poi%s%s_%d",
+        tostring(parentName or ""),
+        tostring(buttonType or ""),
+        _ToPositiveNumber(buttonIndex) or 0
+    )]
+    if poiButton then
+        QuestieCompat.SuppressDuplicateBlizzardPOIButton(poiButton)
+    end
+end
+
+function QuestieCompat.InitializeBlizzardPOISuppression()
+    if QuestieCompat._blizzardPOISuppressionHooked then
+        return
+    end
+
+    local hooked = false
+    if QuestPOI_DisplayButton then
+        hooksecurefunc("QuestPOI_DisplayButton", function(parentName, buttonType, buttonIndex)
+            QuestieCompat.SuppressDuplicateBlizzardPOI(parentName, buttonType, buttonIndex)
+        end)
+        hooked = true
+    end
+
+    if QuestPOI_SelectButton then
+        hooksecurefunc("QuestPOI_SelectButton", function(poiButton)
+            QuestieCompat.SuppressDuplicateBlizzardPOIButton(poiButton)
+        end)
+        hooked = true
+    end
+
+    QuestieCompat._blizzardPOISuppressionHooked = hooked
 end
 
 -- https://wowpedia.fandom.com/wiki/API_GetQuestLink

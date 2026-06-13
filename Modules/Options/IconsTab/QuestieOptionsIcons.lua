@@ -266,7 +266,6 @@ function QuestieOptions.tabs.icons:Initialize()
                         get = function() return Questie.db.profile.enableObjectives; end,
                         set = function(info, value)
                             Questie.db.profile.enableObjectives = value
-                            QuestieCompat.SyncBlizzardObjectivePOIs(value)
                             QuestieQuest:ToggleNotes(value)
                             QuestieOptionsUtils.DetermineTheme()
                         end,
@@ -1335,7 +1334,6 @@ end
 function QuestieOptionsUtils.ExecuteTheme(info, value)
     Questie.db.profile.iconTheme = value
     if value == 'questie' then
-        QuestieCompat.SyncBlizzardObjectivePOIs(true)
         Questie.db.profile.enableObjectives = true
         Questie.db.profile.ICON_SLAY = Questie.icons["slay"]
         Questie.db.profile.ICON_LOOT = Questie.icons["loot"]
@@ -1348,7 +1346,6 @@ function QuestieOptionsUtils.ExecuteTheme(info, value)
         Questie.db.profile.alwaysGlowMinimap = optionsDefaults.profile.alwaysGlowMinimap
         Questie.db.profile.clusterLevelHotzone = optionsDefaults.profile.clusterLevelHotzone
     elseif value == 'pfquest' then
-        QuestieCompat.SyncBlizzardObjectivePOIs(true)
         Questie.db.profile.enableObjectives = true
         Questie.db.profile.ICON_SLAY = Questie.icons["node"]
         Questie.db.profile.ICON_LOOT = Questie.icons["node"]
@@ -1361,7 +1358,7 @@ function QuestieOptionsUtils.ExecuteTheme(info, value)
         Questie.db.profile.alwaysGlowMinimap = false
         Questie.db.profile.clusterLevelHotzone = 1
     elseif value == 'blizzard' then
-        QuestieCompat.SyncBlizzardObjectivePOIs(false)
+        QuestieCompat.EnableBlizzardObjectivePOIs()
         Questie.db.profile.enableObjectives = false
         Questie.db.profile.ICON_SLAY = Questie.icons["slay"]
         Questie.db.profile.ICON_LOOT = Questie.icons["loot"]
