@@ -32,6 +32,16 @@ local AvailableQuests = QuestieLoader:ImportModule("AvailableQuests")
 ---@class QuestieMap
 local QuestieMap = QuestieLoader:CreateModule("QuestieMap");
 
+local function GetInstantQuestTextEnabled()
+    if not GetCVar then return false end
+    return tostring(GetCVar("instantQuestText")) == "1"
+end
+
+local function SetInstantQuestTextEnabled(value)
+    if not SetCVar then return end
+    SetCVar("instantQuestText", value and "1" or "0")
+end
+
 QuestieOptions.tabs.general = {}
 local optionsDefaults = QuestieOptionsDefaults:Load()
 
@@ -204,21 +214,10 @@ function QuestieOptions.tabs.general:Initialize()
                         desc = function() return l10n('Toggles the default Instant Quest Text option. This is just a shortcut for the WoW option in Interface.'); end,
                         width = 1.55,
                         get = function()
-                            local val = GetCVar("instantQuestText")
-                            if val == '1' then
-                                return true;
-                            else
-                                return false;
-                            end
+                            return GetInstantQuestTextEnabled()
                         end,
-                        set = function(info, value)
-                            if GetCVar("instantQuestText") ~= nil then
-                                if value then
-                                    SetCVar("instantQuestText", "1");
-                                else
-                                     SetCVar("instantQuestText", "0");
-                                end
-                            end
+                        set = function(_, value)
+                            SetInstantQuestTextEnabled(value)
                         end,
                     },
                     showCustomQuestFrameIcons = {

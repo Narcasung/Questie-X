@@ -52,6 +52,7 @@
 
 ### Bug Fixes
 
+- **[Options - Instant Quest Text Toggle]** Fixed the General tab "Enable Instant Quest Text" checkbox so it can be toggled even when the client reports the backing `instantQuestText` CVar as unset before the first write.
 - **[Learner - Secondary Tooltip Without Spawn Coordinates]** Unit-hover learner tooltips now still open the secondary learner tooltip when the learner has confidence data but no recorded spawn coordinates yet. The normal unit tooltip suppression path also suppresses the old inline learner confidence line, so secondary mode no longer leaks learner-only lines back into the main tooltip.
 - **[Map - Suppress Duplicate Native Quest POIs]** Rather than globally disabling the server/Blizzard objective POIs, Questie now keeps them enabled and hides only the individual Blizzard POI buttons for quests that already have a visible Questie POI (per-quest duplicate-POI suppression in `QuestieCompat`, hooked at init). Blizzard POIs still appear for quests Questie does not cover, but no longer stack on top of Questie's own objective icons.
 - **[Learner - Tooltips In Auto Mode]** Learner spawn tooltips now appear in Auto data-source mode, not only in learner-only mode, so learned spawn/quest detail still surfaces on hover while Auto is selected.
