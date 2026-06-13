@@ -205,10 +205,8 @@ monster = function(npcId, objective)
                     and QuestieDB.ascensionOverrideKeys["NPC"]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId]
                     and QuestieDB.ascensionOverrideKeys["NPC"][npcId][7]
-                local hasReliableLearnedSpawns = _CountUniqueSpawnPositions(learnedSpawns) > 1
                 local staticHasSpawns = spawns and next(spawns) ~= nil
                 local canUseLearnerSpawns = dataSourceMode == "learner"
-                    or hasReliableLearnedSpawns
                     or not staticHasSpawns
                 if learnedSpawns and next(learnedSpawns) and learnedNpc.mc and learnedNpc.mc >= threshold
                         and canUseLearnerSpawns and not ascProtected then
@@ -289,7 +287,6 @@ object = function(objectId, objective)
                 local threshold = ld.settings.minConfidencePins or 1
                 local staticHasSpawns = spawns and next(spawns) ~= nil
                 local canUseLearnerSpawns = dataSourceMode == "learner"
-                    or _CountUniqueSpawnPositions(learnedObj[4]) > 1
                     or not staticHasSpawns
                 if learnedObj.mc and learnedObj.mc >= threshold and canUseLearnerSpawns then
                     spawns = learnedObj[4]
