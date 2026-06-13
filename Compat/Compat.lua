@@ -720,9 +720,18 @@ end
 
 -- Returns a list of quests the character has completed in its lifetime.
 -- https://wowpedia.fandom.com/wiki/API_GetQuestsCompleted
+local function ClearQuestCompleteTable(tbl)
+    if type(tbl) ~= "table" then return end
+    for key in pairs(tbl) do
+        tbl[key] = nil
+    end
+end
+
 function QuestieCompat.GetQuestsCompleted()
     if not Questie.db.char.complete then
         Questie.db.char.complete = {}
+    else
+        ClearQuestCompleteTable(Questie.db.char.complete)
     end
 
     QueryQuestsCompleted()
@@ -732,6 +741,10 @@ end
 -- Fires when the data requested by QueryQuestsCompleted() is available.
 -- https://wowpedia.fandom.com/wiki/QUEST_QUERY_COMPLETE
 function QuestieCompat:QUEST_QUERY_COMPLETE(event)
+    if not Questie.db.char.complete then
+        Questie.db.char.complete = {}
+    end
+    ClearQuestCompleteTable(Questie.db.char.complete)
     GetQuestsCompleted(Questie.db.char.complete)
 
     local questId = next(Questie.db.char.complete)
