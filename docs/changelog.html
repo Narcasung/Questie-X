@@ -169,7 +169,7 @@
         <h1>Questie-X Documentation</h1>
         <p class="subtitle">Complete history of changes, fixes, and additions.</p>
         <div style="display: flex; justify-content: center; gap: 10px;">
-            <code>Version: v1.6.3</code>
+            <code>Version: v1.6.4</code>
             <a href="index.html"
                 style="background: var(--bg-tertiary); color: var(--accent-blue); text-decoration: none; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; border: 1px solid var(--border-color);">&larr; Back to Documentation</a>
         </div>
@@ -208,8 +208,26 @@
             <li><strong>[Tooltip Data Precedence]</strong> Updated tooltip handling so QuestieLearner defers to AscensionDB-owned tooltip/objective data instead of hiding or replacing server-plugin data for active quests.</li>
         </ul>
         <div class="important">
-            <strong>Release status:</strong> The most complete performance candidate is not yet a single branch. Merge <code>questie-learner-comms-improvements</code> with <code>phase3-measured-perf</code>, remove or revalidate the stale reverted <code>QuestieMap.ProcessQueue</code> profile-local commit, fix the unrelated Arrow asset test mismatch, and validate in game before stable release. Test learner-only/static-only switching, immediate spawn pin rendering, available-quest scanning, and quest accept / NPC / item learning during real kill/loot gameplay.
+            <strong>Release status:</strong> The bulk of this work shipped in <code>v1.6.4</code> (below). The remaining measured performance optimizations are staged on the <code>phase3-measured-perf</code> branch and are being cherry-picked and in-game tested one at a time on top of <code>v1.6.4</code>.
         </div>
+
+        <h2 id="v164">[v1.6.4] &mdash; Universal Lua 5.0 Compatibility (Stage 1), Native Objective POI Sync, Cache &amp; Prestige Fixes</h2>
+        <p><strong>&#9888; Performance Refactor In Progress</strong> &mdash; This release ships bug fixes, new features, and the first stage of universal Lua 5.0 (Vanilla 1.12) &rarr; Retail compatibility. Several measured performance optimizations remain staged on the <code>phase3-measured-perf</code> branch and are being cherry-picked and in-game tested one at a time on top of this release.</p>
+        <h3>Compatibility</h3>
+        <ul>
+            <li><strong>[Lua 5.0 &mdash; Modulo Operator]</strong> Routed the nine arithmetic <code>%</code> modulo sites (daily/weekly quest flag tests, Darkmoon Faire cycle math, learner GUID/flag math, race/class flag tests) through the existing <code>math.mod</code> shim. Lua 5.0 has no <code>%</code> operator outside string formatting, so this was a parse error on Vanilla 1.12 clients; the addon now parses on 5.0 through Retail.</li>
+            <li><strong>[Lua 5.0 &mdash; Options Tab Tables]</strong> Fixed <code>QuestieOptions.tabs.{auto,dbm,icons,nameplate}</code> being initialized with <code>{...}</code> instead of <code>{}</code>. On Lua 5.1 this silently captured the addon varargs into the table; on Lua 5.0 it is a parse error. All sibling tabs already used <code>{}</code>, and <code>Initialize</code> repopulates the table, so there is no behavioral change.</li>
+        </ul>
+        <h3>Bug Fixes</h3>
+        <ul>
+            <li><strong>[Map &mdash; Native Objective POIs No Longer Overlap Questie Icons]</strong> Consolidated the scattered <code>questPOI</code> CVar / <code>WorldMapQuestShowObjectives</code> toggling into a single <code>QuestieCompat.SyncBlizzardObjectivePOIs</code> helper, and call it from every place that flips objective display (Icons options, theme switch, init, world-map menu) so the server/Blizzard objective POIs stop drawing on top of Questie's objective icons.</li>
+            <li><strong>[Prestige &mdash; Player Cache Reset]</strong> The cached player level/race/class flags are now reset on prestige so available-quest eligibility recomputes against the new character state instead of stale pre-prestige values.</li>
+            <li><strong>[Quest &mdash; Completion Cache Clear On Refresh]</strong> Quest completion lookups are cleared on refresh so re-accepted and re-evaluated quests no longer read stale completion state.</li>
+            <li><strong>[Map &mdash; Sunstrider Quest Prereq Gate]</strong> (#8) Added the missing prereq link for <code>Felendren the Banished</code> (8335), so the quest no longer appears as available before <code>Aggression</code> (8334) is completed.</li>
+            <li><strong>[Map &mdash; Minimap Fade No Longer Hides Icons]</strong> (#17) Distance-based minimap fading now clamps to the configured faded-icon opacity floor instead of reaching 0 alpha. The fade distance can visually de-emphasize distant icons, but only the range cutoff can remove them from the minimap.</li>
+            <li><strong>[Map Tooltip &mdash; Objective Progress Refresh]</strong> (#18) Minimap and world-map objective pin tooltips now refresh the underlying objective before rendering progress text, so kill counters update on hover instead of staying at the count captured when the pin was drawn.</li>
+            <li><strong>[Learner &mdash; Stop Recording Bystander Kills As Your Own]</strong> Spawn recording is now gated on a captured position, so kills of mobs you never engaged no longer store a spawn at your position or inflate the kill count. The NPC's name/quest data is still learned via mouseover/target.</li>
+        </ul>
 
         <h2 id="v163">[v1.6.3] &mdash; Arrow Redesign, Minimap Pin Drift Fix (Live API + Corrected Pixel Math), Sunstrider Isle Arrow Distance, Map Pins, Tooltip Schema Fixes, QuestData String Safety</h2>
         <ul>

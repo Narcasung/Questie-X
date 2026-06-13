@@ -1,8 +1,13 @@
 # Changelog
 
-## [1.6.4] - 2026-06-10
+## [1.6.4] - 2026-06-12
 
-> **⚠ Performance Refactor Incomplete** — This release ships bug fixes and new features but does NOT complete the Performance Refactor branch. Several planned performance optimizations (hot-path localization caching, available-quest redraw batching, `QuestieDB.IsDoable` batch reads, `GetTime()` hoists, NPC fallback lookup caching) remain in progress on the `phase2-lua50-sweep` branch and are NOT included in this build. The performance refactor will be completed in a future release.
+> **⚠ Performance Refactor In Progress** — This release ships bug fixes, new features, and the first stage of universal Lua 5.0 (Vanilla 1.12) → Retail compatibility. Several measured performance optimizations (hot-path localization caching, available-quest redraw batching, `QuestieDB.IsDoable` batch reads, `GetTime()` hoists, NPC fallback lookup caching, validate-cache allocation cleanup) remain staged on the `phase3-measured-perf` branch and are being cherry-picked and in-game tested one at a time on top of this release. They are NOT all included in this build yet.
+
+### Compatibility
+
+- **[Lua 5.0 - Modulo Operator]** Routed the nine arithmetic `%` modulo sites (daily/weekly quest flag tests, Darkmoon Faire cycle math, learner GUID/flag math, race/class flag tests) through the existing `math.mod` shim. Lua 5.0 has no `%` operator outside string formatting, so this was a parse error on Vanilla 1.12 clients; the addon now parses on 5.0 through Retail.
+- **[Lua 5.0 - Options Tab Tables]** Fixed `QuestieOptions.tabs.{auto,dbm,icons,nameplate}` being initialized with `{...}` instead of `{}`. On Lua 5.1 this silently captured the addon varargs into the table; on Lua 5.0 it is a parse error. All sibling tabs already used `{}`, and `Initialize` repopulates the table, so there is no behavioral change.
 
 ## [Unreleased] - Performance Refactor Branches
 
@@ -41,6 +46,9 @@
 
 ### Bug Fixes
 
+- **[Map - Native Objective POIs No Longer Overlap Questie Icons]** Consolidated the scattered `questPOI` CVar / `WorldMapQuestShowObjectives` toggling into a single `QuestieCompat.SyncBlizzardObjectivePOIs` helper, and call it from every place that flips objective display (Icons options, theme switch, init, world-map menu) so the server/Blizzard objective POIs stop drawing on top of Questie's objective icons.
+- **[Prestige - Player Cache Reset]** The cached player level/race/class flags are now reset on prestige so available-quest eligibility recomputes against the new character state instead of stale pre-prestige values.
+- **[Quest - Completion Cache Clear On Refresh]** Quest completion lookups are cleared on refresh so re-accepted and re-evaluated quests no longer read stale completion state.
 - **[Map - Sunstrider Quest Prereq Gate]** (#8) Added the missing prereq link for `Felendren the Banished` (8335), so the quest no longer appears as available before `Aggression` (8334) is completed.
 - **[Icons UI - Minimap Cutoff/Fade Suggestions]** Added short low-end and high-end recommendation text to the Minimap Icon Range Cutoff and Minimap Icon Fade Distance controls so the icon settings explain their intended starting points instead of leaving players to guess.
 - **[Map - Minimap Fade No Longer Hides Icons]** (#17) Distance-based minimap fading now clamps to the configured faded-icon opacity floor instead of reaching 0 alpha. The fade distance can visually de-emphasize distant icons, but only the range cutoff can remove them from the minimap.
