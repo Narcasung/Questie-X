@@ -41,6 +41,14 @@ local dungeons = ZoneDB:GetDungeons()
 
 local _CalculateAvailableQuests, _DrawChildQuests, _AddStarter, _DrawAvailableQuest, _GetQuestIcon, _GetIconScaleForAvailable, _HasProperDistanceToAlreadyAddedSpawns
 
+local function _GetFirstWaypointCoord(waypoints)
+    if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] and waypoints[1][1][2] then
+        return waypoints[1][1]
+    end
+
+    return nil
+end
+
 ---@param callback function | nil
 function AvailableQuests.CalculateAndDrawAll(callback)
     Questie:Debug(Questie.DEBUG_INFO, "[AvailableQuests.CalculateAndDrawAll]")
@@ -348,7 +356,8 @@ _AddStarter = function(starter, quest, tooltipKey)
     local zoneId, spawns = next(starter.spawns or {})
     while zoneId do
         local alreadyAddedSpawns = {}
-        if spawns then
+        local waypointStart = starter.waypoints and _GetFirstWaypointCoord(starter.waypoints[zoneId])
+        if spawns and not waypointStart then
             local spawnIndex = 1
             while spawns[spawnIndex] do
                 local coords = spawns[spawnIndex]
@@ -396,7 +405,8 @@ _AddStarter = function(starter, quest, tooltipKey)
     if starter.waypoints then
         local zone, waypoints = next(starter.waypoints or {})
         while zone do
-            if not dungeons[zone] and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
+            local waypointStart = _GetFirstWaypointCoord(waypoints)
+            if not dungeons[zone] and waypointStart then
                 if not starterIcons[zone] then
                     local data = {
                         Id = quest.Id,
@@ -408,10 +418,12 @@ _AddStarter = function(starter, quest, tooltipKey)
                         Name = starter.name,
                         IsObjectiveNote = false,
                     }
-                    starterIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypoints[1][1][1], waypoints[1][1][2])
-                    starterLocs[zone] = { waypoints[1][1][1], waypoints[1][1][2] }
+                    starterIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypointStart[1], waypointStart[2])
+                    starterLocs[zone] = { waypointStart[1], waypointStart[2] }
                 end
-                QuestieMap:DrawWaypoints(starterIcons[zone], waypoints, zone)
+                if starterIcons[zone] then
+                    QuestieMap:DrawWaypoints(starterIcons[zone], waypoints, zone)
+                end
             end
             zone, waypoints = next(starter.waypoints, zone)
         end

@@ -1326,6 +1326,14 @@ local function _GetIconScaleForAvailable()
     return Questie.db.profile.availableScale or 1.3
 end
 
+local function _GetFirstWaypointCoord(waypoints)
+    if waypoints and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] and waypoints[1][1][2] then
+        return waypoints[1][1]
+    end
+
+    return nil
+end
+
 ---@param quest Quest
 function QuestieQuest:AddFinisher(quest)
     --We should never ever add the quest if IsQuestFlaggedComplete true.
@@ -1413,7 +1421,8 @@ function QuestieQuest:AddFinisher(quest)
 
             local finisherZone, spawns = next(finisher.spawns or {})
             while finisherZone do
-                if (finisherZone ~= nil and spawns ~= nil) then
+                local waypointStart = finisher.waypoints and _GetFirstWaypointCoord(finisher.waypoints[finisherZone])
+                if (finisherZone ~= nil and spawns ~= nil and not waypointStart) then
                     local _, coords = next(spawns)
                     while _ do
                         local data = {
@@ -1469,8 +1478,9 @@ function QuestieQuest:AddFinisher(quest)
             if finisher.waypoints then
                 local zone, waypoints = next(finisher.waypoints)
                 while zone do
-                    if (not ZoneDB.IsDungeonZone(zone)) then
-                        if not finisherIcons[zone] and waypoints[1] and waypoints[1][1] and waypoints[1][1][1] then
+                    local waypointStart = _GetFirstWaypointCoord(waypoints)
+                    if (not ZoneDB.IsDungeonZone(zone)) and waypointStart then
+                        if not finisherIcons[zone] then
                             local data = {
                                 Id = questId,
                                 Icon = Questie.ICON_TYPE_COMPLETE,
@@ -1490,12 +1500,13 @@ function QuestieQuest:AddFinisher(quest)
                                 data.Icon = Questie.ICON_TYPE_REPEATABLE_COMPLETE
                             end
 
-                            finisherIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypoints[1][1][1],
-                                waypoints[1][1][2])
-                            finisherLocs[zone] = { waypoints[1][1][1], waypoints[1][1][2] }
+                            finisherIcons[zone] = QuestieMap:DrawWorldIcon(data, zone, waypointStart[1], waypointStart[2])
+                            finisherLocs[zone] = { waypointStart[1], waypointStart[2] }
                         end
 
-                        QuestieMap:DrawWaypoints(finisherIcons[zone], waypoints, zone)
+                        if finisherIcons[zone] then
+                            QuestieMap:DrawWaypoints(finisherIcons[zone], waypoints, zone)
+                        end
                     end
                     zone, waypoints = next(finisher.waypoints, zone)
                 end
