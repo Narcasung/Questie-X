@@ -46,7 +46,7 @@
 
 ### Bug Fixes
 
-- **[Map - Native Objective POIs No Longer Overlap Questie Icons]** Consolidated the scattered `questPOI` CVar / `WorldMapQuestShowObjectives` toggling into a single `QuestieCompat.SyncBlizzardObjectivePOIs` helper, and call it from every place that flips objective display (Icons options, theme switch, init, world-map menu) so the server/Blizzard objective POIs stop drawing on top of Questie's objective icons.
+- **[Map - Suppress Duplicate Native Quest POIs]** Rather than globally disabling the server/Blizzard objective POIs, Questie now keeps them enabled and hides only the individual Blizzard POI buttons for quests that already have a visible Questie POI (per-quest duplicate-POI suppression in `QuestieCompat`, hooked at init). Blizzard POIs still appear for quests Questie does not cover, but no longer stack on top of Questie's own objective icons.
 - **[Prestige - Player Cache Reset]** The cached player level/race/class flags are now reset on prestige so available-quest eligibility recomputes against the new character state instead of stale pre-prestige values.
 - **[Quest - Completion Cache Clear On Refresh]** Quest completion lookups are cleared on refresh so re-accepted and re-evaluated quests no longer read stale completion state.
 - **[Map - Sunstrider Quest Prereq Gate]** (#8) Added the missing prereq link for `Felendren the Banished` (8335), so the quest no longer appears as available before `Aggression` (8334) is completed.
