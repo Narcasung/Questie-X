@@ -447,7 +447,7 @@ if key:sub(1,2) == "m_" then
                                 end
                             end
                         end
-                        if learnedNpc.mc and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
+                        if learnedNpc.mc and not suppressLearnerLines and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedNpc.mc) .. ")|r")
                         end
                     end
@@ -504,7 +504,7 @@ elseif key:sub(1,2) == "o_" then
                                 end
                             end
                         end
-                        if learnedObj.mc and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
+                        if learnedObj.mc and not suppressLearnerLines and _LearnerTooltipsEnabled() and Questie.db.profile.learnerTooltipShowConfidence ~= false then
                             tinsert(tooltipLines, "|cFF5EBAF3(Learned - Confidence: " .. tostring(learnedObj.mc) .. ")|r")
                         end
                     end

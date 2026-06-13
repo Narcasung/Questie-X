@@ -4955,43 +4955,49 @@ local function _AddLearnedSpawnTooltipLine(unitToken)
     end
 
     local entry = Questie.dbLearner.global.npcs[npcId]
-    if not entry or not entry[7] then
+    if not entry then
         _HideLearnerTooltipFrame()
         return
     end
 
-    -- Find the first zone with spawn data
-    local spawnsByZone = entry[7]
-    local zoneId = next(spawnsByZone)
-    if not zoneId then
+    local hasSpawnData = entry[7] ~= nil
+    local hasConfidenceData = entry.mc ~= nil
+    if not hasSpawnData and not hasConfidenceData then
         _HideLearnerTooltipFrame()
         return
     end
 
-    local zoneSpawns = spawnsByZone[zoneId]
-    if not zoneSpawns or #zoneSpawns == 0 then
-        _HideLearnerTooltipFrame()
-        return
-    end
-
-    -- Use the first recorded coordinate
-    local x = zoneSpawns[1][1]
-    local y = zoneSpawns[1][2]
     local kills = entry.mc or 0
-
-    local formattedX = ("%.1f"):format(x)
-    local formattedY = ("%.1f"):format(y)
     local lines = {}
-    if Questie.db.profile.learnerTooltipShowSpawn ~= false then
-        local text = ("(%s, %s)"):format(formattedX, formattedY)
-        if Questie.db.profile.learnerTooltipShowConfidence ~= false then
-            text = text .. (" from %d kill%s"):format(kills, kills == 1 and "" or "s")
+
+    if hasSpawnData then
+        -- Find the first zone with spawn data
+        local spawnsByZone = entry[7]
+        local zoneId = next(spawnsByZone)
+        local zoneSpawns = zoneId and spawnsByZone[zoneId]
+        if zoneSpawns and #zoneSpawns > 0 and Questie.db.profile.learnerTooltipShowSpawn ~= false then
+            -- Use the first recorded coordinate
+            local x = zoneSpawns[1][1]
+            local y = zoneSpawns[1][2]
+            local formattedX = ("%.1f"):format(x)
+            local formattedY = ("%.1f"):format(y)
+            local text = ("(%s, %s)"):format(formattedX, formattedY)
+            if Questie.db.profile.learnerTooltipShowConfidence ~= false then
+                text = text .. (" from %d kill%s"):format(kills, kills == 1 and "" or "s")
+            end
+            lines[#lines + 1] = {"Learned spawn", text}
         end
-        lines[#lines + 1] = {"Learned spawn", text}
     end
 
     if Questie.db.profile.learnerTooltipShowTotalSpawns ~= false then
-        lines[#lines + 1] = {"Total spawns learned", tostring(_CountLearnedNpcSpawns(entry))}
+        local totalSpawns = _CountLearnedNpcSpawns(entry)
+        if totalSpawns > 0 then
+            lines[#lines + 1] = {"Total spawns learned", tostring(totalSpawns)}
+        end
+    end
+
+    if #lines == 0 and hasConfidenceData and Questie.db.profile.learnerTooltipShowConfidence ~= false then
+        lines[#lines + 1] = {"Learner confidence", tostring(kills)}
     end
 
     if #lines == 0 then
