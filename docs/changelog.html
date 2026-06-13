@@ -221,6 +221,7 @@
         <h3>Bug Fixes</h3>
         <ul>
             <li><strong>[Map &mdash; Suppress Duplicate Native Quest POIs]</strong> Rather than globally disabling the server/Blizzard objective POIs, Questie now keeps them enabled and hides only the individual Blizzard POI buttons for quests that already have a visible Questie POI (per-quest duplicate-POI suppression in <code>QuestieCompat</code>, hooked at init). Blizzard POIs still appear for quests Questie does not cover, but no longer stack on top of Questie's own objective icons.</li>
+            <li><strong>[Learner &mdash; Tooltips In Auto Mode]</strong> Learner spawn tooltips now appear in Auto data-source mode, not only in learner-only mode, so learned spawn/quest detail still surfaces on hover while Auto is selected.</li>
             <li><strong>[Prestige &mdash; Player Cache Reset]</strong> The cached player level/race/class flags are now reset on prestige so available-quest eligibility recomputes against the new character state instead of stale pre-prestige values.</li>
             <li><strong>[Quest &mdash; Completion Cache Clear On Refresh]</strong> Quest completion lookups are cleared on refresh so re-accepted and re-evaluated quests no longer read stale completion state.</li>
             <li><strong>[Map &mdash; Sunstrider Quest Prereq Gate]</strong> (#8) Added the missing prereq link for <code>Felendren the Banished</code> (8335), so the quest no longer appears as available before <code>Aggression</code> (8334) is completed.</li>
