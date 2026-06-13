@@ -52,6 +52,7 @@
 
 ### Bug Fixes
 
+- **[Map - Completed Quest Icon Cleanup Hardened]** (#9) Completed/removed quest cleanup now purges quest-owned frames from Questie's registry, pending map/minimap draw queues, and HBD's active map/minimap pin tables. The removed-quest fallback also snapshots the last known completion state before clearing the quest cache, so Ascension quest-log removals without clean turn-in events are completed instead of misclassified as abandoned.
 - **[Options - Instant Quest Text Toggle]** Fixed the General tab "Enable Instant Quest Text" checkbox so it can be toggled even when the client reports the backing `instantQuestText` CVar as unset before the first write.
 - **[Learner - Secondary Tooltip Without Spawn Coordinates]** Unit-hover learner tooltips now still open the secondary learner tooltip when the learner has confidence data but no recorded spawn coordinates yet. The normal unit tooltip suppression path also suppresses the old inline learner confidence line, so secondary mode no longer leaks learner-only lines back into the main tooltip.
 - **[Map - Suppress Duplicate Native Quest POIs]** Rather than globally disabling the server/Blizzard objective POIs, Questie now keeps them enabled and hides only the individual Blizzard POI buttons for quests that already have a visible Questie POI (per-quest duplicate-POI suppression in `QuestieCompat`, hooked at init). Blizzard POIs still appear for quests Questie does not cover, but no longer stack on top of Questie's own objective icons.

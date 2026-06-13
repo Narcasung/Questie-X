@@ -607,13 +607,15 @@ function _QuestEventHandler:CleanupRemovedQuestsFallback()
             -- Check if this quest was confirmed as turned in (not just objectives complete)
             local wasTurnedIn = questLog[questId] and questLog[questId].state == QUEST_LOG_STATES.QUEST_TURNED_IN
             local wasAlreadyComplete = Questie.db.char.complete and Questie.db.char.complete[questId]
+            local completeAtRemoval = QuestieDB.IsComplete(questId)
+            local shouldComplete = wasTurnedIn or wasAlreadyComplete or completeAtRemoval == 1
 
             QuestLogCache.RemoveQuest(questId)
             QuestieQuest:SetObjectivesDirty(questId)
 
             -- Only mark as complete if it was actually turned in OR already marked complete from previous session
             -- Don't use quest.WasComplete because that's set when objectives complete, not when quest is turned in
-            if wasTurnedIn or wasAlreadyComplete then
+            if shouldComplete then
                 QuestieQuest:CompleteQuest(questId)
             else
                 QuestieQuest:AbandonedQuest(questId)

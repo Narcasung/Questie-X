@@ -652,7 +652,7 @@ local function _CleanupCompletedQuestObjectivePins(quest)
         end
     end
 
-    QuestieMap:UnloadQuestFrames(quest.Id)
+    QuestieMap:PurgeQuestFrames(quest.Id)
 end
 
 ---@param questId number

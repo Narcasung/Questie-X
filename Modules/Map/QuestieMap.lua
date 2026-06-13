@@ -127,19 +127,18 @@ function QuestieMap:UnloadQuestFramesForObjective(questId, objectiveIndex)
 end
 
 function QuestieMap:UnloadQuestFrames(questId, iconType)
+    if not iconType then
+        QuestieMap:PurgeQuestFrames(questId)
+        Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
+        return
+    end
+
     if QuestieMap.questIdFrames[questId] then
-        if not iconType then
-            for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+        for name, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+            if frame and frame.data and frame.data.Icon == iconType then
                 frame:Unload();
-            end
-            QuestieMap.questIdFrames[questId] = nil;
-        else
-            for name, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
-                if frame and frame.data and frame.data.Icon == iconType then
-                    frame:Unload();
-                    QuestieMap.questIdFrames[questId][name] = nil
-                    _G[name] = nil
-                end
+                QuestieMap.questIdFrames[questId][name] = nil
+                _G[name] = nil
             end
         end
         Questie:Debug(Questie.DEBUG_DEVELOP, "[QuestieMap] Unloading quest frames for questid:", questId)
@@ -255,6 +254,67 @@ function QuestieMap:DequeueFrameDrawCalls(frame)
             tremove(minimapDrawQueue, i)
         end
     end
+end
+
+function QuestieMap:PurgeQuestFrames(questId)
+    if not questId then return end
+
+    local frames = {}
+    for _, frame in pairs(QuestieMap:GetFramesForQuest(questId)) do
+        if frame then
+            frames[frame] = true
+        end
+    end
+
+    local function collectQueuedFrames(queue)
+        if type(queue) ~= "table" then return end
+        for i = #queue, 1, -1 do
+            local frame = queue[i] and queue[i][2]
+            if frame and frame.data and frame.data.Id == questId then
+                frames[frame] = true
+                tremove(queue, i)
+            end
+        end
+    end
+
+    collectQueuedFrames(QuestieMap._mapDrawQueue)
+    collectQueuedFrames(QuestieMap._minimapDrawQueue)
+
+    local function collectHbdFrames(pinTable)
+        if type(pinTable) ~= "table" then return end
+        for frame in pairs(pinTable) do
+            if frame and frame.data and frame.data.Id == questId then
+                frames[frame] = true
+            end
+        end
+    end
+
+    if HBDPins then
+        collectHbdFrames(HBDPins.activeMinimapPins)
+        collectHbdFrames(HBDPins.worldmapPins)
+    end
+
+    for frame in pairs(frames) do
+        if frame.Unload then
+            frame:Unload()
+        else
+            if HBDPins then
+                HBDPins:RemoveMinimapIcon(Questie, frame)
+                HBDPins:RemoveWorldMapIcon(Questie, frame)
+            end
+            if frame.Hide then frame:Hide() end
+            if frame.ClearAllPoints then frame:ClearAllPoints() end
+        end
+
+        if frame.GetName then
+            local frameName = frame:GetName()
+            if frameName then
+                _G[frameName] = nil
+            end
+        end
+    end
+
+    QuestieMap.questIdFrames[questId] = nil
 end
 
 --- Called at startup (Stage 3) and on PLAYER_ENTERING_WORLD to reset the draw queue.
