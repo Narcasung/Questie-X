@@ -57,6 +57,11 @@ local deletedQuestItem = false
 -- Also schedules a follow-up scan to catch server-side quest-log counter lag (loot bot batch loots).
 local _bagUpdateDebounceTimer = nil
 local _bagUpdateFollowUpTimer = nil
+-- Debounce QUEST_WATCH_UPDATE scans too. Ascension can send objective progress
+-- without a follow-up QUEST_LOG_UPDATE, so waiting for the next QLU can leave
+-- completed objective pins visible until the periodic refresh catches them.
+local _questWatchUpdateDebounceTimer = nil
+local _questWatchUpdateFollowUpTimer = nil
 
 -- Periodic quest state verification timer.
 -- Ascension server events (QUEST_LOG_UPDATE, UNIT_QUEST_LOG_CHANGED) can be
@@ -548,6 +553,32 @@ function _QuestEventHandler:QuestWatchUpdate(questId)
     -- a QUEST_LOG_UPDATE. Also not every QUEST_WATCH_UPDATE gets a single QUEST_LOG_UPDATE and doing a full
     -- scan is less error prone
     doFullQuestLogScan = true
+    if questId and questId > 0 then
+        questLog[questId] = questLog[questId] or {
+            state = QUEST_LOG_STATES.QUEST_ACCEPTED
+        }
+        QuestieQuest:SetObjectivesDirty(questId)
+    end
+
+    if _questWatchUpdateDebounceTimer then
+        _questWatchUpdateDebounceTimer:Cancel()
+        _questWatchUpdateDebounceTimer = nil
+    end
+    _questWatchUpdateDebounceTimer = C_Timer.NewTimer(0.2, function()
+        _questWatchUpdateDebounceTimer = nil
+        doFullQuestLogScan = true
+        _QuestEventHandler:QuestLogUpdate()
+    end)
+
+    if _questWatchUpdateFollowUpTimer then
+        _questWatchUpdateFollowUpTimer:Cancel()
+        _questWatchUpdateFollowUpTimer = nil
+    end
+    _questWatchUpdateFollowUpTimer = C_Timer.NewTimer(1.0, function()
+        _questWatchUpdateFollowUpTimer = nil
+        doFullQuestLogScan = true
+        _QuestEventHandler:QuestLogUpdate()
+    end)
 end
 
 local _UnitQuestLogChangedCallback = function()

@@ -610,6 +610,15 @@ local BLIZZARD_POI_QUEST_LOG_INDEX_FIELDS = {
     "logIndex",
 }
 
+local BLIZZARD_POI_QUEST_TAG_FIELDS = {
+    "questTagID",
+    "questTagId",
+    "questTag",
+    "questType",
+    "tagID",
+    "tagId",
+}
+
 local function _ToPositiveNumber(value)
     if type(value) == "number" or type(value) == "string" then
         local number = tonumber(value)
@@ -619,6 +628,19 @@ local function _ToPositiveNumber(value)
     end
 
     return nil
+end
+
+local function _GetPlayerLevel()
+    if UnitLevel then
+        return UnitLevel("player") or 0
+    end
+
+    local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
+    if QuestiePlayer and QuestiePlayer.GetPlayerLevel then
+        return QuestiePlayer.GetPlayerLevel() or 0
+    end
+
+    return 0
 end
 
 ---Enables Blizzard/server objective POIs without globally disabling them when Questie objectives are on.
@@ -696,9 +718,83 @@ function QuestieCompat.GetQuestIDFromBlizzardPOIButton(poiButton)
 end
 
 ---@param poiButton table
+---@return number|nil
+function QuestieCompat.GetQuestTagIDFromBlizzardPOIButton(poiButton)
+    if not poiButton then
+        return nil
+    end
+
+    for _, field in ipairs(BLIZZARD_POI_QUEST_TAG_FIELDS) do
+        local questTagId = _ToPositiveNumber(poiButton[field])
+        if questTagId then
+            return questTagId
+        end
+    end
+
+    return nil
+end
+
+---@param questId number
+---@param poiButton table|nil
+---@return boolean
+function QuestieCompat.ShouldSuppressHiddenQuestieAvailablePOI(questId, poiButton)
+    if (not questId) or questId <= 0 or (not Questie) or (not Questie.db) or (not Questie.db.profile) then
+        return false
+    end
+
+    local profile = Questie.db.profile
+    if not profile.enabled then
+        return false
+    end
+
+    local QuestiePlayer = QuestieLoader:ImportModule("QuestiePlayer")
+    if QuestiePlayer and QuestiePlayer.currentQuestlog and QuestiePlayer.currentQuestlog[questId] then
+        return false
+    end
+
+    local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
+    if not QuestieDB then
+        return false
+    end
+
+    if Questie.db.char and Questie.db.char.complete and Questie.db.char.complete[questId] then
+        return true
+    end
+    if Questie.db.char and Questie.db.char.hidden and Questie.db.char.hidden[questId] then
+        return true
+    end
+
+    local repeatable = QuestieDB.IsRepeatable and QuestieDB.IsRepeatable(questId)
+    local event = QuestieDB.IsActiveEventQuest and QuestieDB.IsActiveEventQuest(questId)
+    local dungeon = QuestieDB.IsDungeonQuest and QuestieDB.IsDungeonQuest(questId)
+    local raid = QuestieDB.IsRaidQuest and QuestieDB.IsRaidQuest(questId)
+    local pvp = QuestieDB.IsPvPQuest and QuestieDB.IsPvPQuest(questId)
+
+    local questTagId = QuestieCompat.GetQuestTagIDFromBlizzardPOIButton(poiButton)
+    if questTagId == 81 then
+        dungeon = true
+    elseif questTagId == 62 then
+        raid = true
+    elseif questTagId == 41 then
+        pvp = true
+    elseif questTagId == 82 then
+        event = true
+    end
+
+    local normal = not (repeatable or event or dungeon or raid or pvp)
+    return ((not profile.enableAvailable) and normal)
+        or ((not profile.showRepeatableQuests) and repeatable)
+        or (profile.hideRepeatableBelowMaxLevel and (repeatable or (QuestieDB.IsBoardQuest and QuestieDB.IsBoardQuest(questId))) and _GetPlayerLevel() < 60)
+        or ((not profile.showEventQuests) and event)
+        or ((not profile.showDungeonQuests) and dungeon)
+        or ((not profile.showRaidQuests) and raid)
+        or ((not profile.showPvPQuests) and pvp)
+end
+
+---@param poiButton table
 function QuestieCompat.SuppressDuplicateBlizzardPOIButton(poiButton)
     local questId = QuestieCompat.GetQuestIDFromBlizzardPOIButton(poiButton)
-    if questId and QuestieCompat.HasVisibleQuestiePOIForQuest(questId) then
+    if questId and (QuestieCompat.HasVisibleQuestiePOIForQuest(questId) or QuestieCompat.ShouldSuppressHiddenQuestieAvailablePOI(questId, poiButton)) then
         poiButton.questieDuplicateSuppressed = true
         poiButton:Hide()
     end
