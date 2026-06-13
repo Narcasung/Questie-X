@@ -52,12 +52,27 @@ function QuestiePlayer:Initialize()
     end
 end
 
---Always compare to the UnitLevel parameter, returning the highest.
+-- Keep the cached level aligned with the reported level so prestige resets can
+-- move back to level 1. QuestiePlayer:GetPlayerLevel() still defends against
+-- temporary client desync by comparing against UnitLevel at read time.
 ---@param level Level
 function QuestiePlayer:SetPlayerLevel(level)
-    if level == nil then return end
-    local localLevel = UnitLevel("player");
-    _QuestiePlayer.playerLevel = math_max(localLevel, level);
+    if level == nil then return false end
+
+    local localLevel = UnitLevel("player") or level
+    local previousLevel = _QuestiePlayer.playerLevel
+    local isPrestigeReset = level == 1 and previousLevel > 1 and localLevel == 1
+
+    _QuestiePlayer.playerLevel = level
+
+    if isPrestigeReset then
+        local QuestieQuest = QuestieLoader:ImportModule("QuestieQuest")
+        if QuestieQuest and QuestieQuest.SmoothReset then
+            QuestieQuest:SmoothReset()
+        end
+    end
+
+    return isPrestigeReset
 end
 
 -- Gets the highest playerlevel available, most of the time playerLevel should be the most correct one
