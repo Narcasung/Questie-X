@@ -383,9 +383,13 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     local waitStart = GetTime()
     Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Waiting for plugins to register/finish. Initial pending: " .. QuestiePluginAPI.pendingPluginsCount)
 
-    -- Give other addons/scripts a moment to fire and register if they were waiting for PLAYER_LOGIN
-    while (GetTime() - waitStart < 1.0) do
-        coYield()
+    -- Give DB plugins a short grace period only when a plugin addon is enabled
+    -- but none has registered yet. Avoid adding a fixed one-second delay to
+    -- every login after plugins are already registered.
+    if QuestieServer:IsAnyDBPluginEnabled() and (not QuestiePluginAPI:IsAnyPluginLoaded()) then
+        while (GetTime() - waitStart < 1.0) do
+            coYield()
+        end
     end
 
     local timeout = 10
@@ -395,16 +399,26 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
         elapsed = GetTime() - waitStart
     end
 
-    -- Always re-compile on custom servers to pick up QuestieLearner changes from SavedVariables,
-    -- or if compilation was explicitly deferred/needed.
+    -- Recompile custom-server/plugin data only when the compiled cache no longer
+    -- matches the loaded plugin set. Learner data is applied as live overrides and
+    -- does not require rebuilding the binary DB cache on every login.
     local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled()
-    if isCustomServer or needsCompilation or (not Questie.db.global.dbIsCompiled) then
+    local pluginSignature = QuestiePluginAPI:GetLoadedSignature()
+    local cacheMatchesPlugins = Questie.db.global.dbCompiledPluginSignature == pluginSignature
+    local cacheMatchesCore = Questie.db.global.dbIsCompiled
+        and (QuestieLib:GetAddonVersionString() == Questie.db.global.dbCompiledOnVersion)
+        and (l10n:GetUILocale() == Questie.db.global.dbCompiledLang)
+        and (Questie.db.global.dbCompiledExpansion == WOW_PROJECT_ID)
+
+    if needsCompilation or (not cacheMatchesCore) or (isCustomServer and (not cacheMatchesPlugins)) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Starting compilation (Server=" .. tostring(isCustomServer) .. ", Needed=" .. tostring(needsCompilation) .. ")")
         if not QuestieDB.questData then
             loadFullDatabase()
         end
         QuestieDBCompiler:Compile()
         QuestieDB:Initialize()
+    else
+        Questie:Debug(Questie.DEBUG_INFO, "[QuestieInit:Stage3] DB cache is current; skipping compilation.")
     end
 
     -- register events that rely on questie being initialized

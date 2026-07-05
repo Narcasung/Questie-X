@@ -9,6 +9,8 @@ local QuestieDB = QuestieLoader:ImportModule("QuestieDB")
 local QuestieLib = QuestieLoader:ImportModule("QuestieLib")
 ---@type l10n
 local l10n = QuestieLoader:ImportModule("l10n")
+---@type QuestiePluginAPI
+local QuestiePluginAPI = QuestieLoader:ImportModule("QuestiePluginAPI")
 
 --- COMPATIBILITY ---
 local WOW_PROJECT_ID = QuestieCompat.WOW_PROJECT_ID
@@ -1095,6 +1097,7 @@ function QuestieDBCompiler:Compile()
     print("\124cFFAAEEFF"..l10n("Questie DB update complete!"))
 
     Questie.db.global.dbCompiledExpansion = WOW_PROJECT_ID
+    Questie.db.global.dbCompiledPluginSignature = QuestiePluginAPI:GetLoadedSignature()
 
     if Questie.IsSoD then
         Questie.db.global.sod.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
@@ -1107,6 +1110,8 @@ function QuestieDBCompiler:Compile()
         Questie.db.global.dbIsCompiled = true
         Questie.db.global.dbCompiledCount = (Questie.db.global.dbCompiledCount or 0) + 1
     end
+
+    QuestieDBCompiler._isCompiling = false
 end
 
 function QuestieDBCompiler:ValidateNPCs()

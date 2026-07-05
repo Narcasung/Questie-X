@@ -4,6 +4,28 @@ local QuestiePluginAPI = QuestieLoader:CreateModule("QuestiePluginAPI")
 QuestiePluginAPI.registeredPlugins = {}
 QuestiePluginAPI.loadedDBFlavor    = nil   -- set by the first DB plugin that calls FinishLoading
 QuestiePluginAPI.pendingPluginsCount = 0   -- count of plugins that have registered but not yet FinishedLoading
+QuestiePluginAPI.loadedDBVersions = {}
+
+local KNOWN_PLUGIN_ADDONS = {
+    WotLKDB = "Questie-X-WotLKDB",
+    ClassicDB = "Questie-X-ClassicDB",
+    TBCDB = "Questie-X-TBCDB",
+    Ascension = "Questie-X-AscensionDB",
+    AscensionDB = "Questie-X-AscensionDB",
+    Ebonhold = "Questie-X-EbonholdDB",
+    EbonholdDB = "Questie-X-EbonholdDB",
+    Valanior = "Questie-X-ValaniorDB",
+    ValaniorDB = "Questie-X-ValaniorDB",
+    RetailDB = "Questie-X-RetailDB",
+}
+
+local function GetPluginAddonVersion(pluginName, flavorKey)
+    local addonName = KNOWN_PLUGIN_ADDONS[flavorKey] or KNOWN_PLUGIN_ADDONS[pluginName] or pluginName
+    if GetAddOnMetadata then
+        return GetAddOnMetadata(addonName, "Version") or "unknown"
+    end
+    return "unknown"
+end
 
 --- Returns true if at least one DB plugin has fully loaded.
 ---@return boolean
@@ -25,6 +47,27 @@ end
 ---@return string|nil
 function QuestiePluginAPI:GetLoadedFlavor()
     return self.loadedDBFlavor
+end
+
+--- Returns a stable signature for loaded DB plugin data.
+---@return string
+function QuestiePluginAPI:GetLoadedSignature()
+    local parts = {}
+    local pluginName, plugin = next(self.registeredPlugins)
+    while pluginName do
+        local version = self.loadedDBVersions[pluginName] or plugin.version or "pending"
+        local flavor = plugin.flavorKey or pluginName
+        local stats = plugin.stats or {}
+        parts[#parts + 1] = pluginName .. ":" .. flavor .. ":" .. version
+            .. ":Q" .. tostring(stats.QUEST or 0)
+            .. ":N" .. tostring(stats.NPC or 0)
+            .. ":O" .. tostring(stats.OBJECT or 0)
+            .. ":I" .. tostring(stats.ITEM or 0)
+        pluginName, plugin = next(self.registeredPlugins, pluginName)
+    end
+
+    table.sort(parts)
+    return table.concat(parts, "|")
 end
 
 ---@class QuestiePlugin
@@ -297,6 +340,10 @@ function QuestiePlugin:FinishLoading(flavorKey)
     elseif not QuestiePluginAPI.loadedDBFlavor then
         QuestiePluginAPI.loadedDBFlavor = self.name
     end
+
+    self.flavorKey = flavorKey or self.name
+    self.version = GetPluginAddonVersion(self.name, self.flavorKey)
+    QuestiePluginAPI.loadedDBVersions[self.name] = self.version
 
     if not self.isFinished then
         self.isFinished = true
