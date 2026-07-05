@@ -97,7 +97,7 @@ local migrationFunctions = {
                 end
             end
             -- Move global metadata
-            local globalMetadata = {"dbCompiledExpansion", "dbCompiledOnVersion", "dbCompiledLang", "dbIsCompiled", "dbCompiledCount"}
+            local globalMetadata = {"dbCompiledExpansion", "dbCompiledPluginSignature", "dbCompiledOnVersion", "dbCompiledLang", "dbIsCompiled", "dbCompiledCount"}
             for _, k in ipairs(globalMetadata) do
                 if Questie.db.global[k] then
                     Questie.dbCache.global[k] = Questie.db.global[k]

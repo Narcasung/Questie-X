@@ -30,6 +30,10 @@ local function safeYield()
     end
 end
 
+local function GetCompiledDBMetadataBucket()
+    return Questie.dbCache and Questie.dbCache.global or Questie.db.global
+end
+
 ---@alias CompilerTypes
 ---| "u8"
 ---| "u16"
@@ -1096,19 +1100,21 @@ function QuestieDBCompiler:Compile()
     QuestieDBCompiler:CompileItems()
     print("\124cFFAAEEFF"..l10n("Questie DB update complete!"))
 
-    Questie.db.global.dbCompiledExpansion = WOW_PROJECT_ID
-    Questie.db.global.dbCompiledPluginSignature = QuestiePluginAPI:GetLoadedSignature()
+    local metadataBucket = GetCompiledDBMetadataBucket()
+    metadataBucket.dbCompiledExpansion = WOW_PROJECT_ID
+    metadataBucket.dbCompiledPluginSignature = QuestiePluginAPI:GetLoadedSignature()
 
     if Questie.IsSoD then
-        Questie.db.global.sod.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
-        Questie.db.global.sod.dbCompiledLang = l10n:GetUILocale()
-        Questie.db.global.sod.dbIsCompiled = true
-        Questie.db.global.sod.dbCompiledCount = (Questie.db.global.sod.dbCompiledCount or 0) + 1
+        metadataBucket.sod = metadataBucket.sod or {}
+        metadataBucket.sod.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
+        metadataBucket.sod.dbCompiledLang = l10n:GetUILocale()
+        metadataBucket.sod.dbIsCompiled = true
+        metadataBucket.sod.dbCompiledCount = (metadataBucket.sod.dbCompiledCount or 0) + 1
     else
-        Questie.db.global.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
-        Questie.db.global.dbCompiledLang = l10n:GetUILocale()
-        Questie.db.global.dbIsCompiled = true
-        Questie.db.global.dbCompiledCount = (Questie.db.global.dbCompiledCount or 0) + 1
+        metadataBucket.dbCompiledOnVersion = QuestieLib:GetAddonVersionString()
+        metadataBucket.dbCompiledLang = l10n:GetUILocale()
+        metadataBucket.dbIsCompiled = true
+        metadataBucket.dbCompiledCount = (metadataBucket.dbCompiledCount or 0) + 1
     end
 
     QuestieDBCompiler._isCompiling = false

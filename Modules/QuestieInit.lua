@@ -109,6 +109,19 @@ local function coYield()
     end
 end
 
+local function GetCompiledDBMetadataBucket()
+    return Questie.dbCache and Questie.dbCache.global or Questie.db.global
+end
+
+local function GetCompiledDBMetadata()
+    local bucket = GetCompiledDBMetadataBucket()
+    if Questie.IsSoD then
+        bucket.sod = bucket.sod or {}
+        return bucket.sod, bucket
+    end
+    return bucket, bucket
+end
+
 local function _dbStats(t)
     if type(t) ~= "table" then return "type=" .. type(t) end
     local n, minK, maxK = 0, math.huge, 0
@@ -259,16 +272,10 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
 
     local dbCompiled = false
 
-    local dbIsCompiled, dbCompiledOnVersion, dbCompiledLang
-    if Questie.IsSoD then
-        dbIsCompiled = Questie.db.global.sod.dbIsCompiled or false
-        dbCompiledOnVersion = Questie.db.global.sod.dbCompiledOnVersion
-        dbCompiledLang = Questie.db.global.sod.dbCompiledLang
-    else
-        dbIsCompiled = Questie.db.global.dbIsCompiled or false
-        dbCompiledOnVersion = Questie.db.global.dbCompiledOnVersion
-        dbCompiledLang = Questie.db.global.dbCompiledLang
-    end
+    local compiledMetadata, compiledRootMetadata = GetCompiledDBMetadata()
+    local dbIsCompiled = compiledMetadata.dbIsCompiled or false
+    local dbCompiledOnVersion = compiledMetadata.dbCompiledOnVersion
+    local dbCompiledLang = compiledMetadata.dbCompiledLang
 
 
     if Questie.IsSoD then
@@ -277,11 +284,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
     end
 
     -- Check if the DB needs to be recompiled
-    local dbCompiledOnVersion = Questie.db.global.dbCompiledOnVersion
-    local dbCompiledLang      = Questie.db.global.dbCompiledLang
-    local dbIsCompiled        = Questie.db.global.dbIsCompiled
-
-    needsCompilation = (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (Questie.db.global.dbCompiledExpansion ~= WOW_PROJECT_ID)
+    needsCompilation = (not dbIsCompiled) or (QuestieLib:GetAddonVersionString() ~= dbCompiledOnVersion) or (l10n:GetUILocale() ~= dbCompiledLang) or (compiledRootMetadata.dbCompiledExpansion ~= WOW_PROJECT_ID)
 
     -- Custom servers or presence of DB plugins: always defer to Stage3 to wait for plugin data injection
     if Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled() then
@@ -307,7 +310,7 @@ QuestieInit.Stages[1] = function() -- run as a coroutine
         QuestieCorrections:MinimalInit()
     end
 
-    local dbCompiledCount = Questie.IsSoD and Questie.db.global.sod.dbCompiledCount or Questie.db.global.dbCompiledCount
+    local dbCompiledCount = compiledMetadata.dbCompiledCount
 
     if (not Questie.db.char.townsfolk) or (dbCompiledCount ~= Questie.db.char.townsfolkVersion) or (Questie.db.char.townsfolkClass ~= UnitClass("player")) then
         Questie.db.char.townsfolkVersion = dbCompiledCount
@@ -404,11 +407,13 @@ QuestieInit.Stages[3] = function() -- run as a coroutine
     -- does not require rebuilding the binary DB cache on every login.
     local isCustomServer = Questie.IsAscension or Questie.IsEbonhold or Questie.IsValanior or QuestieServer:IsAnyDBPluginEnabled()
     local pluginSignature = QuestiePluginAPI:GetLoadedSignature()
-    local cacheMatchesPlugins = Questie.db.global.dbCompiledPluginSignature == pluginSignature
-    local cacheMatchesCore = Questie.db.global.dbIsCompiled
-        and (QuestieLib:GetAddonVersionString() == Questie.db.global.dbCompiledOnVersion)
-        and (l10n:GetUILocale() == Questie.db.global.dbCompiledLang)
-        and (Questie.db.global.dbCompiledExpansion == WOW_PROJECT_ID)
+    local stage3CompiledMetadata, stage3CompiledRootMetadata = GetCompiledDBMetadata()
+    local cacheMatchesPlugins = stage3CompiledRootMetadata.dbCompiledPluginSignature == pluginSignature
+        or (Questie.db.global and Questie.db.global.dbCompiledPluginSignature == pluginSignature)
+    local cacheMatchesCore = stage3CompiledMetadata.dbIsCompiled
+        and (QuestieLib:GetAddonVersionString() == stage3CompiledMetadata.dbCompiledOnVersion)
+        and (l10n:GetUILocale() == stage3CompiledMetadata.dbCompiledLang)
+        and (stage3CompiledRootMetadata.dbCompiledExpansion == WOW_PROJECT_ID)
 
     if needsCompilation or (not cacheMatchesCore) or (isCustomServer and (not cacheMatchesPlugins)) then
         Questie:Debug(Questie.DEBUG_CRITICAL, "[QuestieInit:Stage3] Starting compilation (Server=" .. tostring(isCustomServer) .. ", Needed=" .. tostring(needsCompilation) .. ")")
