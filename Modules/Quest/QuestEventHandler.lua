@@ -62,6 +62,8 @@ local _bagUpdateFollowUpTimer = nil
 -- completed objective pins visible until the periodic refresh catches them.
 local _questWatchUpdateDebounceTimer = nil
 local _questWatchUpdateFollowUpTimer = nil
+local _unitQuestLogChangedDebounceTimer = nil
+local _unitQuestLogChangedFollowUpTimer = nil
 
 -- Periodic quest state verification timer.
 -- Ascension server events (QUEST_LOG_UPDATE, UNIT_QUEST_LOG_CHANGED) can be
@@ -605,6 +607,29 @@ function _QuestEventHandler:UnitQuestLogChanged(unitTarget)
     if (not skipNextUQLCEvent) then
         doFullQuestLogScan = true
         _QuestLogUpdateQueue:Insert(_UnitQuestLogChangedCallback)
+
+        -- Ascension can fire UNIT_QUEST_LOG_CHANGED without a follow-up QUEST_LOG_UPDATE.
+        -- The event arrives before objective data is ready, so run a short delayed scan
+        -- and one follow-up scan instead of waiting for an event that may never come.
+        if _unitQuestLogChangedDebounceTimer then
+            _unitQuestLogChangedDebounceTimer:Cancel()
+            _unitQuestLogChangedDebounceTimer = nil
+        end
+        _unitQuestLogChangedDebounceTimer = C_Timer.NewTimer(0.2, function()
+            _unitQuestLogChangedDebounceTimer = nil
+            doFullQuestLogScan = true
+            _QuestEventHandler:QuestLogUpdate()
+        end)
+
+        if _unitQuestLogChangedFollowUpTimer then
+            _unitQuestLogChangedFollowUpTimer:Cancel()
+            _unitQuestLogChangedFollowUpTimer = nil
+        end
+        _unitQuestLogChangedFollowUpTimer = C_Timer.NewTimer(1.0, function()
+            _unitQuestLogChangedFollowUpTimer = nil
+            doFullQuestLogScan = true
+            _QuestEventHandler:QuestLogUpdate()
+        end)
     else
         Questie:Debug(Questie.DEBUG_INFO, "Skipping UnitQuestLogChanged")
     end
@@ -691,6 +716,7 @@ function _QuestEventHandler:UpdateAllQuests()
             QuestieQuest:UpdateQuest(questId)
         end
         QuestieCombatQueue:Queue(function()
+            QuestieTracker:Update()
             C_Timer.After(1.0, function()
                 QuestieTracker:Update()
             end)
