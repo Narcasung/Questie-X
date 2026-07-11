@@ -71,6 +71,7 @@ end
 ---@return string
 function QuestieLink:GetQuestLinkString(questLevel, questName, questId)
     local questLink = GetQuestLink and GetQuestLink(questId)
+    questName = questName or (questLink and string.match(questLink, "%[(.-)%]")) or "Quest"
     local questString = "["..questName.." ("..tostring(questId)..")]"
 
     if Questie.db.profile.trackerShowQuestLevel then
