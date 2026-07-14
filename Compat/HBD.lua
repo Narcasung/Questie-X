@@ -869,8 +869,36 @@ local function HandleWorldMapPin(icon, data)
 
     if x and y then
         icon:ClearAllPoints()
-        icon:SetPoint("CENTER", WorldMapButton, "TOPLEFT", x * worldmapWidth, -y * worldmapHeight)
+        -- SetPoint offsets are in units of the icon's own effective scale, not
+        -- WorldMapButton's. worldmapWidth/Height are pre-multiplied by
+        -- WorldMapButton's effective scale (see UpdateWorldMap), so divide back
+        -- out by the icon's effective scale to get the correct local offset.
+        -- Needed because zoom addons (e.g. Magnify, bundled with LootCollector)
+        -- rescale an ancestor frame instead of WorldMapButton itself.
+        local iconEffScale = icon:GetEffectiveScale()
+        icon:SetPoint("CENTER", WorldMapButton, "TOPLEFT", (x * worldmapWidth) / iconEffScale, -(y * worldmapHeight) / iconEffScale)
         icon:Show()
+
+        -- Questie fix: when zoomed in (e.g. via Magnify/LootCollector), WorldMapButton is
+        -- drawn far larger than the visible window and only WorldMapScrollFrame clips it.
+        -- Pins positioned past the visible edge still render on top of the surrounding UI
+        -- instead of being clipped, so hide them manually once they're outside the
+        -- scroll frame's actual on-screen bounds. GetLeft/Right/Top/Bottom/Center are all
+        -- in a shared scale-independent coordinate space, so no extra scale math needed.
+        -- Only do this when the map is actually drawn larger than its viewport (the zoom
+        -- case) -- at normal size (e.g. just the "show objective" panel active, no zoom)
+        -- the whole map already fits on-screen, so this check should never fire there;
+        -- skip it entirely rather than risk false positives hiding valid icons.
+        if WorldMapScrollFrame and WorldMapScrollFrame:IsVisible() then
+            local scrollWidth, scrollHeight = WorldMapScrollFrame:GetWidth(), WorldMapScrollFrame:GetHeight()
+            if scrollWidth and scrollHeight and (worldmapWidth > scrollWidth + 1 or worldmapHeight > scrollHeight + 1) then
+                local iconCenterX, iconCenterY = icon:GetCenter()
+                local vLeft, vRight, vTop, vBottom = WorldMapScrollFrame:GetLeft(), WorldMapScrollFrame:GetRight(), WorldMapScrollFrame:GetTop(), WorldMapScrollFrame:GetBottom()
+                if iconCenterX and vLeft and (iconCenterX < vLeft or iconCenterX > vRight or iconCenterY > vTop or iconCenterY < vBottom) then
+                    icon:Hide()
+                end
+            end
+        end
     else
         icon:Hide()
     end
@@ -885,7 +913,11 @@ end
 local function UpdateWorldMap()
     if not WorldMapFrame:IsVisible() then return end
 
-    local scale = WorldMapButton:GetScale()
+    -- Use effective (inherited) scale, not WorldMapButton's own scale: zoom addons
+    -- like Magnify (bundled with LootCollector) hardcode WorldMapButton's own scale
+    -- to 1 and instead rescale an ancestor frame (WorldMapDetailFrame), so only
+    -- GetEffectiveScale() reflects the actual on-screen size in all cases.
+    local scale = WorldMapButton:GetEffectiveScale()
     worldmapWidth  = WorldMapButton:GetWidth()*scale
     worldmapHeight = WorldMapButton:GetHeight()*scale
 
@@ -901,8 +933,27 @@ local function UpdateWorldMap()
 end
 pins.UpdateWorldMap = UpdateWorldMap
 
+-- Questie fix: WorldMapButton can be resized/rescaled by things we have no event for
+-- (this client's "show objective" side panel, third-party map-zoom addons, etc).
+-- Poll its size/effective-scale each frame like we already do for the minimap, and only
+-- pay for a full reposition when it actually changed. Effective scale (not own scale) is
+-- required because zoom addons like Magnify rescale an ancestor frame instead of
+-- WorldMapButton itself, leaving WorldMapButton:GetScale() frozen at 1.
+local lastWorldMapRawWidth, lastWorldMapRawHeight, lastWorldMapEffScale
+local function CheckWorldMapSizeChanged()
+    if not WorldMapFrame:IsVisible() then return end
+
+    local w, h, s = WorldMapButton:GetWidth(), WorldMapButton:GetHeight(), WorldMapButton:GetEffectiveScale()
+    if w ~= lastWorldMapRawWidth or h ~= lastWorldMapRawHeight or s ~= lastWorldMapEffScale then
+        lastWorldMapRawWidth, lastWorldMapRawHeight, lastWorldMapEffScale = w, h, s
+        UpdateWorldMap()
+    end
+end
+
 local last_update = 0
 local function OnUpdateHandler(frame, elapsed)
+    CheckWorldMapSizeChanged()
+
     last_update = last_update + elapsed
     if last_update > 1 or queueFullUpdate then
         UpdateMinimapPins(queueFullUpdate)

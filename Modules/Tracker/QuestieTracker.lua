@@ -1039,6 +1039,25 @@ function QuestieTracker:Update()
                                 (Questie.db.profile.collapseCompletedQuests and isMinimizable), false)
                         end
 
+                        if not coloredQuestName then
+                            -- QuestieDB has no "name" entry for this quest (e.g. a custom
+                            -- server quest not yet in the static DB), so GetColoredQuestName
+                            -- returned nil -- fall back instead of SetText(nil) blanking the
+                            -- title line while its objectives still render normally below it.
+                            -- Level/tag lookups don't require a DB "name" entry, so reuse the
+                            -- same formatting helper as the normal path to keep the "[level]"
+                            -- prefix consistent with quests that do have a DB name.
+                            local fallbackName = quest.name or tostring(quest.Id)
+                            if Questie.db.profile.trackerShowQuestLevel then
+                                local level = QuestieLib.GetTbcLevel(quest.Id)
+                                fallbackName = QuestieLib:GetQuestString(quest.Id, fallbackName, level, false)
+                            end
+                            if Questie.db.profile.enableTooltipsQuestID then
+                                fallbackName = fallbackName .. " (" .. quest.Id .. ")"
+                            end
+                            coloredQuestName = "|cFFFFFF00" .. fallbackName .. "|r"
+                        end
+
                         line.label:SetText(coloredQuestName)
 
                         -- Check and measure Quest Label text width and update tracker width
