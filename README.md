@@ -1,4 +1,4 @@
-# Questie-X (private fork)
+# Questie-X
 
 Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with local bug fixes.
 
@@ -11,6 +11,6 @@ Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with local bug f
 
 ## Credits
 
-[aron-w/Questie-X](https://github.com/aron-w/Questie-X)
-[Xurkon/Questie-X](https://github.com/Xurkon/Questie-X)
+[aron-w/Questie-X](https://github.com/aron-w/Questie-X)<br>
+[Xurkon/Questie-X](https://github.com/Xurkon/Questie-X)<br>
 [Questie](https://github.com/Questie/Questie)
