@@ -879,26 +879,16 @@ local function HandleWorldMapPin(icon, data)
         icon:SetPoint("CENTER", WorldMapButton, "TOPLEFT", (x * worldmapWidth) / iconEffScale, -(y * worldmapHeight) / iconEffScale)
         icon:Show()
 
-        -- Questie fix: when zoomed in (e.g. via Magnify/LootCollector), WorldMapButton is
-        -- drawn far larger than the visible window and only WorldMapScrollFrame clips it.
-        -- Pins positioned past the visible edge still render on top of the surrounding UI
-        -- instead of being clipped, so hide them manually once they're outside the
-        -- scroll frame's actual on-screen bounds. GetLeft/Right/Top/Bottom/Center are all
-        -- in a shared scale-independent coordinate space, so no extra scale math needed.
-        -- Only do this when the map is actually drawn larger than its viewport (the zoom
-        -- case) -- at normal size (e.g. just the "show objective" panel active, no zoom)
-        -- the whole map already fits on-screen, so this check should never fire there;
-        -- skip it entirely rather than risk false positives hiding valid icons.
-        if WorldMapScrollFrame and WorldMapScrollFrame:IsVisible() then
-            local scrollWidth, scrollHeight = WorldMapScrollFrame:GetWidth(), WorldMapScrollFrame:GetHeight()
-            if scrollWidth and scrollHeight and (worldmapWidth > scrollWidth + 1 or worldmapHeight > scrollHeight + 1) then
-                local iconCenterX, iconCenterY = icon:GetCenter()
-                local vLeft, vRight, vTop, vBottom = WorldMapScrollFrame:GetLeft(), WorldMapScrollFrame:GetRight(), WorldMapScrollFrame:GetTop(), WorldMapScrollFrame:GetBottom()
-                if iconCenterX and vLeft and (iconCenterX < vLeft or iconCenterX > vRight or iconCenterY > vTop or iconCenterY < vBottom) then
-                    icon:Hide()
-                end
-            end
-        end
+        -- Manual GetLeft/Right/Top/Bottom-vs-GetCenter overflow culling used to live here
+        -- (Questie fix for Magnify/LootCollector zoom). Removed: it compared Get*() values
+        -- across frames with different effective scales (icon's scale is dragged around by
+        -- Magnify's WorldMapDetailFrame:SetScale() zoom, WorldMapScrollFrame's isn't), which
+        -- are only directly comparable at equal effective scale -- at high zoom ratios the
+        -- mismatch made the check fail for every icon, hiding the entire map. Icons are
+        -- already parented inside WorldMapButton, itself inside Magnify's real
+        -- WorldMapScrollFrame:SetScrollChild() subtree once SetDrawOrder correctly detects
+        -- Magnify (see Modules/Map/QuestieMapUtils.lua), so the engine's native scroll-child
+        -- clip now handles this on all 4 edges, during pan, with no Lua-side math needed.
     else
         icon:Hide()
     end
