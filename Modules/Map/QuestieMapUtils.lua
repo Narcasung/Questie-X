@@ -47,13 +47,20 @@ function QuestieMap.utils:SetDrawOrder(frame)
         frame:SetFrameStrata(frameStrata)
         frame:SetFrameLevel(frameLevel)
     else
-	    -- If Magnify-WotLK is loaded, parent to WorldMapButton instead of WorldMapFrame
+	    -- If Magnify is loaded (standalone Magnify-WotLK, or bundled inside LootCollector,
+        -- which has no separate .toc so IsAddOnLoaded("Magnify-WotLK") never sees it),
+        -- parent to WorldMapButton and match ITS strata instead of WorldMapFrame's, so the
+        -- icon stays inside Magnify's native WorldMapScrollFrame clip subtree (mirrors how
+        -- LootCollector's own map pins are parented/strata'd in Modules/Map.lua)
+        local magnifyLoaded = (IsAddOnLoaded and IsAddOnLoaded("Magnify-WotLK")) or (_G.LootCollectorMagnify ~= nil)
         local parent = WorldMapFrame
-        if IsAddOnLoaded and IsAddOnLoaded("Magnify-WotLK") and _G.WorldMapButton then
+        local strataSource = WorldMapFrame
+        if magnifyLoaded and _G.WorldMapButton then
             parent = WorldMapButton
+            strataSource = WorldMapButton
         end
         local frameLevel = WorldMapFrame:GetFrameLevel() + 7
-        local frameStrata = WorldMapFrame:GetFrameStrata()
+        local frameStrata = strataSource:GetFrameStrata()
         frame:SetParent(parent)
         frame:SetFrameStrata(frameStrata)
         frame:SetFrameLevel(frameLevel)
