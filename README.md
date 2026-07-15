@@ -1,10 +1,10 @@
 # Questie-X
 
-Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with local bug fixes.
+Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with bug fixes.
 
 ## Changes in this fork
 
-- fixed world map icons offset math so icons line up correctly when a zoom addon (e.g. Magnify) rescales an ancestor frame instead of `WorldMapButton` itself.
+- fixed world map icons offset due to CoA's objective frame and zoom addons like Magnify.
 - fixed tracker objectives not updating correctly.
 - fixed tracker handle not moving the frame.
 - fixed custom quests having no name.
