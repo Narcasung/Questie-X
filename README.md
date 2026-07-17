@@ -1,10 +1,11 @@
 # Questie-X
 
-Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with bug fixes for CoA.
+Fork of [aron-w/Questie-X](https://github.com/aron-w/Questie-X) with bug fixes.
+Made for and tested on CoA, but it should also work on other 3.3.5 clients.
 
 ## Changes in this fork
 
-- fixed world map icons offset due to CoA's objective frame and zoom addons like Magnify.
+- fixed world map icons offset due to Ascension's objective frame and zoom addons like Magnify.
 - fixed tracker objectives not updating correctly.
 - fixed tracker handle not moving the frame.
 - fixed custom quests having no name in the tracker.
