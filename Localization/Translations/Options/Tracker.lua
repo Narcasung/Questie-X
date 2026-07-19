@@ -864,6 +864,12 @@ local trackerOptionsLocales = {
         ["esES"] = "Por zona",
         ["frFR"] = "Par zone",
     },
+    ["By Zone + %% Complete"] = {
+        ["enUS"] = true,
+    },
+    ["By Zone + %% Complete (Reversed)"] = {
+        ["enUS"] = true,
+    },
     ["By Zone Prox"] = {
         ["ptBR"] = "Por proximidade de zona",
         ["ruRU"] = "По дальности зоны",

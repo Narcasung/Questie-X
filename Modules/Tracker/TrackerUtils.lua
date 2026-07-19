@@ -706,7 +706,7 @@ local function _GetZoneName(zoneOrSort, questId, zoneNameOverride)
     if not zoneOrSort then return "Unknown Zone" end
     local zoneName
     local sortObj = Questie.db.profile.trackerSortObjectives
-    if sortObj == "byZone" or sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
+    if sortObj == "byZone" or sortObj == "byZoneComplete" or sortObj == "byZoneCompleteReversed" or sortObj == "byZonePlayerProximity" or sortObj == "byZonePlayerProximityReversed" then
         if (zoneOrSort) > 0 then
             zoneName = TrackerUtils:GetZoneNameByID(zoneOrSort)
             if not zoneName or zoneName == "Unknown Zone" then
@@ -956,6 +956,34 @@ function TrackerUtils:GetSortedQuestIds()
             -- Sort by Zone then by Level to mimic QuestLog sorting
             if qAZone == qBZone then
                 return qA.level < qB.level
+            else
+                if qAZone ~= nil and qBZone ~= nil then
+                    return qAZone < qBZone
+                else
+                    return qAZone and qBZone
+                end
+            end
+        end)
+    elseif sortObj == "byZoneComplete" or sortObj == "byZoneCompleteReversed" then
+        table.sort(sortedQuestIds, function(a, b)
+            local qAZone = questDetails[a].zoneName
+            local qBZone = questDetails[b].zoneName
+
+            -- Sort by Zone first, then by % Complete within each zone
+            -- (byZoneComplete: completes at top, 0% at bottom; reversed: opposite)
+            if qAZone == qBZone then
+                local vA, vB = questDetails[a].questCompletePercent, questDetails[b].questCompletePercent
+                if vA == vB then
+                    local qA = questDetails[a].quest
+                    local qB = questDetails[b].quest
+                    return qA and qB and qA.level < qB.level
+                end
+
+                if sortObj == "byZoneComplete" then
+                    return vA > vB
+                else
+                    return vA < vB
+                end
             else
                 if qAZone ~= nil and qBZone ~= nil then
                     return qAZone < qBZone
