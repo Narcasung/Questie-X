@@ -13,6 +13,8 @@ local TrackerBaseFrame = QuestieLoader:ImportModule("TrackerBaseFrame")
 local TrackerLinePool = QuestieLoader:ImportModule("TrackerLinePool")
 ---@type TrackerQuestTimers
 local TrackerQuestTimers = QuestieLoader:ImportModule("TrackerQuestTimers")
+---@type TrackerUtils
+local TrackerUtils = QuestieLoader:ImportModule("TrackerUtils")
 ---@type QuestieArrow
 local QuestieArrow = QuestieLoader:ImportModule("QuestieArrow")
 
@@ -172,6 +174,37 @@ function QuestieOptions.tabs.tracker:Initialize()
                         get = function() return Questie.db.profile.trackerShowQuestLevel end,
                         set = function(_, value)
                             Questie.db.profile.trackerShowQuestLevel = value
+                            QuestieTracker:Update()
+                        end
+                    },
+                    showSuperTrackButton = {
+                        type = "toggle",
+                        order = 5,
+                        width = 1.5,
+                        name = function() return l10n('Show Objective Marker Button') end,
+                        desc = function() return l10n('When this is checked, quests that can be reached by the floating objective marker get a button in the Questie Tracker that points the marker at them.') end,
+                        hidden = function() return not TrackerUtils:IsSuperTrackAvailable() end,
+                        disabled = function() return not Questie.db.profile.trackerEnabled end,
+                        get = function() return Questie.db.profile.trackerShowSuperTrackButton end,
+                        set = function(_, value)
+                            Questie.db.profile.trackerShowSuperTrackButton = value
+                            QuestieTracker:Update()
+                        end
+                    },
+                    superTrackButtonSize = {
+                        type = "range",
+                        order = 6,
+                        width = 1.5,
+                        name = function() return l10n('Objective Marker Button Size') end,
+                        desc = function() return l10n('The size of the objective marker button shown next to each quest in the Questie Tracker.') end,
+                        hidden = function() return not TrackerUtils:IsSuperTrackAvailable() end,
+                        disabled = function() return (not Questie.db.profile.trackerEnabled) or (not Questie.db.profile.trackerShowSuperTrackButton) end,
+                        min = 8,
+                        max = 32,
+                        step = 1,
+                        get = function() return Questie.db.profile.trackerSuperTrackButtonSize end,
+                        set = function(_, value)
+                            Questie.db.profile.trackerSuperTrackButtonSize = value
                             QuestieTracker:Update()
                         end
                     },

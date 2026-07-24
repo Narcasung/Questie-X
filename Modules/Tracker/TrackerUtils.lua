@@ -1265,6 +1265,158 @@ function TrackerUtils:GetSortedQuestIds()
     return sortedQuestIds, questDetails
 end
 
+-- Ascension's 3.3.5 client backports the retail floating objective marker ("SuperTracker").
+-- Supertracking is a slave of the quest log selection: the world map and the Blizzard watch frame
+-- both funnel through SelectQuestLogEntry -> SuperTrackerUtil.SetToBestSuperTrackingType. Calling
+-- C_SuperTrack.SetSuperTrackedQuestID directly only moves the marker until the next map interaction
+-- stomps it, so we click the same POI frames the client itself clicks.
+local superTrackedQuestId
+local superTrackHooked
+
+function TrackerUtils:IsSuperTrackAvailable()
+    return (C_SuperTrack ~= nil) and ((WorldMapFrame_SelectQuestFrame ~= nil) or (WatchFrameQuestPOI_OnClick ~= nil))
+end
+
+-- Every path that changes the supertracked quest ends up in SetSuperTrackedQuestID -- our own
+-- button, world map pins, the map quest list, the Blizzard tracker, and the automatic re-pick that
+-- happens when the map switches zone. Hooking it is the only way to know what is supertracked,
+-- since this client dropped the GetSuperTrackedQuestID getter. Caching what we last set would go
+-- stale the moment the player changed it by any other means.
+function TrackerUtils:InitSuperTrackHook()
+    if superTrackHooked or (not C_SuperTrack) then
+        return
+    end
+
+    superTrackHooked = true
+
+    hooksecurefunc(C_SuperTrack, "SetSuperTrackedQuestID", function(questId)
+        superTrackedQuestId = questId
+        TrackerLinePool.UpdateSuperTrackButtons()
+    end)
+
+    if C_SuperTrack.ClearSuperTracker then
+        hooksecurefunc(C_SuperTrack, "ClearSuperTracker", function()
+            superTrackedQuestId = nil
+            TrackerLinePool.UpdateSuperTrackButtons()
+        end)
+    end
+end
+
+function TrackerUtils:GetSuperTrackedQuestId()
+    return superTrackedQuestId
+end
+
+-- The world map builds its quest POI frames lazily, so right after login -- or after a zone change
+-- with the map still closed -- there is nothing to match a quest against and every button would
+-- hide itself. The client can build them without the map being shown, and doing so does not disturb
+-- which quest is currently supertracked. Skipped while the map is open so we never fight the player.
+function TrackerUtils:PrimeSuperTrackFrames()
+    if WorldMapFrame and WorldMapFrame:IsShown() then
+        return
+    end
+
+    if WorldMapFrame_UpdateQuests then
+        WorldMapFrame_UpdateQuests()
+    end
+end
+
+---@return table|nil frame, function|nil clickHandler
+local function GetSuperTrackFrame(questId)
+    if (not questId) or questId == 0 then
+        return nil
+    end
+
+    -- Blizzard watch frame POI buttons carry the quest id directly. Questie empties the Blizzard
+    -- watch list (see QuestieTracker:AQW_Insert) so only a handful of quests ever have one. Both
+    -- scans below stop at the first gap: these frames are created in order, so a missing index
+    -- means there are no further ones and this runs once per quest line per redraw.
+    if WatchFrameQuestPOI_OnClick then
+        for i = 1, 30 do
+            local firstInRow = _G["poiWatchFrameLines" .. i .. "_1"]
+            if not firstInRow then
+                break
+            end
+            for j = 1, 5 do
+                local poiButton = (j == 1) and firstInRow or _G["poiWatchFrameLines" .. i .. "_" .. j]
+                if not poiButton then
+                    break
+                end
+                if poiButton.questId == questId then
+                    return poiButton, WatchFrameQuestPOI_OnClick
+                end
+            end
+        end
+    end
+
+    -- World map quest frames cover every quest with a POI on the currently viewed map, which is the
+    -- wider net of the two. Pass the WorldMapQuestFrame itself and never its poiIcon --
+    -- WorldMapFrame_SelectQuestFrame indexes questFrame.poiIcon and errors on the POI frame.
+    if WorldMapFrame_SelectQuestFrame then
+        if not _G["WorldMapQuestFrame1"] then
+            TrackerUtils:PrimeSuperTrackFrames()
+        end
+
+        for i = 1, 25 do
+            local questFrame = _G["WorldMapQuestFrame" .. i]
+            if not questFrame then
+                break
+            end
+            if questFrame.questId == questId then
+                return questFrame, WorldMapFrame_SelectQuestFrame
+            end
+        end
+    end
+
+    return nil
+end
+
+-- A quest can only be supertracked while it has a POI frame, so quests in another zone or without
+-- map coordinates simply have no button.
+function TrackerUtils:CanSuperTrackQuest(questId)
+    return GetSuperTrackFrame(questId) ~= nil
+end
+
+-- The map pin the client draws for this quest. Copying its texture coordinates is what keeps the
+-- tracker button identical to the pin: the number, the "?" shown for completed quests and the
+-- black-on-yellow selected variant all follow along without us mapping atlas cells by hand. The
+-- number is also the pin's position among quests that actually have a POI, which is not the same as
+-- the quest frame index -- another reason to read it from the client instead of deriving it.
+---@return table|nil
+function TrackerUtils:GetSuperTrackPin(questId)
+    if (not questId) or questId == 0 or (not WorldMapFrame_SelectQuestFrame) then
+        return nil
+    end
+
+    if not _G["WorldMapQuestFrame1"] then
+        TrackerUtils:PrimeSuperTrackFrames()
+    end
+
+    for i = 1, 25 do
+        local questFrame = _G["WorldMapQuestFrame" .. i]
+        if not questFrame then
+            break
+        end
+        if questFrame.questId == questId then
+            -- ownPOI is the pin drawn in the map's quest list, poiIcon the one on the map itself.
+            -- The list version is the one we mirror: it keeps the circular background on completed
+            -- quests, where the map version draws a bare "?".
+            return questFrame.ownPOI or questFrame.poiIcon
+        end
+    end
+
+    return nil
+end
+
+function TrackerUtils:SetSuperTrackedQuest(questId)
+    local frame, clickHandler = GetSuperTrackFrame(questId)
+    if not frame then
+        return false
+    end
+
+    clickHandler(frame)
+    return true
+end
+
 function TrackerUtils:IsVoiceOverLoaded()
     -- Require not just that the VoiceOver addons are loaded, but that the runtime
     -- structure we index actually exists. Some VoiceOver builds (e.g. on Elune) expose

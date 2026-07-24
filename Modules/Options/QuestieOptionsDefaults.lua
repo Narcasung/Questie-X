@@ -113,6 +113,8 @@ function QuestieOptionsDefaults:Load()
             autoTrackQuests = true,
             trackerShowCompleteQuests = true,
             trackerShowQuestLevel = true,
+            trackerShowSuperTrackButton = true,
+            trackerSuperTrackButtonSize = 25,
             collapseCompletedQuests = false,
             hideCompletedQuestObjectives = false,
             hideBlizzardCompletionText = false,

@@ -335,6 +335,10 @@ function QuestieTracker.Initialize()
         Questie.db.profile.trackerSetpoint = "TOPLEFT"
     end
 
+    -- Tracks what the client considers supertracked. Permanent by design: hooksecurefunc cannot be
+    -- undone, and the value has to stay correct even while the Questie tracker is disabled.
+    TrackerUtils:InitSuperTrackHook()
+
     if (not Questie.db.profile.trackerEnabled) then
         -- The Tracker is disabled, no need to continue
         return
@@ -1092,6 +1096,10 @@ function QuestieTracker:Update()
 
                         -- Adds the AI_VoiceOver Play Buttons
                         line.playButton:SetPlayButton(questId)
+
+                        -- Adds the button that points the floating objective marker at this quest.
+                        -- Must run after SetPlayButton, since it anchors around the play button.
+                        line.superTrackButton:SetSuperTrackButton(questId)
 
                         local usableQIB = false
                         local sourceItemId = QuestieDB.QueryQuestSingle(quest.Id, "sourceItemId")

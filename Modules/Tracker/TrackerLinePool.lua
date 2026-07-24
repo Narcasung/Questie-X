@@ -35,6 +35,33 @@ local l10n = QuestieLoader:ImportModule("l10n")
 local C_Timer = QuestieCompat.C_Timer
 local C_QuestLog = QuestieCompat.C_QuestLog
 local GetQuestLogIndexByID = QuestieCompat.GetQuestLogIndexByID
+-- Copies one texture region of a quest pin onto our button. The texture file travels with the
+-- coordinates because the client swaps files between states, and the region is only shown when the
+-- pin itself shows it -- the pin uses "number" for in-progress quests and "turnin" for completed
+-- ones, never both.
+local function MirrorPinRegion(destination, source, size, pinSize)
+    if (not source) or (not source:IsShown()) or (not source:GetTexture()) then
+        destination:Hide()
+        return
+    end
+
+    -- Regions are not all the size of the pin -- the "?" is drawn larger than a digit -- so scale
+    -- them by how the pin itself was scaled instead of stretching each one to the button.
+    local scale = (pinSize and pinSize > 0) and (size / pinSize) or 1
+    local width = (source:GetWidth() or 0) * scale
+    local height = (source:GetHeight() or 0) * scale
+    if width <= 0 or height <= 0 then
+        width = size
+        height = size
+    end
+
+    destination:SetWidth(width)
+    destination:SetHeight(height)
+    destination:SetTexture(source:GetTexture())
+    destination:SetTexCoord(source:GetTexCoord())
+    destination:Show()
+end
+
 local function GetNumLines(label)
     if label.GetNumLines then
         return label:GetNumLines()
@@ -404,6 +431,122 @@ function TrackerLinePool.Initialize(questFrame)
 
         line.playButton = playButton
 
+        -- create supertrack buttons for the Ascension floating objective marker
+        local superTrackButton = CreateFrame("Button", "linePool.superTrackButton" .. i, line)
+        superTrackButton:SetWidth(25)
+        superTrackButton:SetHeight(25)
+        superTrackButton:SetHitRectInsets(1, 1, 1, 1)
+        superTrackButton:SetHighlightTexture("Interface\\BUTTONS\\UI-Panel-MinimizeButton-Highlight")
+
+        -- Same texture and atlas sub-rect the client's own quest POI pins use, so the tracker button
+        -- reads as native rather than as an addon icon.
+        superTrackButton:SetNormalTexture("Interface\\WorldMap\\UI-QuestPoi-NumberIcons")
+        superTrackButton:GetNormalTexture():SetTexCoord(0.5, 0.625, 0.875, 1)
+
+        -- The client marks the selected pin with this glow rather than by swapping the icon, so the
+        -- tracker button highlights the same way the map pin does.
+        superTrackButton.glow = superTrackButton:CreateTexture(nil, "BACKGROUND")
+        superTrackButton.glow:SetTexture("Interface\\WorldMap\\UI-QuestPoi-IconGlow")
+        superTrackButton.glow:SetBlendMode("ADD")
+        superTrackButton.glow:SetPoint("CENTER", superTrackButton, "CENTER", 0, 0)
+        superTrackButton.glow:Hide()
+
+        -- The digit printed inside the pin is another cell of the same atlas, drawn over the icon.
+        superTrackButton.number = superTrackButton:CreateTexture(nil, "OVERLAY")
+        superTrackButton.number:SetPoint("CENTER", superTrackButton, "CENTER", 0, 0)
+        superTrackButton.number:Hide()
+
+        -- Completed quests draw a "?" from this separate region instead of a digit.
+        superTrackButton.turnin = superTrackButton:CreateTexture(nil, "OVERLAY")
+        superTrackButton.turnin:SetPoint("CENTER", superTrackButton, "CENTER", 0, 0)
+        superTrackButton.turnin:Hide()
+
+        -- The quest id is remembered even while the button is hidden. POI frames only exist once the
+        -- world map has built them, so a quest that looks unreachable while the tracker is drawing
+        -- can become reachable later -- without the id we would have nothing left to re-check.
+        superTrackButton.SetSuperTrackButton = function(self, questId)
+            self.questId = questId
+            self:RefreshSuperTrackButton()
+        end
+
+        superTrackButton.RefreshSuperTrackButton = function(self)
+            -- No map pin means the client has nothing to point the marker at (quest in another zone,
+            -- or a quest without map coordinates), so there is nothing to offer.
+            local pin = self.questId and TrackerUtils:GetSuperTrackPin(self.questId)
+            if (not pin) or (not Questie.db.profile.trackerShowSuperTrackButton) then
+                self:Hide()
+                return
+            end
+
+            local buttonSize = Questie.db.profile.trackerSuperTrackButtonSize or 25
+            self:SetWidth(buttonSize)
+            self:SetHeight(buttonSize)
+            self.glow:SetWidth(buttonSize * 1.4)
+            self.glow:SetHeight(buttonSize * 1.4)
+
+            -- Mirror the pin rather than picking atlas cells ourselves, so whatever the client
+            -- decides to draw -- digit, "?", selected variant -- shows up here unchanged. The
+            -- texture file has to be copied along with the coordinates: completed quests swap in a
+            -- different file for these slots, and coordinates from one file applied to another
+            -- sample nonsense.
+            local pinTexture = pin.GetNormalTexture and pin:GetNormalTexture()
+            if pinTexture then
+                local ownTexture = self:GetNormalTexture()
+                ownTexture:SetTexture(pinTexture:GetTexture())
+                ownTexture:SetTexCoord(pinTexture:GetTexCoord())
+            end
+
+            local pinSize = pin:GetWidth()
+            MirrorPinRegion(self.number, pin.number, buttonSize, pinSize)
+            MirrorPinRegion(self.turnin, pin.turnin, buttonSize, pinSize)
+
+            -- Sit to the left of whatever already occupies the gutter: the AI_VoiceOver play button
+            -- when that addon is loaded, otherwise the quest collapse button.
+            self:ClearAllPoints()
+            if playButton:IsShown() then
+                self:SetPoint("RIGHT", playButton, "LEFT", -2, 0)
+            elseif line.expandQuest then
+                self:SetPoint("RIGHT", line.expandQuest, "LEFT", -2, 0)
+            else
+                self:SetPoint("RIGHT", line.label, "LEFT", -4, 0)
+            end
+
+            -- The icon itself already shows the selected variant, copied from the pin above; the
+            -- glow is the one part the pin draws as a separate texture.
+            if TrackerUtils:GetSuperTrackedQuestId() == self.questId then
+                self.glow:Show()
+            else
+                self.glow:Hide()
+            end
+
+            -- Has to sit above the tracker backdrop, which is what swallows a frame left at level 0.
+            self:SetFrameLevel(line:GetFrameLevel() + 10)
+            self:Show()
+        end
+
+        superTrackButton:EnableMouse(true)
+        superTrackButton:RegisterForClicks("LeftButtonUp")
+
+        superTrackButton:SetScript("OnClick", function(self)
+            if self.questId then
+                TrackerUtils:SetSuperTrackedQuest(self.questId)
+            end
+        end)
+
+        superTrackButton:SetScript("OnEnter", function(self)
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            GameTooltip:SetText(l10n("Point the objective marker at this quest"), 1, 1, 1)
+            GameTooltip:Show()
+        end)
+
+        superTrackButton:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+
+        superTrackButton:Hide()
+
+        line.superTrackButton = superTrackButton
+
         -- create expanding buttons for quests with objectives
         local expandQuest = CreateFrame("Button", "linePool.expandQuest" .. i, line)
         expandQuest.texture = expandQuest:CreateTexture(nil, "OVERLAY", nil, 0)
@@ -731,9 +874,27 @@ function TrackerLinePool.ResetLinesForChange()
             line.playButton:SetAlpha(0)
             line.playButton:Hide()
         end
+        if line.superTrackButton then
+            line.superTrackButton.questId = nil
+            line.superTrackButton:Hide()
+        end
     end
 
     lineIndex = 0
+end
+
+-- Re-evaluates the supertrack buttons without rebuilding the tracker. Driven by the
+-- SetSuperTrackedQuestID hook, which also fires on map open/close -- that is what makes buttons
+-- appear once the world map has built its POI frames, since the tracker itself does not redraw then.
+function TrackerLinePool.UpdateSuperTrackButtons()
+    -- Rebuild the map's POI frames first so a zone change is picked up even with the map closed.
+    TrackerUtils:PrimeSuperTrackFrames()
+
+    for _, line in pairs(linePool) do
+        if line.superTrackButton and line.superTrackButton.questId then
+            line.superTrackButton:RefreshSuperTrackButton()
+        end
+    end
 end
 
 function TrackerLinePool.ResetButtonsForChange()
@@ -1098,6 +1259,12 @@ end
 TrackerLinePool.SetMode = function(self, mode)
     if mode ~= self.mode then
         self.mode = mode
+        -- Lines are recycled between zone headers, quest titles and objectives. Only quest title
+        -- lines own a supertrack button, so drop it whenever a line takes on another role.
+        if mode ~= "quest" and self.superTrackButton then
+            self.superTrackButton.questId = nil
+            self.superTrackButton:Hide()
+        end
         if mode == "zone" then
             local trackerFontSizeZone = Questie.db.profile.trackerFontSizeZone
             self.label:SetFont((LSM30 and LSM30.Fetch and LSM30:Fetch("font", Questie.db.profile.trackerFontZone)) or Questie.db.profile.trackerFontZone, trackerFontSizeZone, Questie.db.profile.trackerFontOutline)

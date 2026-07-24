@@ -102,6 +102,24 @@ local trackerOptionsLocales = {
         ["frFR"] = "Affiche le niveau des quêtes avec le titre des quêtes.",
     },
     ---------------------------------------------------------
+    ["Show Objective Marker Button"] = {
+        ["enUS"] = true,
+    },
+    ["When this is checked, quests that can be reached by the floating objective marker get a button in the Questie Tracker that points the marker at them."] = {
+        ["enUS"] = true,
+    },
+    ---------------------------------------------------------
+    ["Objective Marker Button Size"] = {
+        ["enUS"] = true,
+    },
+    ["The size of the objective marker button shown next to each quest in the Questie Tracker."] = {
+        ["enUS"] = true,
+    },
+    ---------------------------------------------------------
+    ["Point the objective marker at this quest"] = {
+        ["enUS"] = true,
+    },
+    ---------------------------------------------------------
     ["Auto Minimize Completed Quests"] = {
         ["ptBR"] = "Minimizar missões concluídas",
         ["ruRU"] = "Свернуть выполненные",
