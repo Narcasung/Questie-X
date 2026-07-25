@@ -845,7 +845,11 @@ function QuestieTracker:Update()
     -- Setup local QuestieTracker:Update vars
     local trackerFontSizeZone = Questie.db.profile.trackerFontSizeZone
     local trackerFontSizeQuest = Questie.db.profile.trackerFontSizeQuest
-    local questMarginLeft = (trackerMarginLeft + trackerMarginRight) - (18 - trackerFontSizeQuest)
+    -- The supertrack button sits at the very left of a quest line, so the whole quest list is
+    -- indented past it: otherwise it is clipped by the tracker's left edge and collides with the
+    -- quest item buttons, which share that gutter.
+    local superTrackMarginLeft = TrackerLinePool.GetSuperTrackMarginReserve()
+    local questMarginLeft = (trackerMarginLeft + trackerMarginRight) - (18 - trackerFontSizeQuest) + superTrackMarginLeft
     local objectiveMarginLeft = questMarginLeft + trackerFontSizeQuest
     local questItemButtonSize = 12 + trackerFontSizeQuest
     local objectiveColor = Questie.db.profile.trackerColorObjectives
@@ -895,9 +899,11 @@ function QuestieTracker:Update()
                         line.criteriaMark:Hide()
                         line.playButton:Hide()
 
-                        -- Setup Zone Label
+                        -- Setup Zone Label. Indented like the quest lines below it: the supertrack
+                        -- buttons overflow their own line at larger sizes, and the zone label is the
+                        -- only text that would otherwise share that gutter with them.
                         line.label:ClearAllPoints()
-                        line.label:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
+                        line.label:SetPoint("TOPLEFT", line, "TOPLEFT", superTrackMarginLeft, 0)
 
                         -- Set Zone Title and default Min/Max states
                         if Questie.db.char.collapsedZones[zoneName] then
@@ -924,19 +930,19 @@ function QuestieTracker:Update()
 
                         -- Check and measure Zone Label text width and update tracker width
                         QuestieTracker:UpdateWidth(line.label:GetStringWidth() + trackerMarginLeft +
-                            trackerMarginRight)
+                            superTrackMarginLeft + trackerMarginRight)
 
                         -- Set Zone Label and Line widths
-                        line.label:SetWidth(trackerBaseFrame:GetWidth() - trackerMarginLeft - trackerMarginRight)
-                        line:SetWidth(line.label:GetWidth())
+                        line.label:SetWidth(trackerBaseFrame:GetWidth() - trackerMarginLeft - superTrackMarginLeft - trackerMarginRight)
+                        line:SetWidth(line.label:GetWidth() + superTrackMarginLeft)
 
                         -- Compare largest text Label in the tracker with current Label, then save widest width
                         trackerLineWidth = math.max(trackerLineWidth,
-                            line.label:GetStringWidth() + trackerMarginLeft)
+                            line.label:GetStringWidth() + trackerMarginLeft + superTrackMarginLeft)
 
                         -- Setup Min/Max Button
                         line.expandZone:ClearAllPoints()
-                        line.expandZone:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
+                        line.expandZone:SetPoint("TOPLEFT", line, "TOPLEFT", superTrackMarginLeft, 0)
                         line.expandZone:SetWidth(line.label:GetWidth())
                         line.expandZone:SetHeight(line.label:GetHeight())
                         line.expandZone:Show()
@@ -1175,7 +1181,7 @@ function QuestieTracker:Update()
                                 end
 
                                 -- Attach button to Quest Title linePool
-                                button:SetPoint("TOPLEFT", button.line, "TOPLEFT", 0, 0)
+                                button:SetPoint("TOPLEFT", button.line, "TOPLEFT", superTrackMarginLeft, 0)
                                 button:SetParent(button.line)
                                 button:Show()
 
@@ -1283,7 +1289,7 @@ function QuestieTracker:Update()
 
                                             -- Attach button to Quest Title linePool
                                             altButton:SetPoint("TOPLEFT", altButton.line, "TOPLEFT",
-                                                2 + questItemButtonSize, 0)
+                                                superTrackMarginLeft + 2 + questItemButtonSize, 0)
                                             altButton:SetParent(altButton.line)
                                             altButton:Show()
 
@@ -1642,9 +1648,9 @@ function QuestieTracker:Update()
                         line.criteriaMark:Hide()
                         line.playButton:Hide()
 
-                        -- Setup Zone Label
+                        -- Setup Zone Label (indented past the supertrack button gutter, as above)
                         line.label:ClearAllPoints()
-                        line.label:SetPoint("TOPLEFT", line, "TOPLEFT", 0, 0)
+                        line.label:SetPoint("TOPLEFT", line, "TOPLEFT", superTrackMarginLeft, 0)
 
                         -- Set Zone Title and Min/Max states
                         if Questie.db.char.collapsedZones[zoneName] then
@@ -1673,15 +1679,15 @@ function QuestieTracker:Update()
 
                         -- Check and measure Zone Label text width and update tracker width
                         QuestieTracker:UpdateWidth(line.label:GetStringWidth() + trackerMarginLeft +
-                            trackerMarginRight)
+                            superTrackMarginLeft + trackerMarginRight)
 
                         -- Set Zone Label and Line widths
-                        line.label:SetWidth(trackerBaseFrame:GetWidth() - trackerMarginLeft - trackerMarginRight)
-                        line:SetWidth(line.label:GetWidth())
+                        line.label:SetWidth(trackerBaseFrame:GetWidth() - trackerMarginLeft - superTrackMarginLeft - trackerMarginRight)
+                        line:SetWidth(line.label:GetWidth() + superTrackMarginLeft)
 
                         -- Compare largest text Label in the tracker with current Label, then save widest width
                         trackerLineWidth = math.max(trackerLineWidth,
-                            line.label:GetStringWidth() + trackerMarginLeft)
+                            line.label:GetStringWidth() + trackerMarginLeft + superTrackMarginLeft)
 
                         -- Setup Min/Max Button
                         line.expandZone:ClearAllPoints()

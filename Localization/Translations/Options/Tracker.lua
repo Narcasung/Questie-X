@@ -116,10 +116,6 @@ local trackerOptionsLocales = {
         ["enUS"] = true,
     },
     ---------------------------------------------------------
-    ["Point the objective marker at this quest"] = {
-        ["enUS"] = true,
-    },
-    ---------------------------------------------------------
     ["Auto Minimize Completed Quests"] = {
         ["ptBR"] = "Minimizar missões concluídas",
         ["ruRU"] = "Свернуть выполненные",

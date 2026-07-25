@@ -200,7 +200,7 @@ function QuestieOptions.tabs.tracker:Initialize()
                         hidden = function() return not TrackerUtils:IsSuperTrackAvailable() end,
                         disabled = function() return (not Questie.db.profile.trackerEnabled) or (not Questie.db.profile.trackerShowSuperTrackButton) end,
                         min = 8,
-                        max = 32,
+                        max = 70,
                         step = 1,
                         get = function() return Questie.db.profile.trackerSuperTrackButtonSize end,
                         set = function(_, value)

@@ -1272,16 +1272,40 @@ end
 -- stomps it, so we click the same POI frames the client itself clicks.
 local superTrackedQuestId
 local superTrackHooked
+local superTrackRefreshing
+local superTrackRefreshPending
+local superTrackEventFrame
+
+-- Refreshing rebuilds the map's POI frames, which can land back in the very hooks that asked for the
+-- refresh, so this is the only way the buttons are ever repainted. Requests are also coalesced:
+-- callers like TrackerQuestTimers select a quest log entry and immediately restore the previous one,
+-- so reading the selection on the first of those calls would catch a state the client is about to
+-- undo. Waiting a tick means the burst has settled.
+local function RefreshSuperTrackButtons()
+    if superTrackRefreshing or superTrackRefreshPending then
+        return
+    end
+
+    superTrackRefreshPending = true
+    C_Timer.After(0.05, function()
+        superTrackRefreshPending = false
+        superTrackRefreshing = true
+        TrackerLinePool.UpdateSuperTrackButtons()
+        superTrackRefreshing = false
+    end)
+end
 
 function TrackerUtils:IsSuperTrackAvailable()
     return (C_SuperTrack ~= nil) and ((WorldMapFrame_SelectQuestFrame ~= nil) or (WatchFrameQuestPOI_OnClick ~= nil))
 end
 
--- Every path that changes the supertracked quest ends up in SetSuperTrackedQuestID -- our own
--- button, world map pins, the map quest list, the Blizzard tracker, and the automatic re-pick that
--- happens when the map switches zone. Hooking it is the only way to know what is supertracked,
--- since this client dropped the GetSuperTrackedQuestID getter. Caching what we last set would go
--- stale the moment the player changed it by any other means.
+-- Most paths that change the supertracked quest end up in SetSuperTrackedQuestID -- our own button,
+-- world map pins, the map quest list, the Blizzard tracker, and the automatic re-pick that happens
+-- when the map switches zone -- so hooking it stands in for the GetSuperTrackedQuestID getter this
+-- client dropped. It goes quiet while the player is a ghost, though: the corpse arrow takes the
+-- marker over, so no quest is ever handed to it even though the map keeps selecting one. The quest
+-- selection itself is therefore hooked as well, and that is what keeps the buttons honest while
+-- dead. Caching what we last set would go stale the moment the player changed it by other means.
 function TrackerUtils:InitSuperTrackHook()
     if superTrackHooked or (not C_SuperTrack) then
         return
@@ -1291,19 +1315,106 @@ function TrackerUtils:InitSuperTrackHook()
 
     hooksecurefunc(C_SuperTrack, "SetSuperTrackedQuestID", function(questId)
         superTrackedQuestId = questId
-        TrackerLinePool.UpdateSuperTrackButtons()
+        RefreshSuperTrackButtons()
     end)
 
     if C_SuperTrack.ClearSuperTracker then
         hooksecurefunc(C_SuperTrack, "ClearSuperTracker", function()
             superTrackedQuestId = nil
-            TrackerLinePool.UpdateSuperTrackButtons()
+            RefreshSuperTrackButtons()
         end)
     end
+
+    if WorldMapFrame_SelectQuestFrame then
+        hooksecurefunc("WorldMapFrame_SelectQuestFrame", RefreshSuperTrackButtons)
+    end
+
+    if WatchFrameQuestPOI_OnClick then
+        hooksecurefunc("WatchFrameQuestPOI_OnClick", RefreshSuperTrackButtons)
+    end
+
+    -- Everything that supertracks a quest goes through the quest log selection, map or no map, alive
+    -- or dead -- including opening a quest in the quest log window, which no other hook here sees.
+    if SelectQuestLogEntry then
+        hooksecurefunc("SelectQuestLogEntry", RefreshSuperTrackButtons)
+    end
+
+    -- Nothing at all fires on a login or a reload: the map has not been touched, so the hooks above
+    -- stay silent and the tracker draws before the client has styled its pins. These events are the
+    -- only prompt to go back and look.
+    superTrackEventFrame = CreateFrame("Frame")
+    superTrackEventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
+    superTrackEventFrame:RegisterEvent("PLAYER_UNGHOST")
+    superTrackEventFrame:RegisterEvent("PLAYER_ALIVE")
+    superTrackEventFrame:RegisterEvent("PLAYER_DEAD")
+    superTrackEventFrame:SetScript("OnEvent", function()
+        RefreshSuperTrackButtons()
+        -- The client fills in its POI frames a moment after entering the world, so the immediate
+        -- pass above can still come up empty.
+        C_Timer.After(2, RefreshSuperTrackButtons)
+    end)
 end
 
+-- The hook only hears about the changes the client itself makes, and while the player is a ghost the
+-- floating marker is disabled: selecting a quest then never reaches SetSuperTrackedQuestID, so the
+-- hook reports nothing after a login or a reload in that state and goes stale after any click. The
+-- client's own frames still know. Watch frame POI buttons say so outright, and the world map's quest
+-- frames say it through their art: the atlases stack the selected (yellow) variant of a cell half a
+-- texture above the normal one, so a pin drawn from the upper half is the supertracked one.
+local function FindSelectedQuestId()
+    for i = 1, 30 do
+        local firstInRow = _G["poiWatchFrameLines" .. i .. "_1"]
+        if not firstInRow then
+            break
+        end
+        for j = 1, 5 do
+            local poiButton = (j == 1) and firstInRow or _G["poiWatchFrameLines" .. i .. "_" .. j]
+            if not poiButton then
+                break
+            end
+            if poiButton.isSelected and poiButton.questId then
+                return poiButton.questId
+            end
+        end
+    end
+
+    for i = 1, 25 do
+        local questFrame = _G["WorldMapQuestFrame" .. i]
+        if not questFrame then
+            break
+        end
+
+        local pin = questFrame.ownPOI or questFrame.poiIcon
+        local pinTexture = pin and pin.GetNormalTexture and pin:GetNormalTexture()
+        if pinTexture and questFrame.questId then
+            local _, topY = pinTexture:GetTexCoord()
+            if topY and topY < 0.5 then
+                return questFrame.questId
+            end
+        end
+    end
+
+    -- Right after a login or a reload no pin is styled at all: the client marks them the first time
+    -- the world map is opened. The quest log selection is what it reads when it gets there, so it
+    -- answers for the gap in between.
+    local selection = GetQuestLogSelection and GetQuestLogSelection()
+    if selection and selection > 0 then
+        -- GetQuestIDFromLogIndex, not the raw API: GetQuestLogTitle is the compat wrapper here,
+        -- which normalises the client's 9 return values down to 8.
+        local questId = QuestieCompat.GetQuestIDFromLogIndex(selection)
+        if questId and questId ~= 0 then
+            return questId
+        end
+    end
+
+    return nil
+end
+
+-- The client is asked before the hook: the hook cannot see a ghost's selection changes at all, so
+-- its value is the fallback for when no POI frame exists to read (another zone, or frames not built
+-- yet), not the source of truth.
 function TrackerUtils:GetSuperTrackedQuestId()
-    return superTrackedQuestId
+    return FindSelectedQuestId() or superTrackedQuestId
 end
 
 -- The world map builds its quest POI frames lazily, so right after login -- or after a zone change
@@ -1414,6 +1525,10 @@ function TrackerUtils:SetSuperTrackedQuest(questId)
     end
 
     clickHandler(frame)
+
+    -- Refresh here rather than leaning on the SetSuperTrackedQuestID hook: it stays silent while the
+    -- player is a ghost, which would leave the button we just clicked looking untouched.
+    RefreshSuperTrackButtons()
     return true
 end
 

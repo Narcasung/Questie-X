@@ -62,6 +62,29 @@ local function MirrorPinRegion(destination, source, size, pinSize)
     destination:Show()
 end
 
+-- The pin atlases stack the selected (yellow circle, black digits) variant of every cell exactly
+-- half a texture above the normal one. The client only restyles its pins during the world map's own
+-- selection pass, which has not run yet right after a login or a reload, so the variant is forced
+-- here rather than taken on trust from the pin.
+local function ApplySelectedVariant(texture, selected)
+    local topLeftX, topLeftY, bottomLeftX, bottomLeftY, topRightX, topRightY, bottomRightX, bottomRightY = texture:GetTexCoord()
+    if (not topLeftY) or (not bottomLeftY) or (bottomLeftY - topLeftY) > 0.5 then
+        return
+    end
+
+    local offset
+    if selected and topLeftY >= 0.5 then
+        offset = -0.5
+    elseif (not selected) and bottomLeftY <= 0.5 then
+        offset = 0.5
+    else
+        return
+    end
+
+    texture:SetTexCoord(topLeftX, topLeftY + offset, bottomLeftX, bottomLeftY + offset,
+        topRightX, topRightY + offset, bottomRightX, bottomRightY + offset)
+end
+
 local function GetNumLines(label)
     if label.GetNumLines then
         return label:GetNumLines()
@@ -80,6 +103,20 @@ local buttonIndex = 0
 local linePool = {}
 local buttonPool = {}
 local lineMarginLeft = 10
+
+-- Gutter given to the supertrack button, which sits flush with the left edge of a quest line. The
+-- collapse button, the quest item buttons and the labels are all shifted right by this much, so
+-- nothing lands on top of it and nothing hangs over the tracker's left edge. Fed into
+-- questMarginLeft, which every width calculation already builds on, so the tracker widens to match.
+function TrackerLinePool.GetSuperTrackMarginReserve()
+    if (not Questie.db.profile.trackerShowSuperTrackButton) or (not TrackerUtils:IsSuperTrackAvailable()) then
+        return 0
+    end
+
+    -- Reserved even for quests whose button is hidden, so the list does not shift around as quests
+    -- come in and out of the supertrackable set.
+    return (Questie.db.profile.trackerSuperTrackButtonSize or 25) + 4
+end
 
 ---@param questFrame Frame
 function TrackerLinePool.Initialize(questFrame)
@@ -489,31 +526,33 @@ function TrackerLinePool.Initialize(questFrame)
             -- texture file has to be copied along with the coordinates: completed quests swap in a
             -- different file for these slots, and coordinates from one file applied to another
             -- sample nonsense.
+            local isSuperTracked = TrackerUtils:GetSuperTrackedQuestId() == self.questId
+
             local pinTexture = pin.GetNormalTexture and pin:GetNormalTexture()
             if pinTexture then
                 local ownTexture = self:GetNormalTexture()
                 ownTexture:SetTexture(pinTexture:GetTexture())
                 ownTexture:SetTexCoord(pinTexture:GetTexCoord())
+                ApplySelectedVariant(ownTexture, isSuperTracked)
             end
 
             local pinSize = pin:GetWidth()
             MirrorPinRegion(self.number, pin.number, buttonSize, pinSize)
             MirrorPinRegion(self.turnin, pin.turnin, buttonSize, pinSize)
-
-            -- Sit to the left of whatever already occupies the gutter: the AI_VoiceOver play button
-            -- when that addon is loaded, otherwise the quest collapse button.
-            self:ClearAllPoints()
-            if playButton:IsShown() then
-                self:SetPoint("RIGHT", playButton, "LEFT", -2, 0)
-            elseif line.expandQuest then
-                self:SetPoint("RIGHT", line.expandQuest, "LEFT", -2, 0)
-            else
-                self:SetPoint("RIGHT", line.label, "LEFT", -4, 0)
+            if self.number:IsShown() then
+                ApplySelectedVariant(self.number, isSuperTracked)
             end
 
-            -- The icon itself already shows the selected variant, copied from the pin above; the
-            -- glow is the one part the pin draws as a separate texture.
-            if TrackerUtils:GetSuperTrackedQuestId() == self.questId then
+            -- Flush with the left edge of the line, in the gutter GetSuperTrackMarginReserve keeps
+            -- clear. Anchored to the top rather than centred on the line so the button stays level
+            -- with the first row of a quest title that wraps, matching the collapse button.
+            local fontSizeQuest = Questie.db.profile.trackerFontSizeQuest
+            self:ClearAllPoints()
+            self:SetPoint("TOPLEFT", line, "TOPLEFT", 0, (buttonSize - fontSizeQuest) / 2 + 1)
+
+            -- The icon carries the selected variant itself; the glow is the one part the pin draws
+            -- as a separate texture.
+            if isSuperTracked then
                 self.glow:Show()
             else
                 self.glow:Hide()
@@ -531,16 +570,6 @@ function TrackerLinePool.Initialize(questFrame)
             if self.questId then
                 TrackerUtils:SetSuperTrackedQuest(self.questId)
             end
-        end)
-
-        superTrackButton:SetScript("OnEnter", function(self)
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetText(l10n("Point the objective marker at this quest"), 1, 1, 1)
-            GameTooltip:Show()
-        end)
-
-        superTrackButton:SetScript("OnLeave", function()
-            GameTooltip:Hide()
         end)
 
         superTrackButton:Hide()
