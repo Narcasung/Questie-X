@@ -85,6 +85,17 @@ local function ApplySelectedVariant(texture, selected)
         topRightX, topRightY + offset, bottomRightX, bottomRightY + offset)
 end
 
+-- Whole-button states (hover, pressed) rather than the regions drawn inside them, so these fill the
+-- button on their own and only need the atlas cell copied across.
+local function MirrorPinButtonTexture(destination, source)
+    if (not destination) or (not source) or (not source.GetTexture) or (not source:GetTexture()) then
+        return
+    end
+
+    destination:SetTexture(source:GetTexture())
+    destination:SetTexCoord(source:GetTexCoord())
+end
+
 local function GetNumLines(label)
     if label.GetNumLines then
         return label:GetNumLines()
@@ -473,7 +484,12 @@ function TrackerLinePool.Initialize(questFrame)
         superTrackButton:SetWidth(25)
         superTrackButton:SetHeight(25)
         superTrackButton:SetHitRectInsets(1, 1, 1, 1)
-        superTrackButton:SetHighlightTexture("Interface\\BUTTONS\\UI-Panel-MinimizeButton-Highlight")
+
+        -- Hover and pressed states come from the pin atlas too, additively blended, exactly as the
+        -- client's own pins do it. RefreshSuperTrackButton mirrors the pin's cells over these.
+        superTrackButton:SetHighlightTexture("Interface\\WorldMap\\UI-QuestPoi-NumberIcons", "ADD")
+        superTrackButton:GetHighlightTexture():SetTexCoord(0.625, 0.75, 0.375, 0.5)
+        superTrackButton:SetPushedTexture("Interface\\WorldMap\\UI-QuestPoi-NumberIcons")
 
         -- Same texture and atlas sub-rect the client's own quest POI pins use, so the tracker button
         -- reads as native rather than as an addon icon.
@@ -501,6 +517,16 @@ function TrackerLinePool.Initialize(questFrame)
         -- The quest id is remembered even while the button is hidden. POI frames only exist once the
         -- world map has built them, so a quest that looks unreachable while the tracker is drawing
         -- can become reachable later -- without the id we would have nothing left to re-check.
+        -- The pin's pressed state nudges what is drawn inside it down and to the right; the pushed
+        -- texture covers the circle, this covers the digit and the "?".
+        superTrackButton.SetPressedOffset = function(self, pressed)
+            local offset = pressed and 1 or 0
+            self.number:ClearAllPoints()
+            self.number:SetPoint("CENTER", self, "CENTER", offset, -offset)
+            self.turnin:ClearAllPoints()
+            self.turnin:SetPoint("CENTER", self, "CENTER", offset, -offset)
+        end
+
         superTrackButton.SetSuperTrackButton = function(self, questId)
             self.questId = questId
             self:RefreshSuperTrackButton()
@@ -536,12 +562,24 @@ function TrackerLinePool.Initialize(questFrame)
                 ApplySelectedVariant(ownTexture, isSuperTracked)
             end
 
+            MirrorPinButtonTexture(self:GetHighlightTexture(), pin.GetHighlightTexture and pin:GetHighlightTexture())
+
+            local ownPushed = self:GetPushedTexture()
+            MirrorPinButtonTexture(ownPushed, pin.GetPushedTexture and pin:GetPushedTexture())
+            if ownPushed then
+                ApplySelectedVariant(ownPushed, isSuperTracked)
+            end
+
             local pinSize = pin:GetWidth()
             MirrorPinRegion(self.number, pin.number, buttonSize, pinSize)
             MirrorPinRegion(self.turnin, pin.turnin, buttonSize, pinSize)
             if self.number:IsShown() then
                 ApplySelectedVariant(self.number, isSuperTracked)
             end
+
+            -- Undo any leftover pressed offset: the pool recycles buttons, and a line can be redrawn
+            -- while the mouse is still held down.
+            self:SetPressedOffset(false)
 
             -- Flush with the left edge of the line, in the gutter GetSuperTrackMarginReserve keeps
             -- clear. Anchored to the top rather than centred on the line so the button stays level
@@ -566,8 +604,18 @@ function TrackerLinePool.Initialize(questFrame)
         superTrackButton:EnableMouse(true)
         superTrackButton:RegisterForClicks("LeftButtonUp")
 
+        superTrackButton:SetScript("OnMouseDown", function(self)
+            self:SetPressedOffset(true)
+        end)
+
+        superTrackButton:SetScript("OnMouseUp", function(self)
+            self:SetPressedOffset(false)
+        end)
+
         superTrackButton:SetScript("OnClick", function(self)
             if self.questId then
+                -- Same sound the client plays for its own quest pins.
+                PlaySound("igMainMenuOptionCheckBoxOn")
                 TrackerUtils:SetSuperTrackedQuest(self.questId)
             end
         end)
