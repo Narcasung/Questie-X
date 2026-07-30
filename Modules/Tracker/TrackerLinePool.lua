@@ -115,19 +115,13 @@ local linePool = {}
 local buttonPool = {}
 local lineMarginLeft = 10
 
--- Gutter given to the supertrack button, which sits flush with the left edge of a quest line. The
--- collapse button, the quest item buttons and the labels are all shifted right by this much, so
--- nothing lands on top of it and nothing hangs over the tracker's left edge. Fed into
--- questMarginLeft, which every width calculation already builds on, so the tracker widens to match.
-function TrackerLinePool.GetSuperTrackMarginReserve()
-    if (not Questie.db.profile.trackerShowSuperTrackButton) or (not TrackerUtils:IsSuperTrackAvailable()) then
-        return 0
-    end
+-- Gap kept between the supertrack button and whatever it is tucked in next to.
+local superTrackButtonGap = 2
 
-    -- Reserved even for quests whose button is hidden, so the list does not shift around as quests
-    -- come in and out of the supertrackable set.
-    return (Questie.db.profile.trackerSuperTrackButtonSize or 25) + 4
-end
+-- Left edge of a quest line's collapse button. QuestieTracker anchors it at questMarginLeft - 8
+-- with a width of trackerFontSizeQuest, and questMarginLeft carries a matching + trackerFontSizeQuest,
+-- so it lands on a flat 18 whatever the font size is.
+local superTrackCollapseButtonLeft = 18
 
 ---@param questFrame Frame
 function TrackerLinePool.Initialize(questFrame)
@@ -529,7 +523,60 @@ function TrackerLinePool.Initialize(questFrame)
 
         superTrackButton.SetSuperTrackButton = function(self, questId)
             self.questId = questId
+            -- Back to the title line on its own: the objective lines below have not been laid out
+            -- yet, so the tracker measures the block and calls SetBlockHeight once they are. Same
+            -- for the quest item button, which is set up further down and owns this slot.
+            self.blockHeight = nil
+            self.itemButtonShown = nil
             self:RefreshSuperTrackButton()
+        end
+
+        -- Horizontally: tucked in to the left of whatever else owns the head of the line -- the
+        -- quest item button where there is one, the collapse button where there is not. It hangs
+        -- over the line's left edge, and off the tracker entirely at larger sizes; giving the
+        -- marker a column of its own would mean indenting every quest in the tracker for it.
+        -- Vertically: centred on the quest's whole text block, title plus objectives, the height
+        -- the tracker hands us. Without one, centred on the quest title alone, which is all that
+        -- exists at the point the button is first set up.
+        superTrackButton.AnchorSuperTrackButton = function(self)
+            local buttonSize = Questie.db.profile.trackerSuperTrackButtonSize or 25
+            local blockHeight = self.blockHeight or Questie.db.profile.trackerFontSizeQuest
+            local slotLeft = self.itemButtonShown and 0 or superTrackCollapseButtonLeft
+            local offsetX = slotLeft - superTrackButtonGap - buttonSize
+
+            -- The lines live inside the tracker's scroll frame, which clips anything hanging over
+            -- its edge, so a marker that reaches past it is reparented above the clip. It stays
+            -- anchored to its line either way, and every redraw hides it by hand
+            -- (ResetLinesForChange) before deciding whether to show it again.
+            self:SetParent(((offsetX + lineMarginLeft) < 0) and trackerQuestFrame or line)
+
+            self:ClearAllPoints()
+            self:SetPoint("TOPLEFT", line, "TOPLEFT", offsetX, (buttonSize - blockHeight) / 2 + 1)
+
+            -- Has to sit above the tracker backdrop, which is what swallows a frame left at level 0.
+            -- Strata comes from the line rather than from whichever parent it ended up with, so the
+            -- two cases draw the same.
+            self:SetFrameStrata(line:GetFrameStrata())
+            self:SetFrameLevel(line:GetFrameLevel() + 10)
+        end
+
+        superTrackButton.SetBlockHeight = function(self, blockHeight)
+            if self.blockHeight == blockHeight then
+                return
+            end
+
+            self.blockHeight = blockHeight
+            self:AnchorSuperTrackButton()
+        end
+
+        superTrackButton.SetItemButtonShown = function(self, shown)
+            shown = shown and true or false
+            if (self.itemButtonShown or false) == shown then
+                return
+            end
+
+            self.itemButtonShown = shown
+            self:AnchorSuperTrackButton()
         end
 
         superTrackButton.RefreshSuperTrackButton = function(self)
@@ -581,12 +628,7 @@ function TrackerLinePool.Initialize(questFrame)
             -- while the mouse is still held down.
             self:SetPressedOffset(false)
 
-            -- Flush with the left edge of the line, in the gutter GetSuperTrackMarginReserve keeps
-            -- clear. Anchored to the top rather than centred on the line so the button stays level
-            -- with the first row of a quest title that wraps, matching the collapse button.
-            local fontSizeQuest = Questie.db.profile.trackerFontSizeQuest
-            self:ClearAllPoints()
-            self:SetPoint("TOPLEFT", line, "TOPLEFT", 0, (buttonSize - fontSizeQuest) / 2 + 1)
+            self:AnchorSuperTrackButton()
 
             -- The icon carries the selected variant itself; the glow is the one part the pin draws
             -- as a separate texture.
@@ -596,8 +638,6 @@ function TrackerLinePool.Initialize(questFrame)
                 self.glow:Hide()
             end
 
-            -- Has to sit above the tracker backdrop, which is what swallows a frame left at level 0.
-            self:SetFrameLevel(line:GetFrameLevel() + 10)
             self:Show()
         end
 
@@ -700,6 +740,9 @@ function TrackerLinePool.Initialize(questFrame)
         expandQuest:Hide()
 
         line.expandQuest = expandQuest
+
+        -- Its own slot in the pool, so a run of lines drawn for one quest can be walked back over.
+        line.lineIndex = i
 
         linePool[i] = line
         nextFrame = line
@@ -1060,6 +1103,49 @@ function TrackerLinePool.GetCurrentButton()
     return buttonPool[buttonIndex]
 end
 
+-- Height of the block of lines a single quest was drawn into, title line through last objective.
+-- Added up from the heights the tracker itself set rather than measured off the frames: on login
+-- the tracker has not been laid out yet, and GetTop/GetBottom then report positions from a
+-- half-built frame, which is enough to fling a marker centred on the result off the tracker.
+---@return number|nil blockHeight
+function TrackerLinePool.GetQuestBlockHeight(firstLine, lastLine)
+    if (not firstLine) or (not lastLine) or (not firstLine.lineIndex) or (not lastLine.lineIndex) then
+        return nil
+    end
+
+    if lastLine.lineIndex < firstLine.lineIndex then
+        return nil
+    end
+
+    local blockHeight = 0
+    for i = firstLine.lineIndex, lastLine.lineIndex do
+        local line = linePool[i]
+        if not line then
+            return nil
+        end
+
+        blockHeight = blockHeight + line:GetHeight()
+    end
+
+    -- The last line of a quest carries the padding to the next one. That is empty space below the
+    -- text, so it plays no part in where the block's centre is. A quest collapsed down to its title
+    -- is the exception: that single line is the whole quest, and neither reference reads right on
+    -- its own -- against the text alone the marker rides high over the row's empty half, against
+    -- the whole row it sits low under the title it belongs to -- so it splits the difference.
+    local trailingPadding = Questie.db.profile.trackerQuestPadding + 2
+    if lastLine.lineIndex == firstLine.lineIndex then
+        trailingPadding = trailingPadding / 2
+    end
+
+    blockHeight = blockHeight - trailingPadding
+
+    if blockHeight <= 0 then
+        return nil
+    end
+
+    return blockHeight
+end
+
 ---@return table|nil lineIndex linePool[lineIndex - 1]
 function TrackerLinePool.GetPreviousLine()
     lineIndex = lineIndex - 1
@@ -1109,6 +1195,10 @@ function TrackerLinePool.HideUnusedLines()
             line.expandZone.zoneId = nil
             line.criteriaMark.mode = nil
             line.playButton.mode = nil
+            -- Hidden by hand: a marker that overflows to the left of its line is parented above the
+            -- scroll frame's clip, so hiding the line no longer hides it.
+            line.superTrackButton.questId = nil
+            line.superTrackButton:Hide()
         end
     end
 end
