@@ -974,7 +974,7 @@ function QuestieTracker:Update()
                         line.criteriaMark:Hide()
 
                         -- Set Min/Max Button and default states
-                        line.expandQuest:SetPoint("TOPRIGHT", line, "TOPLEFT", questMarginLeft - 8, 1)
+                        line.expandQuest:SetPoint("TOPRIGHT", line, "TOPLEFT", questMarginLeft - 4, 1)
                         line.expandQuest.zoneId = zoneName
 
 
@@ -1179,7 +1179,8 @@ function QuestieTracker:Update()
                                 end
 
                                 -- Attach button to Quest Title linePool
-                                button:SetPoint("TOPLEFT", button.line, "TOPLEFT", 0, 0)
+                                button:SetPoint("TOPLEFT", button.line, "TOPLEFT",
+                                    TrackerLinePool.GetItemButtonOffset(), 0)
                                 button:SetParent(button.line)
                                 button:Show()
 
@@ -1291,7 +1292,7 @@ function QuestieTracker:Update()
 
                                             -- Attach button to Quest Title linePool
                                             altButton:SetPoint("TOPLEFT", altButton.line, "TOPLEFT",
-                                                2 + questItemButtonSize, 0)
+                                                TrackerLinePool.GetItemButtonOffset() + 2 + questItemButtonSize, 0)
                                             altButton:SetParent(altButton.line)
                                             altButton:Show()
 
@@ -1739,7 +1740,7 @@ function QuestieTracker:Update()
 
                         -- Set Min/Max Button and default states
                         line.expandQuest:Show()
-                        line.expandQuest:SetPoint("TOPRIGHT", line, "TOPLEFT", questMarginLeft - 8, 1)
+                        line.expandQuest:SetPoint("TOPRIGHT", line, "TOPLEFT", questMarginLeft - 4, 1)
                         line.expandQuest.zoneId = zoneName
 
                         -- The minAllQuestsInZone table is always blank until a player Shift+Clicks the Zone header (MouseDown).

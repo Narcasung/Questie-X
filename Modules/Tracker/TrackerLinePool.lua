@@ -116,12 +116,20 @@ local buttonPool = {}
 local lineMarginLeft = 10
 
 -- Gap kept between the supertrack button and whatever it is tucked in next to.
-local superTrackButtonGap = 2
+local superTrackButtonGap = 1
 
--- Left edge of a quest line's collapse button. QuestieTracker anchors it at questMarginLeft - 8
+-- Left edge of a quest line's collapse button. QuestieTracker anchors it at questMarginLeft - 4
 -- with a width of trackerFontSizeQuest, and questMarginLeft carries a matching + trackerFontSizeQuest,
--- so it lands on a flat 18 whatever the font size is.
-local superTrackCollapseButtonLeft = 18
+-- so it lands on a flat 22 whatever the font size is.
+local superTrackCollapseButtonLeft = 22
+
+-- Left edge of the quest item buttons. QuestieTracker anchors them there and the marker tucks in
+-- to the left of them, so the two have to agree on it.
+local questItemButtonLeft = 6
+
+function TrackerLinePool.GetItemButtonOffset()
+    return questItemButtonLeft
+end
 
 ---@param questFrame Frame
 function TrackerLinePool.Initialize(questFrame)
@@ -541,7 +549,7 @@ function TrackerLinePool.Initialize(questFrame)
         superTrackButton.AnchorSuperTrackButton = function(self)
             local buttonSize = Questie.db.profile.trackerSuperTrackButtonSize or 25
             local blockHeight = self.blockHeight or Questie.db.profile.trackerFontSizeQuest
-            local slotLeft = self.itemButtonShown and 0 or superTrackCollapseButtonLeft
+            local slotLeft = self.itemButtonShown and questItemButtonLeft or superTrackCollapseButtonLeft
             local offsetX = slotLeft - superTrackButtonGap - buttonSize
 
             -- The lines live inside the tracker's scroll frame, which clips anything hanging over
