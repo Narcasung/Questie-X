@@ -11,10 +11,13 @@ Made for and tested on CoA, but it should also work on other 3.3.5 clients.
 - fixed custom quests having no name in the tracker.
 - fixed custom quests not showing (complete) in the tracker.
 - fixed custom quest items not showing.
+- fixed quest tags (group, elite, dungeon...) being wrong on quest ids Ascension reuses for its own content.
+- fixed Ascension "main quests" not having the correct category and not clearing on complete.
 
 ## Changes
 
-- added "By Zone + %% Completed" and "By Zone + %% Completed (Reversed)" tracker sorting options.
+- implemented Ascension's backported supertracker buttons to the tracker.
+- added "By Zone + % Completed" and "By Zone + % Completed (Reversed)" tracker sorting options.
 
 ## Credits
 
